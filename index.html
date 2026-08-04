@@ -309,7 +309,6 @@
   </div>
 </header>
 
-<div class="aviso">Versión conectada — todo se <b>guarda en tu base de datos</b> y se sincroniza en vivo entre las cuatro.</div>
 <div id="rolBanner"></div>
 
 <main>
@@ -406,7 +405,7 @@
 </div></div>
 
 <div class="fondo-modal" id="modalPaciente"><div class="modal">
-  <div class="cab"><h3>Nuevo paciente</h3></div>
+  <div class="cab"><h3 id="paTituloModal">Nuevo paciente</h3></div>
   <div class="cuerpo">
     <div class="campo"><label>Nombre del niño/a</label><input type="text" id="paNombre" placeholder="Nombre y apellido"></div>
     <div class="fila2">
@@ -419,7 +418,7 @@
     <div class="campo" id="paAsignadaCampo"><label>Psicóloga asignada</label><select id="paAsignada"></select></div>
   </div>
   <div class="pie"><button class="btn fantasma" onclick="cerrar('modalPaciente')">Cancelar</button>
-    <button class="btn" onclick="guardarPaciente()">Guardar paciente</button></div>
+    <button class="btn" id="paGuardar" onclick="guardarPaciente()">Guardar paciente</button></div>
 </div></div>
 
 <div class="fondo-modal" id="modalPsic"><div class="modal">
@@ -482,7 +481,7 @@ function hoyISO(){ return new Date().toISOString().slice(0,10); }
 function ahoraHM(){ return new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false}); }
 function psic(id){ return estado.psicologas.find(p=>p.id===id); }
 function pac(id){ return estado.pacientes.find(p=>p.id===id); }
-function iniciales(n){ return n.replace(/^Psic\.\s*/,'').replace(/\(.*\)/,'').trim().split(" ").slice(0,2).map(x=>x[0]).join("").toUpperCase(); }
+function iniciales(n){ return n.replace(/^(Psic\.|Mtra\.|Mtro\.|Dra\.|Dr\.|Lic\.)\s*/i,'').replace(/\(.*\)/,'').trim().split(" ").slice(0,2).map(x=>x[0]).join("").toUpperCase(); }
 function corto(n){ return n.replace("Psic. ",""); }
 function metodoCorto(m){ return ({efectivo:"Efvo", transferencia:"Transf", tarjeta:"Tarjeta"})[m]||m; }
 function mxn(n){ return "$"+n.toLocaleString("es-MX"); }
@@ -669,7 +668,7 @@ function moverDia(d){ const dt=new Date(estado.fechaAgenda+"T12:00:00"); dt.setD
 function hoy(){ estado.fechaAgenda=hoyISO(); renderAgenda(); }
 
 /* ---- Expediente ---- */
-let pacienteSel="p1"; let notasAbiertas=new Set(); let comEditId=null;
+let pacienteSel="p1"; let notasAbiertas=new Set(); let comEditId=null; let pacienteEditId=null;
 function renderExpediente(){
   const visibles=pacientesVisibles();
   if(!visibles.find(p=>p.id===pacienteSel)) pacienteSel=(visibles[0]||{}).id;
@@ -692,7 +691,7 @@ function renderExpediente(){
       <div style="flex:1; min-width:180px"><h3>${p.nombre}${arch?` <span class="rev-chip por" style="vertical-align:middle">archivado</span>`:""}</h3>
         <div class="meta">${p.edad} años · ${p.tutor}${esAdmin()?` · 📞 ${p.tel||"—"}`:""}</div>
         <div class="meta">Motivo: <b>${p.motivo||"—"}</b> · ${notas.length} sesiones</div></div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${esAdmin()?(arch?`<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>`:`<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`):""}<button class="btn" onclick="abrirNota()">+ Nota de sesión</button></div></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${esAdmin()?`<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`:""}${esAdmin()?(arch?`<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>`:`<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`):""}<button class="btn" onclick="abrirNota()">+ Nota de sesión</button></div></div>
     <div class="timeline">${notas.length? notas.map((n,i)=>{ const ps=psic(n.psic); const nc=(n.comentarios||[]).length;
       return `<div class="nota"><div class="linea-tiempo" style="color:${ps.color}"><div class="punto"></div>${i<notas.length-1?'<div class="conector"></div>':''}</div>
         <div class="cuerpo"><div class="encab"><span class="fecha">${fechaLarga(n.fecha)}${n.hora?` · ${n.hora}`:""}</span><span class="chip" style="background:${ps.color}">${corto(ps.nombre)}</span>${n.revisada?`<span class="rev-chip ok">revisada ✓</span>`:(esAdmin()?`<span class="rev-chip por">por revisar</span>`:``)}${(esAdmin()&&!n.revisada)?`<button class="rev-btn" onclick="marcarRevisada('${n.id}')">Marcar revisada</button>`:``}</div>
@@ -921,6 +920,9 @@ async function guardarPago(){ const metodo=document.getElementById("pMetodo").va
   cerrar("modalPago"); await refrescar(); toast("Cobro registrado ✓","ok"); }
 
 function abrirPaciente(){
+  pacienteEditId=null;
+  document.getElementById("paTituloModal").textContent="Nuevo paciente";
+  document.getElementById("paGuardar").textContent="Guardar paciente";
   document.getElementById("paNombre").value=""; document.getElementById("paEdad").value=6;
   document.getElementById("paTel").value=""; document.getElementById("paTutor").value=""; document.getElementById("paMotivo").value=""; document.getElementById("paTarifa").value=600;
   const campo=document.getElementById("paAsignadaCampo");
@@ -928,16 +930,41 @@ function abrirPaciente(){
   else campo.style.display="none";
   abrir("modalPaciente");
 }
+function abrirEditarPaciente(id){
+  if(!esAdmin()) return;
+  const p=pac(id); if(!p) return;
+  pacienteEditId=id;
+  document.getElementById("paTituloModal").textContent="Editar paciente";
+  document.getElementById("paGuardar").textContent="Guardar cambios";
+  document.getElementById("paNombre").value=p.nombre||"";
+  document.getElementById("paEdad").value=p.edad||0;
+  document.getElementById("paTel").value=(p.tel&&p.tel!=="—")?p.tel:"";
+  document.getElementById("paTutor").value=(p.tutor&&p.tutor!=="—")?p.tutor:"";
+  document.getElementById("paMotivo").value=(p.motivo&&p.motivo!=="—")?p.motivo:"";
+  document.getElementById("paTarifa").value=p.tarifa||0;
+  const campo=document.getElementById("paAsignadaCampo"); campo.style.display="";
+  document.getElementById("paAsignada").innerHTML=opciones(estado.psicologas.filter(x=>!x.admin),"id","nombre");
+  if(p.asignada) document.getElementById("paAsignada").value=p.asignada;
+  abrir("modalPaciente");
+}
 async function guardarPaciente(){
   const nombre=document.getElementById("paNombre").value.trim();
   if(!nombre){ toast("Escribe el nombre del paciente","err"); return; }
-  const asign = esAdmin()? document.getElementById("paAsignada").value : estado.quien;
-  const {data,error}=await sb.from("pacientes").insert({nombre, edad:+document.getElementById("paEdad").value||null,
+  const datos={ nombre, edad:+document.getElementById("paEdad").value||null,
     telefono:document.getElementById("paTel").value.trim()||null, tutor:document.getElementById("paTutor").value.trim()||null,
-    motivo:document.getElementById("paMotivo").value.trim()||null, tarifa:+document.getElementById("paTarifa").value||0, asignada_a:asign}).select().single();
-  if(error){ toast("No se pudo agregar: "+error.message,"err"); return; }
-  if(data) pacienteSel=data.id;
-  cerrar("modalPaciente"); await refrescar(); irA("expediente"); toast("Paciente agregado ✓","ok");
+    motivo:document.getElementById("paMotivo").value.trim()||null, tarifa:+document.getElementById("paTarifa").value||0 };
+  if(esAdmin()) datos.asignada_a=document.getElementById("paAsignada").value;
+  if(pacienteEditId){
+    const {error}=await sb.from("pacientes").update(datos).eq("id",pacienteEditId);
+    if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
+    cerrar("modalPaciente"); await refrescar(); toast("Paciente actualizado ✓","ok");
+  } else {
+    if(!esAdmin()) datos.asignada_a=estado.quien;
+    const {data,error}=await sb.from("pacientes").insert(datos).select().single();
+    if(error){ toast("No se pudo agregar: "+error.message,"err"); return; }
+    if(data) pacienteSel=data.id;
+    cerrar("modalPaciente"); await refrescar(); irA("expediente"); toast("Paciente agregado ✓","ok");
+  }
 }
 
 let psColorSel=null;
