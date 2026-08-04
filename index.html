@@ -474,7 +474,7 @@ const sb = supabase.createClient(
 );
 const estado = {
   psicologas:[], pacientes:[], citas:[], notas:[], pagos:[], facturas:[], cierres:[],
-  fechaAgenda:hoyISO(), quien:null,
+  fechaAgenda:hoyISO(), quien:null, verArchivados:false,
   cobrosPeriodo:{tipo:"semana", desde:hoyISO(), hasta:hoyISO()},
 };
 
@@ -495,6 +495,10 @@ function mondayISO(iso){ const dt=new Date(iso+"T12:00:00"); const dow=(dt.getDa
 function rangoCobros(){ const P=estado.cobrosPeriodo; if(P.tipo==="hoy") return {desde:hoyISO(), hasta:hoyISO()}; if(P.tipo==="semana"){ const lun=mondayISO(hoyISO()); return {desde:lun, hasta:addDaysISO(lun,5)}; } return {desde:P.desde, hasta:P.hasta}; }
 let idc=100; function nuevoId(){ return "x"+(idc++); }
 function colorPac(p){ return PALETA[estado.pacientes.indexOf(p)%6]; }
+function pacActivos(base){ return (base||estado.pacientes).filter(p=>p.activo!==false); }
+function toggleArchivados(){ estado.verArchivados=!estado.verArchivados; renderExpediente(); }
+async function archivarPaciente(id){ if(!esAdmin()) return; const {error}=await sb.from("pacientes").update({activo:false}).eq("id",id); if(error){ toast("No se pudo archivar: "+error.message,"err"); return; } await refrescar(); toast("Paciente archivado ✓","ok"); }
+async function reactivarPaciente(id){ if(!esAdmin()) return; const {error}=await sb.from("pacientes").update({activo:true}).eq("id",id); if(error){ toast("No se pudo reactivar","err"); return; } await refrescar(); toast("Paciente reactivado ✓","ok"); }
 
 /* ---- LOGIN ---- */
 function renderLoginAccts(){ const el=document.getElementById("loginAccts"); if(el) el.innerHTML=""; }
@@ -509,7 +513,7 @@ async function cargarTodo(){
     sb.from("cierres").select("*").order("creado_en",{ascending:false}),
   ]);
   estado.psicologas=(ps.data||[]).map(r=>({id:r.id,nombre:r.nombre,color:r.color,admin:r.es_direccion,tel:r.telefono,cedula:r.cedula}));
-  estado.pacientes=(pac.data||[]).map(r=>({id:r.id,nombre:r.nombre,edad:r.edad,tutor:r.tutor,tel:r.telefono,motivo:r.motivo,tarifa:Number(r.tarifa)||0,asignada:r.asignada_a}));
+  estado.pacientes=(pac.data||[]).map(r=>({id:r.id,nombre:r.nombre,edad:r.edad,tutor:r.tutor,tel:r.telefono,motivo:r.motivo,tarifa:Number(r.tarifa)||0,asignada:r.asignada_a,activo:r.activo!==false}));
   estado.citas=(cit.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),dur:r.duracion,psic:r.psicologa_id,pac:r.paciente_id}));
   estado.notas=(nts.data||[]).map(r=>({id:r.id,pac:r.paciente_id,psic:r.psicologa_id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),texto:r.texto,revisada:r.revisada,
     comentarios:(r.comentarios||[]).slice().sort((a,b)=>(a.creado_en||"").localeCompare(b.creado_en||"")).map(c=>({id:c.id,autor:c.autor_id,fecha:(c.creado_en||"").slice(0,10),hora:(c.creado_en||"").slice(11,16),texto:c.texto,editado:c.editado}))}));
@@ -669,22 +673,26 @@ let pacienteSel="p1"; let notasAbiertas=new Set(); let comEditId=null;
 function renderExpediente(){
   const visibles=pacientesVisibles();
   if(!visibles.find(p=>p.id===pacienteSel)) pacienteSel=(visibles[0]||{}).id;
-  document.getElementById("listaPx").innerHTML=visibles.map(p=>`
-    <div class="item ${p.id===pacienteSel?'sel':''}" onclick="seleccionarPx('${p.id}')">
+  const lista = estado.verArchivados ? visibles : visibles.filter(p=>p.activo!==false);
+  const nArch = visibles.filter(p=>p.activo===false).length;
+  document.getElementById("listaPx").innerHTML=lista.map(p=>`
+    <div class="item ${p.id===pacienteSel?'sel':''}" onclick="seleccionarPx('${p.id}')" style="${p.activo===false?'opacity:.55':''}">
       <div class="avatar" style="background:${colorPac(p)}">${iniciales(p.nombre)}</div>
-      <div class="info"><b>${p.nombre}</b><span>${p.edad} años · ${p.tutor}</span></div>${(esAdmin()&&estado.notas.filter(n=>n.pac===p.id&&!n.revisada).length)?`<span class="px-badge">${estado.notas.filter(n=>n.pac===p.id&&!n.revisada).length}</span>`:""}</div>`).join("")
-    + (esAdmin()? `<div class="add" onclick="abrirPaciente()">+ Nuevo paciente</div>` : "");
+      <div class="info"><b>${p.nombre}</b><span>${p.activo===false?'archivado':(p.edad+' años · '+p.tutor)}</span></div>${(esAdmin()&&p.activo!==false&&estado.notas.filter(n=>n.pac===p.id&&!n.revisada).length)?`<span class="px-badge">${estado.notas.filter(n=>n.pac===p.id&&!n.revisada).length}</span>`:""}</div>`).join("")
+    + (esAdmin()? `<div class="add" onclick="abrirPaciente()">+ Nuevo paciente</div>` : "")
+    + ((esAdmin()&&(nArch>0||estado.verArchivados))? `<div class="add" style="color:var(--gris)" onclick="toggleArchivados()">${estado.verArchivados?"Ocultar archivados":"Ver archivados ("+nArch+")"}</div>` : "");
 
   const cont=document.getElementById("expedienteDetalle");
   if(!pacienteSel){ cont.innerHTML=`<div class="expediente"><div class="vacio"><div class="em">🧩</div><b>Aún no tienes pacientes en tu lista</b>Agrega uno con "+ Nuevo paciente".</div></div>`; return; }
   const p=pac(pacienteSel);
   const notas=estado.notas.filter(n=>n.pac===pacienteSel).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  const arch = p.activo===false;
   cont.innerHTML=`<div class="expediente">
     <div class="top"><div class="avatar" style="background:${colorPac(p)}">${iniciales(p.nombre)}</div>
-      <div style="flex:1; min-width:180px"><h3>${p.nombre}</h3>
+      <div style="flex:1; min-width:180px"><h3>${p.nombre}${arch?` <span class="rev-chip por" style="vertical-align:middle">archivado</span>`:""}</h3>
         <div class="meta">${p.edad} años · ${p.tutor}${esAdmin()?` · 📞 ${p.tel||"—"}`:""}</div>
         <div class="meta">Motivo: <b>${p.motivo||"—"}</b> · ${notas.length} sesiones</div></div>
-      <button class="btn" onclick="abrirNota()">+ Nota de sesión</button></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${esAdmin()?(arch?`<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>`:`<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`):""}<button class="btn" onclick="abrirNota()">+ Nota de sesión</button></div></div>
     <div class="timeline">${notas.length? notas.map((n,i)=>{ const ps=psic(n.psic); const nc=(n.comentarios||[]).length;
       return `<div class="nota"><div class="linea-tiempo" style="color:${ps.color}"><div class="punto"></div>${i<notas.length-1?'<div class="conector"></div>':''}</div>
         <div class="cuerpo"><div class="encab"><span class="fecha">${fechaLarga(n.fecha)}${n.hora?` · ${n.hora}`:""}</span><span class="chip" style="background:${ps.color}">${corto(ps.nombre)}</span>${n.revisada?`<span class="rev-chip ok">revisada ✓</span>`:(esAdmin()?`<span class="rev-chip por">por revisar</span>`:``)}${(esAdmin()&&!n.revisada)?`<button class="rev-btn" onclick="marcarRevisada('${n.id}')">Marcar revisada</button>`:``}</div>
@@ -829,8 +837,7 @@ function renderEquipo(){
     <div class="miembro"><span class="av" style="background:${p.color}">${iniciales(p.nombre)}</span>
       <div style="flex:1"><b>${p.nombre}</b>
         <div class="datos">📞 ${p.tel||"—"} · ✉ ${p.email||"—"}${p.admin?"":` · céd. ${p.cedula||"—"}`}</div></div>
-      <span class="tag">${p.admin?"Dirección":"Psicóloga"}</span></div>`).join("")
-    + `<div class="add" onclick="abrirPsic()">+ Agregar psicóloga</div>`;
+      <span class="tag">${p.admin?"Dirección":"Psicóloga"}</span></div>`).join("");
   const cc=document.getElementById("controlCard"); if(!cc) return;
   const cierres=estado.cierres||[];
   cc.innerHTML=`<div class="miembro" style="background:#FAF7FD"><b>Cierres con pendientes (control)</b><span class="tag">quién deja cosas sin registrar</span></div>`
@@ -855,7 +862,7 @@ function abrirCita(h){
   document.getElementById("cTitulo").textContent="Agendar cita";
   document.getElementById("cGuardar").textContent="Agendar cita";
   document.getElementById("cEliminar").style.display="none";
-  document.getElementById("cPaciente").innerHTML=opciones(esAdmin()?estado.pacientes:pacientesVisibles(),"id","nombre");
+  document.getElementById("cPaciente").innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre");
   fijarPsic("cPsic");
   document.getElementById("cHora").value=h; document.getElementById("cDur").value="60";
   document.getElementById("conflicto").classList.remove("ver"); abrir("modalCita");
@@ -902,7 +909,7 @@ async function guardarNota(){ const texto=document.getElementById("nTexto").valu
   if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
   cerrar("modalNota"); await refrescar(); toast("Nota guardada ✓","ok"); }
 
-function abrirPago(){ const sel=document.getElementById("pPaciente"); sel.innerHTML=opciones(esAdmin()?estado.pacientes:pacientesVisibles(),"id","nombre"); sel.onchange=function(){ sincronizarTarifa(); }; fijarPsic("pPsic"); document.getElementById("pMetodo").value="transferencia"; sincronizarTarifa(); actualizarCampoMonto(); abrir("modalPago"); }
+function abrirPago(){ const sel=document.getElementById("pPaciente"); sel.innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre"); sel.onchange=function(){ sincronizarTarifa(); }; fijarPsic("pPsic"); document.getElementById("pMetodo").value="transferencia"; sincronizarTarifa(); actualizarCampoMonto(); abrir("modalPago"); }
 function sincronizarTarifa(){ const p=pac(document.getElementById("pPaciente").value); if(p&&p.tarifa) document.getElementById("pMonto").value=p.tarifa; }
 function actualizarCampoMonto(){ const metodo=document.getElementById("pMetodo").value; const ocultar=(!esAdmin() && metodo==="transferencia"); document.getElementById("campoMonto").style.display=ocultar?"none":""; }
 async function guardarPago(){ const metodo=document.getElementById("pMetodo").value; const pacId=document.getElementById("pPaciente").value;
@@ -950,7 +957,7 @@ function guardarPsic(){
 
 function abrirFactura(){
   document.getElementById("facTitulo").textContent=esAdmin()?"Nueva factura":"Avisar factura pedida";
-  document.getElementById("fPaciente").innerHTML=opciones(esAdmin()?estado.pacientes:pacientesVisibles(),"id","nombre");
+  document.getElementById("fPaciente").innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre");
   document.getElementById("fMonto").value=600; abrir("modalFactura");
 }
 async function guardarFactura(){
