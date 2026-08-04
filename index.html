@@ -593,10 +593,7 @@ function renderRol(){
     <span><span class="nm">${corto(v.nombre)}</span><br><span class="rl">${esAdmin()?"Dirección":"Psicóloga"}</span></span>`;
   document.getElementById("tabEquipo").style.display=esAdmin()?"":"none";
   if(!esAdmin() && document.querySelector('button[data-vista="equipo"]').classList.contains("activa")) irA("agenda");
-  const b=document.getElementById("rolBanner");
-  if(esAdmin()){ b.className=""; }
-  else{ b.className="ver"; b.style.background=v.color+"1A"; b.style.color=v.color;
-    b.textContent="👁 Sesión de "+v.nombre+": ves solo tus citas, tus pacientes y tu efectivo. La Dirección ve todo."; }
+  const b=document.getElementById("rolBanner"); if(b) b.className="";
 }
 
 function renderResumen(){
@@ -691,7 +688,7 @@ function renderExpediente(){
       <div style="flex:1; min-width:180px"><h3>${p.nombre}${arch?` <span class="rev-chip por" style="vertical-align:middle">archivado</span>`:""}</h3>
         <div class="meta">${p.edad} años · ${p.tutor}${esAdmin()?` · 📞 ${p.tel||"—"}`:""}</div>
         <div class="meta">Motivo: <b>${p.motivo||"—"}</b> · ${notas.length} sesiones</div></div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${esAdmin()?`<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`:""}${esAdmin()?(arch?`<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>`:`<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`):""}<button class="btn" onclick="abrirNota()">+ Nota de sesión</button></div></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${esAdmin()?`<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`:""}${esAdmin()?(arch?`<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>`:`<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`):""}${(arch&&!esAdmin())?"":`<button class="btn" onclick="abrirNota()">+ Nota de sesión</button>`}</div></div>
     <div class="timeline">${notas.length? notas.map((n,i)=>{ const ps=psic(n.psic); const nc=(n.comentarios||[]).length;
       return `<div class="nota"><div class="linea-tiempo" style="color:${ps.color}"><div class="punto"></div>${i<notas.length-1?'<div class="conector"></div>':''}</div>
         <div class="cuerpo"><div class="encab"><span class="fecha">${fechaLarga(n.fecha)}${n.hora?` · ${n.hora}`:""}</span><span class="chip" style="background:${ps.color}">${corto(ps.nombre)}</span>${n.revisada?`<span class="rev-chip ok">revisada ✓</span>`:(esAdmin()?`<span class="rev-chip por">por revisar</span>`:``)}${(esAdmin()&&!n.revisada)?`<button class="rev-btn" onclick="marcarRevisada('${n.id}')">Marcar revisada</button>`:``}</div>
@@ -901,7 +898,7 @@ async function eliminarCita(){
   cerrar("modalCita"); await refrescar(); toast("Cita eliminada"+(nom?" de "+nom:"")+" ✓","ok");
 }
 
-function abrirNota(){ fijarPsic("nPsic"); document.getElementById("nTexto").value=""; abrir("modalNota"); }
+function abrirNota(){ const p=pac(pacienteSel); if(p&&p.activo===false&&!esAdmin()){ toast("Paciente archivado — no puedes agregar notas","err"); return; } fijarPsic("nPsic"); document.getElementById("nTexto").value=""; abrir("modalNota"); }
 async function guardarNota(){ const texto=document.getElementById("nTexto").value.trim();
   if(!texto){ toast("Escribe qué se trabajó en la sesión","err"); return; }
   const {error}=await sb.from("notas").insert({paciente_id:pacienteSel, psicologa_id:document.getElementById("nPsic").value, texto, revisada:esAdmin()});
