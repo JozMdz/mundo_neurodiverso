@@ -142,6 +142,7 @@
   .rev-chip{font-size:11px; font-weight:800; padding:2px 9px; border-radius:999px;}
   .rev-chip.por{background:var(--alerta-suave); color:var(--alerta);}
   .rev-chip.ok{background:var(--ok-suave); color:var(--ok);}
+  .rev-chip.nuevo{background:#FDE7F1; color:var(--rosa);}
   .rev-btn{background:none; border:1px solid var(--linea-fuerte); color:var(--morado); border-radius:999px; padding:3px 10px; font-weight:800; font-size:11.5px; cursor:pointer;}
   .rev-btn:hover{background:#FBF9FE;}
   .tab-badge{background:var(--rosa); color:#fff; font-size:11px; font-weight:800; border-radius:999px; padding:1px 7px; margin-left:2px;}
@@ -501,6 +502,8 @@ function mondayISO(iso){ const dt=new Date(iso+"T12:00:00"); const dow=(dt.getDa
 function rangoCobros(){ const P=estado.cobrosPeriodo; if(P.tipo==="hoy") return {desde:hoyISO(), hasta:hoyISO()}; if(P.tipo==="semana"){ const lun=mondayISO(hoyISO()); return {desde:lun, hasta:addDaysISO(lun,5)}; } return {desde:P.desde, hasta:P.hasta}; }
 let idc=100; function nuevoId(){ return "x"+(idc++); }
 function colorPac(p){ return PALETA[estado.pacientes.indexOf(p)%6]; }
+function notasConAviso(){ return esAdmin()? estado.notas.filter(n=>!n.revisada)
+  : estado.notas.filter(n=>n.vistaPsic===false && (n.psic===estado.quien || (pac(n.pac)||{}).asignada===estado.quien)); }
 function pacActivos(base){ return (base||estado.pacientes).filter(p=>p.activo!==false); }
 function toggleArchivados(){ estado.verArchivados=!estado.verArchivados; renderExpediente(); }
 async function archivarPaciente(id){ if(!esAdmin()) return; const {error}=await sb.from("pacientes").update({activo:false}).eq("id",id); if(error){ toast("No se pudo archivar: "+error.message,"err"); return; } await refrescar(); toast("Paciente archivado ✓","ok"); }
@@ -521,7 +524,7 @@ async function cargarTodo(){
   estado.psicologas=(ps.data||[]).map(r=>({id:r.id,nombre:r.nombre,color:r.color,admin:r.es_direccion,tel:r.telefono,cedula:r.cedula}));
   estado.pacientes=(pac.data||[]).map(r=>({id:r.id,nombre:r.nombre,edad:r.edad,tutor:r.tutor,tel:r.telefono,motivo:r.motivo,tarifa:Number(r.tarifa)||0,asignada:r.asignada_a,activo:r.activo!==false}));
   estado.citas=(cit.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),dur:r.duracion,psic:r.psicologa_id,pac:r.paciente_id}));
-  estado.notas=(nts.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,pac:r.paciente_id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,texto:r.texto,revisada:r.revisada,
+  estado.notas=(nts.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,pac:r.paciente_id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,texto:r.texto,revisada:r.revisada,vistaPsic:r.vista_psic!==false,
     comentarios:(r.comentarios||[]).slice().sort((a,b)=>(a.creado_en||"").localeCompare(b.creado_en||"")).map(c=>{ const cd=c.creado_en?new Date(c.creado_en):null; return {id:c.id,autor:c.autor_id,fecha:cd?(cd.getFullYear()+"-"+String(cd.getMonth()+1).padStart(2,"0")+"-"+String(cd.getDate()).padStart(2,"0")):"",hora:cd?cd.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false}):"",texto:c.texto,editado:c.editado}; })}; });
   estado.pagos=(pgs.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,fecha:_t.f,hora:_t.h,pac:r.paciente_id,psic:r.psicologa_id,monto:Number(r.monto)||0,metodo:r.metodo,validado:r.validado}; });
   estado.facturas=(fac.data||[]).map(r=>({id:r.id,pac:r.paciente_id,monto:Number(r.monto)||0,estado:r.estado,solicitadaPor:r.solicitada_por,solicitada:r.fecha_solicitada,emitida:r.fecha_emitida,entregada:r.fecha_entregada}));
@@ -615,7 +618,9 @@ function renderResumen(){
   const kpis=[
     {n:cHoy, l:(admin?"Citas hoy":"Mis citas hoy"), extra:"agendadas", c:COLORES.morado},
     admin ? {n:sinRevisar, l:"Notas por revisar", extra:(sinRevisar>0?"en expedientes":"todo revisado ✓"), c:(sinRevisar>0?COLORES.naranja:COLORES.verde)}
-          : {n:pend, l:"Notas por registrar", extra:(pend>0?`de ${cHoy} sesiones de hoy`:"¡al día! ✓"), c:(pend>0?COLORES.naranja:COLORES.verde)},
+          : (notasConAviso().length>0
+              ? {n:notasConAviso().length, l:"Mensajes de Dirección", extra:"en tus expedientes", c:COLORES.rosa}
+              : {n:pend, l:"Notas por registrar", extra:(pend>0?`de ${cHoy} sesiones de hoy`:"¡al día! ✓"), c:(pend>0?COLORES.naranja:COLORES.verde)}),
     admin ? {n:mxn(totHoy), l:"Cobrado hoy", extra:"efectivo + a cuenta", c:COLORES.naranja}
           : {n:mxn(efHoy), l:"Efectivo en tu poder", extra:"que debes conciliar hoy", c:COLORES.naranja},
     {n:fp, l:(admin?"Facturas pendientes":"Tus facturas pedidas"), extra:admin?"por emitir o entregar":"en espera de Dirección", c:COLORES.cian},
@@ -681,7 +686,7 @@ function renderExpediente(){
   document.getElementById("listaPx").innerHTML=lista.map(p=>`
     <div class="item ${p.id===pacienteSel?'sel':''}" onclick="seleccionarPx('${p.id}')" style="${p.activo===false?'opacity:.55':''}">
       <div class="avatar" style="background:${colorPac(p)}">${iniciales(p.nombre)}</div>
-      <div class="info"><b>${p.nombre}</b><span>${p.activo===false?'archivado':(p.edad+' años · '+p.tutor)}</span></div>${(esAdmin()&&p.activo!==false&&estado.notas.filter(n=>n.pac===p.id&&!n.revisada).length)?`<span class="px-badge">${estado.notas.filter(n=>n.pac===p.id&&!n.revisada).length}</span>`:""}</div>`).join("")
+      <div class="info"><b>${p.nombre}</b><span>${p.activo===false?'archivado':(p.edad+' años · '+p.tutor)}</span></div>${(p.activo!==false&&notasConAviso().filter(n=>n.pac===p.id).length)?`<span class="px-badge">${notasConAviso().filter(n=>n.pac===p.id).length}</span>`:""}</div>`).join("")
     + (esAdmin()? `<div class="add" onclick="abrirPaciente()">+ Nuevo paciente</div>` : "")
     + ((esAdmin()&&(nArch>0||estado.verArchivados))? `<div class="add" style="color:var(--gris)" onclick="toggleArchivados()">${estado.verArchivados?"Ocultar archivados":"Ver archivados ("+nArch+")"}</div>` : "");
 
@@ -698,7 +703,7 @@ function renderExpediente(){
       <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${esAdmin()?`<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`:""}${esAdmin()?(arch?`<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>`:`<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`):""}${(arch&&!esAdmin())?"":`<button class="btn" onclick="abrirNota()">+ Nota de sesión</button>`}</div></div>
     <div class="timeline">${notas.length? notas.map((n,i)=>{ const ps=psic(n.psic); const nc=(n.comentarios||[]).length;
       return `<div class="nota"><div class="linea-tiempo" style="color:${ps.color}"><div class="punto"></div>${i<notas.length-1?'<div class="conector"></div>':''}</div>
-        <div class="cuerpo"><div class="encab"><span class="fecha">${fechaLarga(n.fecha)}${n.hora?` · ${n.hora}`:""}</span><span class="chip" style="background:${ps.color}">${corto(ps.nombre)}</span>${n.revisada?`<span class="rev-chip ok">revisada ✓</span>`:(esAdmin()?`<span class="rev-chip por">por revisar</span>`:``)}${(esAdmin()&&!n.revisada)?`<button class="rev-btn" onclick="marcarRevisada('${n.id}')">Marcar revisada</button>`:``}${(n.psic===estado.quien||esAdmin())?`<button class="nota-mini" title="Editar nota" onclick="editarNota('${n.id}')">✎</button><button class="nota-mini" title="Eliminar nota" onclick="eliminarNota('${n.id}')">🗑</button>`:``}</div>
+        <div class="cuerpo"><div class="encab"><span class="fecha">${fechaLarga(n.fecha)}${n.hora?` · ${n.hora}`:""}</span><span class="chip" style="background:${ps.color}">${corto(ps.nombre)}</span>${n.revisada?`<span class="rev-chip ok">revisada ✓</span>`:(esAdmin()?`<span class="rev-chip por">por revisar</span>`:``)}${(!esAdmin()&&n.vistaPsic===false)?`<span class="rev-chip nuevo">mensaje nuevo</span>`:``}${(esAdmin()&&!n.revisada)?`<button class="rev-btn" onclick="marcarRevisada('${n.id}')">Marcar revisada</button>`:``}${(n.psic===estado.quien||esAdmin())?`<button class="nota-mini" title="Editar nota" onclick="editarNota('${n.id}')">✎</button><button class="nota-mini" title="Eliminar nota" onclick="eliminarNota('${n.id}')">🗑</button>`:``}</div>
           ${notaEditId===n.id?`<div class="nota-edit"><textarea id="notaedit-${n.id}">${(n.texto||"").replace(/&/g,"&amp;").replace(/</g,"&lt;")}</textarea><div class="nota-edit-acc"><button class="btn" onclick="guardarEdicionNota('${n.id}')">Guardar</button><button class="rev-btn" onclick="cancelarEdicionNota()">Cancelar</button></div></div>`:`<p>${n.texto}</p>`}
           <button class="com-toggle" onclick="toggleNota('${n.id}')">💬 ${nc? (nc+" comentario"+(nc>1?"s":"")) : "Comentar"}${notasAbiertas.has(n.id)?" ▲":" ▾"}</button>
           ${notasAbiertas.has(n.id)? renderHilo(n) : ""}
@@ -719,7 +724,15 @@ function renderHilo(n){
       <input id="com-${n.id}" placeholder="Escribe un comentario o abre un debate…" onkeydown="if(event.key==='Enter')agregarComentario('${n.id}')">
       <button class="btn" onclick="agregarComentario('${n.id}')">Enviar</button></div></div>`;
 }
-function toggleNota(id){ if(notasAbiertas.has(id)) notasAbiertas.delete(id); else notasAbiertas.add(id); renderExpediente(); }
+async function toggleNota(id){
+  if(notasAbiertas.has(id)) notasAbiertas.delete(id); else notasAbiertas.add(id);
+  renderExpediente();
+  const n=estado.notas.find(x=>x.id===id);
+  if(!esAdmin() && n && n.vistaPsic===false && notasAbiertas.has(id)){
+    const {error}=await sb.from("notas").update({vista_psic:true}).eq("id",id);
+    if(!error){ n.vistaPsic=true; renderExpediente(); renderResumen(); updateBadges(); }
+  }
+}
 async function agregarComentario(id){
   const inp=document.getElementById("com-"+id); const texto=(inp?inp.value:"").trim();
   if(!texto){ toast("Escribe un comentario","err"); return; }
@@ -767,7 +780,7 @@ async function guardarEdicionComentario(nid,cid){
   comEditId=null; await refrescar(); toast("Comentario editado ✓","ok");
 }
 async function marcarRevisada(id){ const {error}=await sb.from("notas").update({revisada:true}).eq("id",id); if(error){ toast("No se pudo","err"); return; } await refrescar(); toast("Nota marcada como revisada ✓","ok"); }
-function updateBadges(){ const b=document.getElementById("badgeExp"); if(!b) return; const c=estado.notas.filter(n=>!n.revisada).length; b.textContent=(esAdmin()&&c)?String(c):""; }
+function updateBadges(){ const b=document.getElementById("badgeExp"); if(!b) return; const c=notasConAviso().length; b.textContent=c?String(c):""; }
 function seleccionarPx(id){ pacienteSel=id; renderExpediente(); }
 const EMOJIS=["😊","👍","🎉","❤️","👏","🙌","💪","✅","📌","😄","🤔","🙏","👀","🔥","😢","😅","💡","⭐","🧩","🌈","😍","🥳"];
 function toggleEmojis(id){ const p=document.getElementById("emo-"+id); if(p) p.classList.toggle("ver"); }
