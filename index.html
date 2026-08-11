@@ -479,6 +479,12 @@ const estado = {
 };
 
 function hoyISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function localFH(iso, fFallback, hFallback){
+  if(!iso) return {f:fFallback||"", h:(hFallback||"").slice(0,5)};
+  const d=new Date(iso); if(isNaN(d)) return {f:fFallback||"", h:(hFallback||"").slice(0,5)};
+  return { f: d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"),
+           h: d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false}) };
+}
 function ahoraHM(){ return new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false}); }
 function psic(id){ return estado.psicologas.find(p=>p.id===id); }
 function pac(id){ return estado.pacientes.find(p=>p.id===id); }
@@ -515,11 +521,11 @@ async function cargarTodo(){
   estado.psicologas=(ps.data||[]).map(r=>({id:r.id,nombre:r.nombre,color:r.color,admin:r.es_direccion,tel:r.telefono,cedula:r.cedula}));
   estado.pacientes=(pac.data||[]).map(r=>({id:r.id,nombre:r.nombre,edad:r.edad,tutor:r.tutor,tel:r.telefono,motivo:r.motivo,tarifa:Number(r.tarifa)||0,asignada:r.asignada_a,activo:r.activo!==false}));
   estado.citas=(cit.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),dur:r.duracion,psic:r.psicologa_id,pac:r.paciente_id}));
-  estado.notas=(nts.data||[]).map(r=>({id:r.id,pac:r.paciente_id,psic:r.psicologa_id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),texto:r.texto,revisada:r.revisada,
-    comentarios:(r.comentarios||[]).slice().sort((a,b)=>(a.creado_en||"").localeCompare(b.creado_en||"")).map(c=>{ const cd=c.creado_en?new Date(c.creado_en):null; return {id:c.id,autor:c.autor_id,fecha:cd?(cd.getFullYear()+"-"+String(cd.getMonth()+1).padStart(2,"0")+"-"+String(cd.getDate()).padStart(2,"0")):"",hora:cd?cd.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false}):"",texto:c.texto,editado:c.editado}; })}));
-  estado.pagos=(pgs.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),pac:r.paciente_id,psic:r.psicologa_id,monto:Number(r.monto)||0,metodo:r.metodo,validado:r.validado}));
+  estado.notas=(nts.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,pac:r.paciente_id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,texto:r.texto,revisada:r.revisada,
+    comentarios:(r.comentarios||[]).slice().sort((a,b)=>(a.creado_en||"").localeCompare(b.creado_en||"")).map(c=>{ const cd=c.creado_en?new Date(c.creado_en):null; return {id:c.id,autor:c.autor_id,fecha:cd?(cd.getFullYear()+"-"+String(cd.getMonth()+1).padStart(2,"0")+"-"+String(cd.getDate()).padStart(2,"0")):"",hora:cd?cd.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false}):"",texto:c.texto,editado:c.editado}; })}; });
+  estado.pagos=(pgs.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,fecha:_t.f,hora:_t.h,pac:r.paciente_id,psic:r.psicologa_id,monto:Number(r.monto)||0,metodo:r.metodo,validado:r.validado}; });
   estado.facturas=(fac.data||[]).map(r=>({id:r.id,pac:r.paciente_id,monto:Number(r.monto)||0,estado:r.estado,solicitadaPor:r.solicitada_por,solicitada:r.fecha_solicitada,emitida:r.fecha_emitida,entregada:r.fecha_entregada}));
-  estado.cierres=(cie.data||[]).map(r=>({psic:r.psicologa_id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),notas:r.notas_pendientes,cobros:r.cobros_pendientes}));
+  estado.cierres=(cie.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {psic:r.psicologa_id,fecha:_t.f,hora:_t.h,notas:r.notas_pendientes,cobros:r.cobros_pendientes}; });
 }
 async function refrescar(){ await cargarTodo(); render(); }
 let _suscrito=false;
@@ -705,7 +711,7 @@ function renderHilo(n){
       return `<div class="com"><span class="chip sm" style="background:${a.color}">${corto(a.nombre)}</span><span class="com-meta">${fmtDia(c.fecha)} ${c.hora}</span>
         <div class="com-edit"><input id="comedit-${c.id}" value="${(c.texto||"").replace(/"/g,"&quot;")}" onkeydown="if(event.key==='Enter')guardarEdicionComentario('${n.id}','${c.id}')"><button class="btn" onclick="guardarEdicionComentario('${n.id}','${c.id}')">Guardar</button><button class="rev-btn" onclick="cancelarEdicionComentario()">Cancelar</button></div></div>`;
     }
-    return `<div class="com"><span class="chip sm" style="background:${a.color}">${corto(a.nombre)}</span><span class="com-meta">${fmtDia(c.fecha)} ${c.hora}${c.editado?" · editado":""}</span>${mio?`<button class="com-edit-btn" title="Editar" onclick="editarComentario('${c.id}')">✎</button>`:""}<div class="com-txt">${c.texto}</div></div>`; }).join("");
+    return `<div class="com"><span class="chip sm" style="background:${a.color}">${corto(a.nombre)}</span><span class="com-meta">${fmtDia(c.fecha)} ${c.hora}${c.editado?" · editado":""}</span>${mio?`<button class="com-edit-btn" title="Editar" onclick="editarComentario('${c.id}')">✎</button><button class="com-edit-btn" title="Eliminar" onclick="eliminarComentario('${c.id}')">🗑</button>`:""}<div class="com-txt">${c.texto}</div></div>`; }).join("");
   return `<div class="comentarios">${coms||'<div style="font-size:12.5px;color:var(--gris-claro);font-weight:600;">Sé la primera en comentar esta nota.</div>'}
     <div class="com-add">
       <button class="emoji-btn" type="button" onclick="toggleEmojis('${n.id}')">😊</button>
@@ -733,12 +739,26 @@ async function guardarEdicionNota(id){
   notaEditId=null; await refrescar(); toast("Nota actualizada ✓","ok");
 }
 async function eliminarNota(id){
+  const n=estado.notas.find(x=>x.id===id); if(!n) return;
+  const ajenos=(n.comentarios||[]).filter(c=>c.autor!==estado.quien).length;
+  if(!esAdmin()){
+    if(n.psic!==estado.quien){ toast("Solo puedes eliminar tus propias notas","err"); return; }
+    if(ajenos>0){ toast("Esta nota tiene comentarios de otra persona: no se puede eliminar","err"); return; }
+  }
   if(!confirm("¿Eliminar esta nota y sus comentarios? No se puede deshacer.")) return;
   const {error}=await sb.from("notas").delete().eq("id",id);
   if(error){ toast("No se pudo eliminar: "+error.message,"err"); return; }
   await refrescar(); toast("Nota eliminada ✓","ok");
 }
 function cancelarEdicionComentario(){ comEditId=null; renderExpediente(); }
+async function eliminarComentario(cid){
+  let dueno=null; estado.notas.forEach(n=>(n.comentarios||[]).forEach(c=>{ if(c.id===cid) dueno=c.autor; }));
+  if(dueno!==estado.quien){ toast("Solo puedes eliminar tus propios comentarios","err"); return; }
+  if(!confirm("¿Eliminar este comentario?")) return;
+  const {error}=await sb.from("comentarios").delete().eq("id",cid);
+  if(error){ toast("No se pudo eliminar: "+error.message,"err"); return; }
+  await refrescar(); toast("Comentario eliminado ✓","ok");
+}
 async function guardarEdicionComentario(nid,cid){
   const el=document.getElementById("comedit-"+cid); const t=(el?el.value:"").trim();
   if(!t){ toast("El comentario no puede quedar vacío","err"); return; }
@@ -864,9 +884,13 @@ function renderEquipo(){
 function opciones(arr,val,txt){ return arr.map(o=>`<option value="${o[val]}">${o[txt]}</option>`).join(""); }
 function abrir(id){ document.getElementById(id).classList.add("abierto"); }
 function cerrar(id){ document.getElementById(id).classList.remove("abierto"); }
-function fijarPsic(sel){ const s=document.getElementById(sel);
-  s.innerHTML=opciones(estado.psicologas.filter(p=>!p.admin),"id","nombre");
-  if(!esAdmin()){ s.value=estado.quien; s.disabled=true; } else s.disabled=false; }
+function fijarPsic(sel, incluirDireccion){ const s=document.getElementById(sel);
+  const lista = (esAdmin() && incluirDireccion)
+    ? estado.psicologas.slice()
+    : estado.psicologas.filter(p=>!p.admin);
+  s.innerHTML=opciones(lista,"id","nombre");
+  if(!esAdmin()){ s.value=estado.quien; s.disabled=true; }
+  else { s.disabled=false; if(incluirDireccion) s.value=estado.quien; } }
 
 let citaEditId=null;
 function abrirCita(h){
@@ -914,7 +938,7 @@ async function eliminarCita(){
   cerrar("modalCita"); await refrescar(); toast("Cita eliminada"+(nom?" de "+nom:"")+" ✓","ok");
 }
 
-function abrirNota(){ const p=pac(pacienteSel); if(p&&p.activo===false&&!esAdmin()){ toast("Paciente archivado — no puedes agregar notas","err"); return; } fijarPsic("nPsic"); document.getElementById("nTexto").value=""; abrir("modalNota"); }
+function abrirNota(){ const p=pac(pacienteSel); if(p&&p.activo===false&&!esAdmin()){ toast("Paciente archivado — no puedes agregar notas","err"); return; } fijarPsic("nPsic", true); document.getElementById("nTexto").value=""; abrir("modalNota"); }
 async function guardarNota(){ const texto=document.getElementById("nTexto").value.trim();
   if(!texto){ toast("Escribe qué se trabajó en la sesión","err"); return; }
   const {error}=await sb.from("notas").insert({paciente_id:pacienteSel, psicologa_id:document.getElementById("nPsic").value, texto, revisada:esAdmin(), fecha:hoyISO(), hora:ahoraHM()});
