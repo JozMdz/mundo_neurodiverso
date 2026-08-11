@@ -703,7 +703,7 @@ function renderExpediente(){
       <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${esAdmin()?`<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`:""}${esAdmin()?(arch?`<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>`:`<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`):""}${(arch&&!esAdmin())?"":`<button class="btn" onclick="abrirNota()">+ Nota de sesión</button>`}</div></div>
     <div class="timeline">${notas.length? notas.map((n,i)=>{ const ps=psic(n.psic); const nc=(n.comentarios||[]).length;
       return `<div class="nota"><div class="linea-tiempo" style="color:${ps.color}"><div class="punto"></div>${i<notas.length-1?'<div class="conector"></div>':''}</div>
-        <div class="cuerpo"><div class="encab"><span class="fecha">${fechaLarga(n.fecha)}${n.hora?` · ${n.hora}`:""}</span><span class="chip" style="background:${ps.color}">${corto(ps.nombre)}</span>${n.revisada?`<span class="rev-chip ok">revisada ✓</span>`:(esAdmin()?`<span class="rev-chip por">por revisar</span>`:``)}${(!esAdmin()&&n.vistaPsic===false)?`<span class="rev-chip nuevo">mensaje nuevo</span>`:``}${(esAdmin()&&!n.revisada)?`<button class="rev-btn" onclick="marcarRevisada('${n.id}')">Marcar revisada</button>`:``}${(n.psic===estado.quien||esAdmin())?`<button class="nota-mini" title="Editar nota" onclick="editarNota('${n.id}')">✎</button><button class="nota-mini" title="Eliminar nota" onclick="eliminarNota('${n.id}')">🗑</button>`:``}</div>
+        <div class="cuerpo"><div class="encab"><span class="fecha">${fechaLarga(n.fecha)}${n.hora?` · ${n.hora}`:""}</span><span class="chip" style="background:${ps.color}">${corto(ps.nombre)}</span>${n.revisada?`<span class="rev-chip ok">revisada ✓</span>`:(esAdmin()?`<span class="rev-chip por">por revisar</span>`:``)}${(!esAdmin()&&n.vistaPsic===false)?`<span class="rev-chip nuevo">mensaje nuevo</span><button class="rev-btn" onclick="marcarLeida('${n.id}')">Marcar leída</button>`:``}${(esAdmin()&&!n.revisada)?`<button class="rev-btn" onclick="marcarRevisada('${n.id}')">Marcar revisada</button>`:``}${(n.psic===estado.quien||esAdmin())?`<button class="nota-mini" title="Editar nota" onclick="editarNota('${n.id}')">✎</button><button class="nota-mini" title="Eliminar nota" onclick="eliminarNota('${n.id}')">🗑</button>`:``}</div>
           ${notaEditId===n.id?`<div class="nota-edit"><textarea id="notaedit-${n.id}">${(n.texto||"").replace(/&/g,"&amp;").replace(/</g,"&lt;")}</textarea><div class="nota-edit-acc"><button class="btn" onclick="guardarEdicionNota('${n.id}')">Guardar</button><button class="rev-btn" onclick="cancelarEdicionNota()">Cancelar</button></div></div>`:`<p>${n.texto}</p>`}
           <button class="com-toggle" onclick="toggleNota('${n.id}')">💬 ${nc? (nc+" comentario"+(nc>1?"s":"")) : "Comentar"}${notasAbiertas.has(n.id)?" ▲":" ▾"}</button>
           ${notasAbiertas.has(n.id)? renderHilo(n) : ""}
@@ -727,11 +727,15 @@ function renderHilo(n){
 async function toggleNota(id){
   if(notasAbiertas.has(id)) notasAbiertas.delete(id); else notasAbiertas.add(id);
   renderExpediente();
+  if(notasAbiertas.has(id)) marcarLeida(id, true);
+}
+async function marcarLeida(id, silencioso){
   const n=estado.notas.find(x=>x.id===id);
-  if(!esAdmin() && n && n.vistaPsic===false && notasAbiertas.has(id)){
-    const {error}=await sb.from("notas").update({vista_psic:true}).eq("id",id);
-    if(!error){ n.vistaPsic=true; renderExpediente(); renderResumen(); updateBadges(); }
-  }
+  if(esAdmin() || !n || n.vistaPsic!==false) return;
+  const {error}=await sb.from("notas").update({vista_psic:true}).eq("id",id);
+  if(error){ if(!silencioso) toast("No se pudo marcar: "+error.message,"err"); return; }
+  n.vistaPsic=true; renderExpediente(); renderResumen(); updateBadges();
+  if(!silencioso) toast("Marcada como leída ✓","ok");
 }
 async function agregarComentario(id){
   const inp=document.getElementById("com-"+id); const texto=(inp?inp.value:"").trim();
