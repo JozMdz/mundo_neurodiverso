@@ -506,7 +506,9 @@ function notasConAviso(){ return esAdmin()? estado.notas.filter(n=>!n.revisada)
   : estado.notas.filter(n=>n.vistaPsic===false && (n.psic===estado.quien || (pac(n.pac)||{}).asignada===estado.quien)); }
 function pacActivos(base){ return (base||estado.pacientes).filter(p=>p.activo!==false); }
 function toggleArchivados(){ estado.verArchivados=!estado.verArchivados; renderExpediente(); }
-async function archivarPaciente(id){ if(!esAdmin()) return; const {error}=await sb.from("pacientes").update({activo:false}).eq("id",id); if(error){ toast("No se pudo archivar: "+error.message,"err"); return; } await refrescar(); toast("Paciente archivado ✓","ok"); }
+async function archivarPaciente(id){ if(!esAdmin()) return; const {error}=await sb.from("pacientes").update({activo:false}).eq("id",id); if(error){ toast("No se pudo archivar: "+error.message,"err"); return; }
+  if(pacienteSel===id && !estado.verArchivados) pacienteSel=null;
+  await refrescar(); toast("Paciente archivado ✓","ok"); }
 async function reactivarPaciente(id){ if(!esAdmin()) return; const {error}=await sb.from("pacientes").update({activo:true}).eq("id",id); if(error){ toast("No se pudo reactivar","err"); return; } await refrescar(); toast("Paciente reactivado ✓","ok"); }
 
 /* ---- LOGIN ---- */
@@ -682,6 +684,7 @@ function renderExpediente(){
   const visibles=pacientesVisibles();
   if(!visibles.find(p=>p.id===pacienteSel)) pacienteSel=(visibles[0]||{}).id;
   const lista = estado.verArchivados ? visibles : visibles.filter(p=>p.activo!==false);
+  if(!lista.some(x=>x.id===pacienteSel)) pacienteSel = lista.length? lista[0].id : null;
   const nArch = visibles.filter(p=>p.activo===false).length;
   document.getElementById("listaPx").innerHTML=lista.map(p=>`
     <div class="item ${p.id===pacienteSel?'sel':''}" onclick="seleccionarPx('${p.id}')" style="${p.activo===false?'opacity:.55':''}">
@@ -785,7 +788,7 @@ async function guardarEdicionComentario(nid,cid){
 }
 async function marcarRevisada(id){ const {error}=await sb.from("notas").update({revisada:true}).eq("id",id); if(error){ toast("No se pudo","err"); return; } await refrescar(); toast("Nota marcada como revisada ✓","ok"); }
 function updateBadges(){ const b=document.getElementById("badgeExp"); if(!b) return; const c=notasConAviso().length; b.textContent=c?String(c):""; }
-function seleccionarPx(id){ pacienteSel=id; renderExpediente(); }
+function seleccionarPx(id){ const p=pac(id); if(p && p.activo===false && !(esAdmin()&&estado.verArchivados)) return; pacienteSel=id; renderExpediente(); }
 const EMOJIS=["😊","👍","🎉","❤️","👏","🙌","💪","✅","📌","😄","🤔","🙏","👀","🔥","😢","😅","💡","⭐","🧩","🌈","😍","🥳"];
 function toggleEmojis(id){ const p=document.getElementById("emo-"+id); if(p) p.classList.toggle("ver"); }
 function insertEmoji(id,e){ const inp=document.getElementById("com-"+id); if(inp){ inp.value+=e; inp.focus(); } const p=document.getElementById("emo-"+id); if(p) p.classList.remove("ver"); }
@@ -807,7 +810,7 @@ function renderCobros(){
   const pagos=pagosVisibles().filter(g=>g.fecha>=r.desde && g.fecha<=r.hasta);
   const _btnExp=document.getElementById("btnExportCobros"); if(_btnExp) _btnExp.style.display=admin?"":"none";
   document.getElementById("tbodyPagos").innerHTML=pagos.map(g=>{ const p=psic(g.psic);
-    const montoTxt=(admin||g.metodo!=="transferencia")?mxn(g.monto):"—";
+    const montoTxt=(admin||g.metodo==="efectivo")?mxn(g.monto):"—";
     const val = g.validado
       ? `<span class="val ok"${admin?` onclick="validarPago('${g.id}')" title="Toca para desmarcar"`:""}>validado ✓</span>`
       : (admin? `<span class="val por" onclick="validarPago('${g.id}')" title="Toca para validar">por validar</span>` : `<span class="val por">por validar</span>`);
@@ -964,9 +967,9 @@ async function guardarNota(){ const texto=document.getElementById("nTexto").valu
 
 function abrirPago(){ const sel=document.getElementById("pPaciente"); sel.innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre"); sel.onchange=function(){ sincronizarTarifa(); }; fijarPsic("pPsic"); document.getElementById("pMetodo").value="transferencia"; sincronizarTarifa(); actualizarCampoMonto(); abrir("modalPago"); }
 function sincronizarTarifa(){ const p=pac(document.getElementById("pPaciente").value); if(p&&p.tarifa) document.getElementById("pMonto").value=p.tarifa; }
-function actualizarCampoMonto(){ const metodo=document.getElementById("pMetodo").value; const ocultar=(!esAdmin() && metodo==="transferencia"); document.getElementById("campoMonto").style.display=ocultar?"none":""; }
+function actualizarCampoMonto(){ const metodo=document.getElementById("pMetodo").value; const ocultar=(!esAdmin() && metodo!=="efectivo"); document.getElementById("campoMonto").style.display=ocultar?"none":""; }
 async function guardarPago(){ const metodo=document.getElementById("pMetodo").value; const pacId=document.getElementById("pPaciente").value;
-  const oculto=(!esAdmin() && metodo==="transferencia");
+  const oculto=(!esAdmin() && metodo!=="efectivo");
   let monto = oculto ? (pac(pacId).tarifa||0) : +document.getElementById("pMonto").value;
   if(!monto||monto<=0){ toast("Escribe un monto válido","err"); return; }
   const {error}=await sb.from("pagos").insert({paciente_id:pacId, psicologa_id:document.getElementById("pPsic").value, monto, metodo, validado:esAdmin(), fecha:hoyISO(), hora:ahoraHM()});
