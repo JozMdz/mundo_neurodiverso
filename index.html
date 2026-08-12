@@ -966,8 +966,14 @@ async function guardarNota(){ const texto=document.getElementById("nTexto").valu
   cerrar("modalNota"); await refrescar(); toast("Nota guardada ✓","ok"); }
 
 function abrirPago(){ const sel=document.getElementById("pPaciente"); sel.innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre"); sel.onchange=function(){ sincronizarTarifa(); }; fijarPsic("pPsic"); document.getElementById("pMetodo").value="transferencia"; sincronizarTarifa(); actualizarCampoMonto(); abrir("modalPago"); }
-function sincronizarTarifa(){ const p=pac(document.getElementById("pPaciente").value); if(p&&p.tarifa) document.getElementById("pMonto").value=p.tarifa; }
-function actualizarCampoMonto(){ const metodo=document.getElementById("pMetodo").value; const ocultar=(!esAdmin() && metodo!=="efectivo"); document.getElementById("campoMonto").style.display=ocultar?"none":""; }
+function sincronizarTarifa(){
+  const p=pac(document.getElementById("pPaciente").value);
+  const metodo=document.getElementById("pMetodo").value;
+  const inp=document.getElementById("pMonto");
+  if(metodo==="efectivo"){ inp.value=0; }
+  else if(p&&p.tarifa){ inp.value=p.tarifa; }
+}
+function actualizarCampoMonto(){ const metodo=document.getElementById("pMetodo").value; const ocultar=(!esAdmin() && metodo!=="efectivo"); document.getElementById("campoMonto").style.display=ocultar?"none":""; sincronizarTarifa(); }
 async function guardarPago(){ const metodo=document.getElementById("pMetodo").value; const pacId=document.getElementById("pPaciente").value;
   const oculto=(!esAdmin() && metodo!=="efectivo");
   let monto = oculto ? (pac(pacId).tarifa||0) : +document.getElementById("pMonto").value;
