@@ -650,7 +650,7 @@ function layoutDia(evs){
 }
 function renderAgenda(){
   document.getElementById("fechaAgenda").textContent=fechaLarga(estado.fechaAgenda);
-  document.getElementById("leyenda").innerHTML=(esAdmin()?estado.psicologas.filter(p=>!p.admin):[viewer()])
+  document.getElementById("leyenda").innerHTML=(esAdmin()?estado.psicologas.slice():[viewer()])
     .map(p=>`<span><i style="background:${p.color}"></i>${corto(p.nombre)}</span>`).join("");
   const N=END-START;
   let lineas="";
@@ -820,8 +820,9 @@ function renderCobros(){
 
   const corte=document.getElementById("corte");
   if(admin){
-    const porPsic={};
-    pagos.forEach(g=>{ if(psic(g.psic).admin) return; const k=g.psic;
+    const porPsic={}; const mio={total:0,ef:0,cuenta:0,items:[]};
+    pagos.forEach(g=>{ const k=g.psic;
+      if(psic(k).admin){ mio.total+=g.monto; mio[g.metodo==="efectivo"?"ef":"cuenta"]+=g.monto; mio.items.push(g); return; }
       porPsic[k]=porPsic[k]||{total:0,ef:0,cuenta:0,items:[]}; porPsic[k].total+=g.monto; porPsic[k][g.metodo==="efectivo"?"ef":"cuenta"]+=g.monto; porPsic[k].items.push(g); });
     let totalAPagar=0;
     const bloques=Object.keys(porPsic).map(k=>{ const p=psic(k), d=porPsic[k], parte=Math.round(d.total/2); totalAPagar+=parte;
@@ -833,9 +834,15 @@ function renderCobros(){
         <div class="reng total"><span>Le toca (50%)</span><span class="num">${mxn(parte)}</span></div>
         <div class="desglose"><div class="d ef">Efectivo (ella tiene)<br>${mxn(d.ef)}</div><div class="d tr">A cuenta (a ti)<br>${mxn(d.cuenta)}</div></div></div>`;
     }).join("");
+    const pDir=viewer();
+    const bloqueMio = mio.items.length? `<div class="psic"><div class="nom"><span class="mini-color" style="background:${pDir.color}"></span>${pDir.nombre} <span class="rev-chip ok">tus sesiones</span><span class="cuenta-ses">${mio.items.length} ${mio.items.length===1?"sesión":"sesiones"}</span></div>
+        <div class="lista-ses">${mio.items.map(g=>`<div class="ses"><span>${pac(g.pac).nombre} <span class="met ${g.metodo}">${metodoCorto(g.metodo)}</span></span><span class="num">${mxn(g.monto)}</span></div>`).join("")}</div>
+        <div class="reng total"><span>Íntegro para ti (sin reparto)</span><span class="num">${mxn(mio.total)}</span></div>
+        <div class="desglose"><div class="d ef">Efectivo en tu poder<br>${mxn(mio.ef)}</div><div class="d tr">A tu cuenta<br>${mxn(mio.cuenta)}</div></div></div>` : "";
     corte.innerHTML=`<div class="cab"><h3>Corte del periodo</h3><span>${fmtDia(r.desde)} – ${fmtDia(r.hasta)} · reparto 50/50</span></div>
-      ${bloques || '<div class="psic"><div class="vacio"><b>Sin cobros para repartir</b></div></div>'}
-      <div class="pie"><span style="font-weight:800; color:var(--gris)">Total a repartir</span><span class="g num">${mxn(totalAPagar)}</span></div>`;
+      ${bloqueMio}
+      ${bloques || (mio.items.length? "" : '<div class="psic"><div class="vacio"><b>Sin cobros para repartir</b></div></div>')}
+      <div class="pie"><span style="font-weight:800; color:var(--gris)">Total a repartir a psicólogas</span><span class="g num">${mxn(totalAPagar)}</span></div>`;
   } else {
     const ef=pagos.filter(g=>g.metodo==="efectivo").reduce((s,g)=>s+g.monto,0);
     corte.innerHTML=`<div class="cab"><h3>Tu efectivo</h3><span>${fmtDia(r.desde)} – ${fmtDia(r.hasta)}</span></div>
@@ -907,7 +914,7 @@ function cerrar(id){ document.getElementById(id).classList.remove("abierto"); }
 function fijarPsic(sel, incluirDireccion){ const s=document.getElementById(sel);
   const lista = (esAdmin() && incluirDireccion)
     ? estado.psicologas.slice()
-    : estado.psicologas.filter(p=>!p.admin);
+    : (esAdmin()? estado.psicologas.slice() : estado.psicologas.filter(p=>!p.admin));
   s.innerHTML=opciones(lista,"id","nombre");
   if(!esAdmin()){ s.value=estado.quien; s.disabled=true; }
   else { s.disabled=false; if(incluirDireccion) s.value=estado.quien; } }
@@ -931,7 +938,7 @@ function abrirEditarCita(id){
   document.getElementById("cGuardar").textContent="Guardar cambios";
   document.getElementById("cEliminar").style.display="";
   document.getElementById("cPaciente").innerHTML=opciones(estado.pacientes,"id","nombre");
-  const s=document.getElementById("cPsic"); s.disabled=false; s.innerHTML=opciones(estado.psicologas.filter(p=>!p.admin),"id","nombre");
+  const s=document.getElementById("cPsic"); s.disabled=false; s.innerHTML=opciones(estado.psicologas.slice(),"id","nombre");
   document.getElementById("cPaciente").value=c.pac; s.value=c.psic;
   document.getElementById("cHora").value=c.hora; document.getElementById("cDur").value=String(c.dur);
   document.getElementById("conflicto").classList.remove("ver"); abrir("modalCita");
@@ -989,7 +996,7 @@ function abrirPaciente(){
   document.getElementById("paNombre").value=""; document.getElementById("paEdad").value=6;
   document.getElementById("paTel").value=""; document.getElementById("paTutor").value=""; document.getElementById("paMotivo").value=""; document.getElementById("paTarifa").value=600;
   const campo=document.getElementById("paAsignadaCampo");
-  if(esAdmin()){ campo.style.display=""; document.getElementById("paAsignada").innerHTML=opciones(estado.psicologas.filter(p=>!p.admin),"id","nombre"); }
+  if(esAdmin()){ campo.style.display=""; document.getElementById("paAsignada").innerHTML=opciones(estado.psicologas.slice(),"id","nombre"); }
   else campo.style.display="none";
   abrir("modalPaciente");
 }
@@ -1006,7 +1013,7 @@ function abrirEditarPaciente(id){
   document.getElementById("paMotivo").value=(p.motivo&&p.motivo!=="—")?p.motivo:"";
   document.getElementById("paTarifa").value=p.tarifa||0;
   const campo=document.getElementById("paAsignadaCampo"); campo.style.display="";
-  document.getElementById("paAsignada").innerHTML=opciones(estado.psicologas.filter(x=>!x.admin),"id","nombre");
+  document.getElementById("paAsignada").innerHTML=opciones(estado.psicologas.slice(),"id","nombre");
   if(p.asignada) document.getElementById("paAsignada").value=p.asignada;
   abrir("modalPaciente");
 }
