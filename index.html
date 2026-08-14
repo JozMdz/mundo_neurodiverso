@@ -114,6 +114,20 @@
   .cal .ev .r{font-size:11.5px; opacity:.96; font-weight:700; line-height:1.2;}
   .cal .ev .q{font-size:10px; opacity:.9; text-transform:uppercase; letter-spacing:.3px; margin-top:1px;}
 
+  .sw-vista{display:inline-flex; background:var(--fondo); border:1px solid var(--linea); border-radius:999px; padding:3px; gap:2px;}
+  .sw-vista button{border:none; background:none; border-radius:999px; padding:6px 13px; font-weight:800; font-size:12.5px; color:var(--gris); cursor:pointer;}
+  .sw-vista button.on{background:var(--morado); color:#fff;}
+  .sem-cab{display:flex; margin:0 6px 4px 54px; gap:4px;}
+  .sem-cab div{flex:1; text-align:center; font-size:11.5px; font-weight:800; color:var(--gris); padding:5px 2px; border-radius:8px; min-width:0;}
+  .sem-cab div.hoy{background:#F3EAF8; color:var(--morado);}
+  .sem-cab div b{display:block; font-size:15px; color:var(--tinta);}
+  .sem-cab div.hoy b{color:var(--morado);}
+  .cal .sem-lanes{position:absolute; left:54px; right:6px; top:0; bottom:0; display:flex; gap:4px;}
+  .cal .sem-col{position:relative; flex:1; min-width:0; border-left:1px solid var(--linea);}
+  .cal .sem-col:first-child{border-left:none;}
+  .cal .sem-col .ev{padding:3px 5px;}
+  .cal .sem-col .ev .p{font-size:11px;}
+  .cal .sem-col .ev .r{font-size:10px;}
   .split{display:grid; grid-template-columns:262px 1fr; gap:16px;}
   .lista-px{background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra); overflow:hidden; align-self:start;}
   .lista-px .item{padding:12px 15px; border-top:1px solid var(--linea); cursor:pointer; display:flex; align-items:center; gap:11px;}
@@ -343,9 +357,11 @@
       <span class="fecha" id="fechaAgenda"></span>
       <button class="nav" onclick="moverDia(1)">›</button>
       <button class="btn fantasma" style="padding:9px 14px;" onclick="hoy()">Hoy</button>
+      <span class="sw-vista"><button id="swDia" onclick="setVistaAgenda('dia')">Día</button><button id="swSem" onclick="setVistaAgenda('semana')">Semana</button></span>
       <button class="btn" id="btnAgendar" style="margin-left:auto;" onclick="abrirCita('09:00')">+ Agendar cita</button>
     </div>
     <div class="leyenda" id="leyenda" style="margin:0 2px 12px;"></div>
+    <div class="sem-cab" id="semCab" style="display:none"></div>
     <div id="agenda"></div>
   </section>
 
@@ -499,7 +515,7 @@ const sb = supabase.createClient(
 );
 const estado = {
   psicologas:[], pacientes:[], citas:[], notas:[], pagos:[], facturas:[], cierres:[],
-  fechaAgenda:hoyISO(), quien:null, verArchivados:false,
+  fechaAgenda:hoyISO(), quien:null, verArchivados:false, vistaAgenda:"dia",
   cobrosPeriodo:{tipo:"semana", desde:hoyISO(), hasta:hoyISO()},
 };
 
@@ -658,6 +674,7 @@ function renderResumen(){
 
 /* ---- Agenda proporcional ---- */
 const START=8, END=20, H=64;
+function setVistaAgenda(v){ estado.vistaAgenda=v; renderAgenda(); }
 function layoutDia(evs){
   evs.forEach(e=>{ e._s=minutos(e.hora); e._e=e._s+e.dur; });
   evs.sort((a,b)=>a._s-b._s || a._e-b._e);
@@ -673,7 +690,13 @@ function layoutDia(evs){
   return evs;
 }
 function renderAgenda(){
-  document.getElementById("fechaAgenda").textContent=fechaLarga(estado.fechaAgenda);
+  const semanal = estado.vistaAgenda==="semana";
+  document.getElementById("swDia").className = semanal?"":"on";
+  document.getElementById("swSem").className = semanal?"on":"";
+  const lunS=mondayISO(estado.fechaAgenda);
+  document.getElementById("fechaAgenda").textContent = semanal
+    ? `${fmtDia(lunS)} – ${fmtDia(addDaysISO(lunS,5))}`
+    : fechaLarga(estado.fechaAgenda);
   document.getElementById("leyenda").innerHTML=(esAdmin()?estado.psicologas.slice():[viewer()])
     .map(p=>`<span><i style="background:${p.color}"></i>${corto(p.nombre)}</span>`).join("");
   const N=END-START;
@@ -686,6 +709,8 @@ function renderAgenda(){
     medias+=`<div class="media b" style="top:${i*H}px; height:${H/2}px" onclick="abrirCita('${hh}:00')"><span class="hint">+ ${hh}:00</span></div>`;
     medias+=`<div class="media b" style="top:${i*H+H/2}px; height:${H/2}px" onclick="abrirCita('${hh}:30')"><span class="hint">+ ${hh}:30</span></div>`;
   }
+  document.getElementById("semCab").style.display = semanal? "flex" : "none";
+  if(semanal){ renderAgendaSemana(lunS, lineas, N); return; }
   const evs=layoutDia(citasVisibles().filter(c=>c.fecha===estado.fechaAgenda).slice());
   const _adm=esAdmin();
   const eventos=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
@@ -699,7 +724,31 @@ function renderAgenda(){
   }).join("");
   document.getElementById("agenda").innerHTML=`<div class="cal" style="height:${N*H+1}px">${lineas}${medias}<div class="lane">${eventos}</div></div>`;
 }
-function moverDia(d){ const dt=new Date(estado.fechaAgenda+"T12:00:00"); dt.setDate(dt.getDate()+d); estado.fechaAgenda=dt.toISOString().slice(0,10); renderAgenda(); }
+function renderAgendaSemana(lun, lineas, N){
+  const adm=esAdmin(), hoyI=hoyISO();
+  const dias=[0,1,2,3,4,5].map(i=>addDaysISO(lun,i));
+  const nom=["Lun","Mar","Mié","Jue","Vie","Sáb"];
+  document.getElementById("semCab").innerHTML=dias.map((f,i)=>
+    `<div class="${f===hoyI?'hoy':''}">${nom[i]}<b>${f.slice(8,10)}</b></div>`).join("");
+  const cols=dias.map(f=>{
+    const evs=layoutDia(citasVisibles().filter(c=>c.fecha===f).slice());
+    const slots = adm? [...Array(N).keys()].map(i=>{ const hh=String(START+i).padStart(2,"0");
+      return `<div class="media b" style="position:absolute;left:0;right:0;top:${i*H}px;height:${H/2}px" onclick="abrirCitaEn('${f}','${hh}:00')"></div>`
+           + `<div class="media b" style="position:absolute;left:0;right:0;top:${i*H+H/2}px;height:${H/2}px" onclick="abrirCitaEn('${f}','${hh}:30')"></div>`;
+    }).join("") : "";
+    const items=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
+      const top=Math.max(0,(e._s-START*60)/60*H), hgt=Math.max(20,e.dur/60*H-3);
+      const left=e._col/e._cols*100, w=100/e._cols;
+      return `<div class="ev" style="top:${top}px; height:${hgt}px; left:${left}%; width:calc(${w}% - 3px); background:${p.color}; ${adm?'cursor:pointer':''}" title="${pa.nombre} · ${e.hora}–${hhmm(e._e)} · ${corto(p.nombre)}" ${adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
+        <div class="p">${pa.nombre}</div>${hgt>=34?`<div class="r">${e.hora}</div>`:""}</div>`;
+    }).join("");
+    return `<div class="sem-col">${slots}${items}</div>`;
+  }).join("");
+  document.getElementById("agenda").innerHTML=`<div class="cal" style="height:${N*H+1}px">${lineas}<div class="sem-lanes">${cols}</div></div>`;
+}
+function abrirCitaEn(fecha,h){ estado.fechaAgenda=fecha; abrirCita(h); }
+function moverDia(d){ const paso = estado.vistaAgenda==="semana"? d*7 : d;
+  const dt=new Date(estado.fechaAgenda+"T12:00:00"); dt.setDate(dt.getDate()+paso); estado.fechaAgenda=dt.toISOString().slice(0,10); renderAgenda(); }
 function hoy(){ estado.fechaAgenda=hoyISO(); renderAgenda(); }
 
 /* ---- Expediente ---- */
