@@ -544,6 +544,7 @@ let idc=100; function nuevoId(){ return "x"+(idc++); }
 function colorPac(p){ return PALETA[estado.pacientes.indexOf(p)%6]; }
 function notasConAviso(){ return esAdmin()? estado.notas.filter(n=>!n.revisada)
   : estado.notas.filter(n=>n.vistaPsic===false && (n.psic===estado.quien || (pac(n.pac)||{}).asignada===estado.quien)); }
+function atienden(){ return estado.psicologas.filter(p=>p.atiende!==false); }
 function pacActivos(base){ return (base||estado.pacientes).filter(p=>p.activo!==false); }
 function toggleArchivados(){ estado.verArchivados=!estado.verArchivados; renderExpediente(); }
 async function archivarPaciente(id){ if(!esAdmin()) return; const {error}=await sb.from("pacientes").update({activo:false}).eq("id",id); if(error){ toast("No se pudo archivar: "+error.message,"err"); return; }
@@ -563,7 +564,7 @@ async function cargarTodo(){
     sb.from("facturas").select("*"),
     sb.from("cierres").select("*").order("creado_en",{ascending:false}),
   ]);
-  estado.psicologas=(ps.data||[]).map(r=>({id:r.id,nombre:r.nombre,color:r.color,admin:r.es_direccion,tel:r.telefono,cedula:r.cedula}));
+  estado.psicologas=(ps.data||[]).map(r=>({id:r.id,nombre:r.nombre,color:r.color,admin:r.es_direccion,atiende:r.atiende!==false,tel:r.telefono,cedula:r.cedula}));
   estado.pacientes=(pac.data||[]).map(r=>({id:r.id,nombre:r.nombre,edad:r.edad,tutor:r.tutor,tel:r.telefono,motivo:r.motivo,tarifa:Number(r.tarifa)||0,asignada:r.asignada_a,activo:r.activo!==false}));
   estado.citas=(cit.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),dur:r.duracion,psic:r.psicologa_id,pac:r.paciente_id}));
   estado.notas=(nts.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,pac:r.paciente_id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,texto:r.texto,revisada:r.revisada,vistaPsic:r.vista_psic!==false,
@@ -697,7 +698,7 @@ function renderAgenda(){
   document.getElementById("fechaAgenda").textContent = semanal
     ? `${fmtDia(lunS)} – ${fmtDia(addDaysISO(lunS,5))}`
     : fechaLarga(estado.fechaAgenda);
-  document.getElementById("leyenda").innerHTML=(esAdmin()?estado.psicologas.slice():[viewer()])
+  document.getElementById("leyenda").innerHTML=(esAdmin()?atienden():[viewer()])
     .map(p=>`<span><i style="background:${p.color}"></i>${corto(p.nombre)}</span>`).join("");
   const N=END-START;
   let lineas="";
@@ -981,7 +982,7 @@ function renderEquipo(){
     <div class="miembro"><span class="av" style="background:${p.color}">${iniciales(p.nombre)}</span>
       <div style="flex:1"><b>${p.nombre}</b>
         <div class="datos">📞 ${p.tel||"—"} · ✉ ${p.email||"—"}${p.admin?"":` · céd. ${p.cedula||"—"}`}</div></div>
-      <span class="tag">${p.admin?"Dirección":"Psicóloga"}</span></div>`).join("");
+      <span class="tag">${p.admin?(p.atiende===false?"Soporte":"Dirección"):"Psicóloga"}</span></div>`).join("");
   const cc=document.getElementById("controlCard"); if(!cc) return;
   const cierres=estado.cierres||[];
   cc.innerHTML=`<div class="miembro" style="background:#FAF7FD"><b>Cierres con pendientes (control)</b><span class="tag">quién deja cosas sin registrar</span></div>`
@@ -997,9 +998,8 @@ function opciones(arr,val,txt){ return arr.map(o=>`<option value="${o[val]}">${o
 function abrir(id){ document.getElementById(id).classList.add("abierto"); }
 function cerrar(id){ document.getElementById(id).classList.remove("abierto"); }
 function fijarPsic(sel, incluirDireccion){ const s=document.getElementById(sel);
-  const lista = (esAdmin() && incluirDireccion)
-    ? estado.psicologas.slice()
-    : (esAdmin()? estado.psicologas.slice() : estado.psicologas.filter(p=>!p.admin));
+  let lista = esAdmin()? atienden() : estado.psicologas.filter(p=>!p.admin);
+  if(esAdmin() && incluirDireccion && !lista.some(x=>x.id===estado.quien)) lista=[viewer()].concat(lista);
   s.innerHTML=opciones(lista,"id","nombre");
   if(!esAdmin()){ s.value=estado.quien; s.disabled=true; }
   else { s.disabled=false; if(incluirDireccion) s.value=estado.quien; } }
@@ -1034,7 +1034,9 @@ function abrirEditarCita(id){
   document.getElementById("cGuardar").textContent="Guardar cambios";
   document.getElementById("cEliminar").style.display="";
   document.getElementById("cPaciente").innerHTML=opciones(estado.pacientes,"id","nombre");
-  const s=document.getElementById("cPsic"); s.disabled=false; s.innerHTML=opciones(estado.psicologas.slice(),"id","nombre");
+  const s=document.getElementById("cPsic"); s.disabled=false;
+  const listaC = atienden().some(x=>x.id===c.psic)? atienden() : [psic(c.psic)].concat(atienden());
+  s.innerHTML=opciones(listaC,"id","nombre");
   document.getElementById("cPaciente").value=c.pac; s.value=c.psic;
   document.getElementById("cHora").value=c.hora; document.getElementById("cDur").value=String(c.dur);
   diasSel={}; document.getElementById("cRepetirCampo").style.display="none";
@@ -1152,7 +1154,7 @@ function abrirPaciente(){
   document.getElementById("paNombre").value=""; document.getElementById("paEdad").value=6;
   document.getElementById("paTel").value=""; document.getElementById("paTutor").value=""; document.getElementById("paMotivo").value=""; document.getElementById("paTarifa").value=600;
   const campo=document.getElementById("paAsignadaCampo");
-  if(esAdmin()){ campo.style.display=""; document.getElementById("paAsignada").innerHTML=opciones(estado.psicologas.slice(),"id","nombre"); }
+  if(esAdmin()){ campo.style.display=""; document.getElementById("paAsignada").innerHTML=opciones(atienden(),"id","nombre"); }
   else campo.style.display="none";
   abrir("modalPaciente");
 }
@@ -1169,7 +1171,7 @@ function abrirEditarPaciente(id){
   document.getElementById("paMotivo").value=(p.motivo&&p.motivo!=="—")?p.motivo:"";
   document.getElementById("paTarifa").value=p.tarifa||0;
   const campo=document.getElementById("paAsignadaCampo"); campo.style.display="";
-  document.getElementById("paAsignada").innerHTML=opciones(estado.psicologas.slice(),"id","nombre");
+  document.getElementById("paAsignada").innerHTML=opciones(atienden(),"id","nombre");
   if(p.asignada) document.getElementById("paAsignada").value=p.asignada;
   abrir("modalPaciente");
 }
