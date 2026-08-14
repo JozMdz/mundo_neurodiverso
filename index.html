@@ -143,6 +143,20 @@
   .rev-chip.por{background:var(--alerta-suave); color:var(--alerta);}
   .rev-chip.ok{background:var(--ok-suave); color:var(--ok);}
   .rev-chip.nuevo{background:#FDE7F1; color:var(--rosa);}
+  .dias-chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .dia-chip{border:1px solid var(--linea-fuerte); background:#fff; color:var(--gris); border-radius:999px; padding:7px 13px; font-weight:800; font-size:13px; cursor:pointer;}
+  .dia-chip.on{background:var(--morado); border-color:var(--morado); color:#fff;}
+  .dia-hora{display:flex; align-items:center; gap:10px; margin-top:6px;}
+  .dia-hora span{font-weight:800; font-size:13px; color:var(--tinta); width:42px;}
+  .dia-hora input{border:1px solid var(--linea-fuerte); border-radius:8px; padding:6px 9px; font-size:14px;}
+  .hint-dias{font-size:12.5px; color:var(--gris); font-weight:600; margin-top:4px;}
+  .subtotales{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+  .sub-b{flex:1; min-width:104px; background:#fff; border:1px solid var(--linea); border-radius:12px; padding:9px 12px;}
+  .sub-b .l{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px;}
+  .sub-b .v{font-size:17px; font-weight:800; color:var(--tinta); font-variant-numeric:tabular-nums;}
+  .sub-b .c{font-size:11.5px; color:var(--gris); font-weight:700;}
+  .sub-b.ef .l{color:var(--ok);} .sub-b.tr .l{color:var(--cian);} .sub-b.ta .l{color:var(--morado);} .sub-b.to .l{color:var(--gris);}
+  .fila-acc{white-space:nowrap; text-align:right;}
   .rev-btn{background:none; border:1px solid var(--linea-fuerte); color:var(--morado); border-radius:999px; padding:3px 10px; font-weight:800; font-size:11.5px; cursor:pointer;}
   .rev-btn:hover{background:#FBF9FE;}
   .tab-badge{background:var(--rosa); color:#fff; font-size:11px; font-weight:800; border-radius:999px; padding:1px 7px; margin-left:2px;}
@@ -346,8 +360,11 @@
       <button class="btn verde" onclick="abrirPago()">+ Registrar cobro</button></div>
     <div class="filtro" id="filtroCobros"></div>
     <div class="grid-cobros">
-      <table class="pagos"><thead><tr><th>Paciente</th><th>Psicóloga</th><th>Método</th><th style="text-align:right;">Monto</th><th>Estado</th></tr></thead>
-        <tbody id="tbodyPagos"></tbody></table>
+      <div>
+        <div class="subtotales" id="subCobros"></div>
+        <table class="pagos"><thead><tr><th>Paciente</th><th>Psicóloga</th><th>Método</th><th style="text-align:right;">Monto</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="tbodyPagos"></tbody></table>
+      </div>
       <div class="corte" id="corte"></div>
     </div>
   </section>
@@ -375,6 +392,13 @@
       <div class="campo"><label>Hora inicio</label><input type="time" id="cHora" step="900" value="09:00"></div>
       <div class="campo"><label>Duración</label><select id="cDur"><option value="60">60 min</option><option value="45">45 min</option><option value="90">90 min</option><option value="30">30 min</option></select></div>
     </div>
+    <div id="cRepetirCampo">
+      <div class="campo"><label>¿Qué días acude? (opcional)</label>
+        <div class="dias-chips" id="cDias"></div></div>
+      <div id="cHorasDias"></div>
+      <div class="campo" id="cSemanasCampo" style="display:none"><label>Repetir durante</label>
+        <select id="cSemanas"><option value="1">1 semana</option><option value="2">2 semanas</option><option value="4" selected>4 semanas</option><option value="8">8 semanas</option><option value="12">12 semanas</option></select></div>
+    </div>
   </div>
   <div class="pie"><button class="btn eliminar" id="cEliminar" style="display:none; margin-right:auto;" onclick="eliminarCita()">Eliminar</button>
     <button class="btn fantasma" onclick="cerrar('modalCita')">Cancelar</button>
@@ -392,7 +416,7 @@
 </div></div>
 
 <div class="fondo-modal" id="modalPago"><div class="modal">
-  <div class="cab"><h3>Registrar cobro</h3></div>
+  <div class="cab"><h3 id="pTitulo">Registrar cobro</h3></div>
   <div class="cuerpo">
     <div class="campo"><label>Paciente</label><select id="pPaciente"></select></div>
     <div class="campo"><label>Psicóloga que atendió</label><select id="pPsic"></select></div>
@@ -403,7 +427,7 @@
     <div style="font-size:12.5px; color:var(--gris); font-weight:600;">Transferencia y tarjeta llegan a la cuenta de Dirección. El efectivo lo conserva quien lo recibe hasta el corte.</div>
   </div>
   <div class="pie"><button class="btn fantasma" onclick="cerrar('modalPago')">Cancelar</button>
-    <button class="btn verde" onclick="guardarPago()">Registrar</button></div>
+    <button class="btn verde" id="pGuardar" onclick="guardarPago()">Registrar</button></div>
 </div></div>
 
 <div class="fondo-modal" id="modalPaciente"><div class="modal">
@@ -814,9 +838,21 @@ function renderCobros(){
     const val = g.validado
       ? `<span class="val ok"${admin?` onclick="validarPago('${g.id}')" title="Toca para desmarcar"`:""}>validado ✓</span>`
       : (admin? `<span class="val por" onclick="validarPago('${g.id}')" title="Toca para validar">por validar</span>` : `<span class="val por">por validar</span>`);
+    const puede = admin || g.psic===estado.quien;
+    const acc = puede? `<button class="nota-mini" title="Editar cobro" onclick="abrirEditarPago('${g.id}')">✎</button><button class="nota-mini" title="Eliminar cobro" onclick="eliminarPago('${g.id}')">🗑</button>` : "";
     return `<tr><td>${pac(g.pac).nombre}</td><td><span class="mini-color" style="background:${p.color}"></span>${corto(p.nombre)}</td>
-      <td><span class="metodo ${g.metodo}">${g.metodo}</span></td><td class="monto">${montoTxt}</td><td>${val}</td></tr>`;
-  }).join("") || `<tr><td colspan="5"><div class="vacio"><b>Sin cobros en este periodo</b></div></td></tr>`;
+      <td><span class="metodo ${g.metodo}">${g.metodo}</span></td><td class="monto">${montoTxt}</td><td>${val}</td><td class="fila-acc">${acc}</td></tr>`;
+  }).join("") || `<tr><td colspan="6"><div class="vacio"><b>Sin cobros en este periodo</b></div></td></tr>`;
+
+  const sub={efectivo:{n:0,m:0}, transferencia:{n:0,m:0}, tarjeta:{n:0,m:0}};
+  pagos.forEach(g=>{ if(sub[g.metodo]){ sub[g.metodo].n++; sub[g.metodo].m+=g.monto; } });
+  const totN=pagos.length, totM=pagos.reduce((a,g)=>a+g.monto,0);
+  const cel=(cls,lbl,d,verMonto)=>`<div class="sub-b ${cls}"><div class="l">${lbl}</div><div class="v">${verMonto?mxn(d.m):"—"}</div><div class="c">${d.n} ${d.n===1?"cobro":"cobros"}</div></div>`;
+  document.getElementById("subCobros").innerHTML=
+      cel("ef","Efectivo",sub.efectivo,true)
+    + cel("tr","Transferencia",sub.transferencia,admin)
+    + cel("ta","Tarjeta",sub.tarjeta,admin)
+    + cel("to","Total",{n:totN,m:totM},admin);
 
   const corte=document.getElementById("corte");
   if(admin){
@@ -868,7 +904,7 @@ function renderFacturas(){
       <div><b>${pac(f.pac).nombre}</b> <span style="color:var(--gris); font-weight:600;">· ${mxn(f.monto)}</span>
         <div class="fechas">${fechas}</div></div>
       <span class="pidio">${admin?"pidió: "+corto(psic(f.solicitadaPor).nombre):""}</span>
-      <span class="estado-wrap">${(admin && f.estado!=="solicitada")?`<button class="undo-btn" title="Regresar estado" onclick="retrocederFactura('${f.id}')">↶</button>`:""}<span class="estado ${f.estado} ${clickable?'click':''}" ${clickable?`onclick="avanzarFactura('${f.id}')"`:""}>${etiqueta}</span></span></div>`;
+      <span class="estado-wrap">${(admin && f.estado!=="solicitada")?`<button class="undo-btn" title="Regresar estado" onclick="retrocederFactura('${f.id}')">↶</button>`:""}<span class="estado ${f.estado} ${clickable?'click':''}" ${clickable?`onclick="avanzarFactura('${f.id}')"`:""}>${etiqueta}</span>${(admin||f.solicitadaPor===estado.quien)?`<button class="nota-mini" title="Editar" onclick="abrirEditarFactura('${f.id}')">✎</button><button class="nota-mini" title="Eliminar" onclick="eliminarFactura('${f.id}')">🗑</button>`:""}</span></div>`;
   }).join("") : `<div class="vacio" style="padding:34px;"><b>${admin?"No hay facturas":"No has avisado de ninguna factura"}</b>${admin?"":"Usa el botón cuando un papá te pida factura y Dirección la verá."}</div>`;
 }
 async function avanzarFactura(id){
@@ -919,7 +955,18 @@ function fijarPsic(sel, incluirDireccion){ const s=document.getElementById(sel);
   if(!esAdmin()){ s.value=estado.quien; s.disabled=true; }
   else { s.disabled=false; if(incluirDireccion) s.value=estado.quien; } }
 
-let citaEditId=null;
+let citaEditId=null; let pagoEditId=null; let facturaEditId=null;
+const DIAS=[{i:1,n:"Lun"},{i:2,n:"Mar"},{i:3,n:"Mié"},{i:4,n:"Jue"},{i:5,n:"Vie"},{i:6,n:"Sáb"}];
+let diasSel={};
+function renderDiasChips(){
+  document.getElementById("cDias").innerHTML=DIAS.map(d=>`<button type="button" class="dia-chip ${diasSel[d.i]!==undefined?'on':''}" onclick="toggleDia(${d.i})">${d.n}</button>`).join("");
+  const ks=Object.keys(diasSel).sort();
+  document.getElementById("cSemanasCampo").style.display= ks.length? "" : "none";
+  document.getElementById("cHorasDias").innerHTML= ks.length
+    ? ks.map(k=>`<div class="dia-hora"><span>${DIAS.find(d=>d.i==k).n}</span><input type="time" step="900" value="${diasSel[k]}" onchange="diasSel[${k}]=this.value"></div>`).join("")
+    : `<div class="hint-dias">Sin días marcados se agenda una sola cita, la de esta fecha.</div>`;
+}
+function toggleDia(i){ if(diasSel[i]!==undefined) delete diasSel[i]; else diasSel[i]=document.getElementById("cHora").value||"09:00"; renderDiasChips(); }
 function abrirCita(h){
   citaEditId=null;
   document.getElementById("cTitulo").textContent="Agendar cita";
@@ -928,7 +975,7 @@ function abrirCita(h){
   document.getElementById("cPaciente").innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre");
   fijarPsic("cPsic");
   document.getElementById("cHora").value=h; document.getElementById("cDur").value="60";
-  document.getElementById("conflicto").classList.remove("ver"); abrir("modalCita");
+  document.getElementById("conflicto").classList.remove("ver"); diasSel={}; document.getElementById("cRepetirCampo").style.display=""; renderDiasChips(); abrir("modalCita");
 }
 function abrirEditarCita(id){
   if(!esAdmin()) return;
@@ -941,6 +988,7 @@ function abrirEditarCita(id){
   const s=document.getElementById("cPsic"); s.disabled=false; s.innerHTML=opciones(estado.psicologas.slice(),"id","nombre");
   document.getElementById("cPaciente").value=c.pac; s.value=c.psic;
   document.getElementById("cHora").value=c.hora; document.getElementById("cDur").value=String(c.dur);
+  diasSel={}; document.getElementById("cRepetirCampo").style.display="none";
   document.getElementById("conflicto").classList.remove("ver"); abrir("modalCita");
 }
 async function guardarCita(){
@@ -952,11 +1000,37 @@ async function guardarCita(){
     document.getElementById("txtConflicto").textContent=`${p.nombre} ya tiene a ${pac(choque.pac).nombre} a las ${choque.hora}. Elige otra hora u otra psicóloga.`;
     document.getElementById("conflicto").classList.add("ver"); return; }
   const editando=citaEditId;
-  let error;
-  if(editando){ ({error}=await sb.from("citas").update({paciente_id:pacId, psicologa_id:psicId, hora, duracion:dur}).eq("id",editando)); }
-  else { ({error}=await sb.from("citas").insert({fecha:estado.fechaAgenda, hora, duracion:dur, psicologa_id:psicId, paciente_id:pacId})); }
+  if(editando){
+    const {error}=await sb.from("citas").update({paciente_id:pacId, psicologa_id:psicId, hora, duracion:dur}).eq("id",editando);
+    if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
+    cerrar("modalCita"); await refrescar(); toast("Cita actualizada ✓","ok"); return;
+  }
+  const dias=Object.keys(diasSel);
+  if(!dias.length){
+    const {error}=await sb.from("citas").insert({fecha:estado.fechaAgenda, hora, duracion:dur, psicologa_id:psicId, paciente_id:pacId});
+    if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
+    cerrar("modalCita"); await refrescar(); toast("Cita agendada: "+hora+"–"+hhmm(ini+dur)+" ✓","ok"); return;
+  }
+  const semanas=+document.getElementById("cSemanas").value||1;
+  const lunes=mondayISO(estado.fechaAgenda);
+  const nuevas=[], choques=[];
+  for(let w=0; w<semanas; w++){
+    dias.forEach(k=>{
+      const fecha=addDaysISO(lunes, (+k-1) + 7*w);
+      if(fecha < estado.fechaAgenda) return;
+      const h=diasSel[k], a=minutos(h), b=a+dur;
+      const ch=estado.citas.find(c=>{ if(c.fecha!==fecha||c.psic!==psicId) return false;
+        const ci=minutos(c.hora), cf=ci+c.dur; return a<cf && ci<b; });
+      if(ch){ choques.push(fmtDia(fecha)+" "+h); return; }
+      if(nuevas.some(x=>x.fecha===fecha && x.hora===h)) return;
+      nuevas.push({fecha, hora:h, duracion:dur, psicologa_id:psicId, paciente_id:pacId});
+    });
+  }
+  if(!nuevas.length){ toast("Todas esas horas ya están ocupadas","err"); return; }
+  const {error}=await sb.from("citas").insert(nuevas);
   if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
-  cerrar("modalCita"); await refrescar(); toast(editando?"Cita actualizada ✓":"Cita agendada: "+hora+"–"+hhmm(ini+dur)+" ✓","ok");
+  cerrar("modalCita"); await refrescar();
+  toast(nuevas.length+" citas agendadas ✓"+(choques.length?` · ${choques.length} se omitieron por empalme`:""),"ok");
 }
 async function eliminarCita(){
   if(!citaEditId) return; const c=estado.citas.find(x=>x.id===citaEditId); const nom=c?pac(c.pac).nombre:""; const idc=citaEditId; citaEditId=null;
@@ -972,7 +1046,35 @@ async function guardarNota(){ const texto=document.getElementById("nTexto").valu
   if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
   cerrar("modalNota"); await refrescar(); toast("Nota guardada ✓","ok"); }
 
-function abrirPago(){ const sel=document.getElementById("pPaciente"); sel.innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre"); sel.onchange=function(){ sincronizarTarifa(); }; fijarPsic("pPsic"); document.getElementById("pMetodo").value="transferencia"; sincronizarTarifa(); actualizarCampoMonto(); abrir("modalPago"); }
+function abrirEditarPago(id){
+  const g=estado.pagos.find(x=>x.id===id); if(!g) return;
+  if(!(esAdmin()||g.psic===estado.quien)){ toast("Solo puedes editar tus cobros","err"); return; }
+  pagoEditId=id;
+  document.getElementById("pTitulo").textContent="Editar cobro";
+  document.getElementById("pGuardar").textContent="Guardar cambios";
+  const sel=document.getElementById("pPaciente");
+  sel.innerHTML=opciones(esAdmin()?estado.pacientes:pacientesVisibles(),"id","nombre");
+  sel.onchange=null; sel.value=g.pac;
+  fijarPsic("pPsic"); document.getElementById("pPsic").value=g.psic;
+  document.getElementById("pMetodo").value=g.metodo;
+  document.getElementById("pMonto").value=g.monto;
+  const ocultar=(!esAdmin() && g.metodo!=="efectivo");
+  document.getElementById("campoMonto").style.display=ocultar?"none":"";
+  abrir("modalPago");
+}
+async function eliminarPago(id){
+  const g=estado.pagos.find(x=>x.id===id); if(!g) return;
+  if(!(esAdmin()||g.psic===estado.quien)){ toast("Solo puedes eliminar tus cobros","err"); return; }
+  if(g.validado && !esAdmin()){ toast("Ese cobro ya fue validado por Dirección","err"); return; }
+  if(!confirm("¿Eliminar este cobro de "+pac(g.pac).nombre+"?")) return;
+  const {error}=await sb.from("pagos").delete().eq("id",id);
+  if(error){ toast("No se pudo eliminar: "+error.message,"err"); return; }
+  await refrescar(); toast("Cobro eliminado ✓","ok");
+}
+function abrirPago(){ pagoEditId=null;
+  document.getElementById("pTitulo").textContent="Registrar cobro";
+  document.getElementById("pGuardar").textContent="Registrar";
+  const sel=document.getElementById("pPaciente"); sel.innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre"); sel.onchange=function(){ sincronizarTarifa(); }; fijarPsic("pPsic"); document.getElementById("pMetodo").value="transferencia"; sincronizarTarifa(); actualizarCampoMonto(); abrir("modalPago"); }
 function sincronizarTarifa(){
   const p=pac(document.getElementById("pPaciente").value);
   const metodo=document.getElementById("pMetodo").value;
@@ -985,6 +1087,11 @@ async function guardarPago(){ const metodo=document.getElementById("pMetodo").va
   const oculto=(!esAdmin() && metodo!=="efectivo");
   let monto = oculto ? (pac(pacId).tarifa||0) : +document.getElementById("pMonto").value;
   if(!monto||monto<=0){ toast("Escribe un monto válido","err"); return; }
+  if(pagoEditId){
+    const {error}=await sb.from("pagos").update({paciente_id:pacId, psicologa_id:document.getElementById("pPsic").value, monto, metodo}).eq("id",pagoEditId);
+    if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
+    cerrar("modalPago"); await refrescar(); toast("Cobro actualizado ✓","ok"); return;
+  }
   const {error}=await sb.from("pagos").insert({paciente_id:pacId, psicologa_id:document.getElementById("pPsic").value, monto, metodo, validado:esAdmin(), fecha:hoyISO(), hora:ahoraHM()});
   if(error){ toast("No se pudo registrar: "+error.message,"err"); return; }
   cerrar("modalPago"); await refrescar(); toast("Cobro registrado ✓","ok"); }
@@ -1053,14 +1160,38 @@ function guardarPsic(){
 }
 
 function abrirFactura(){
+  facturaEditId=null;
   document.getElementById("facTitulo").textContent=esAdmin()?"Nueva factura":"Avisar factura pedida";
   document.getElementById("fPaciente").innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre");
   document.getElementById("fMonto").value=600; abrir("modalFactura");
+}
+function abrirEditarFactura(id){
+  const f=estado.facturas.find(x=>x.id===id); if(!f) return;
+  if(!(esAdmin()||f.solicitadaPor===estado.quien)){ toast("Solo puedes editar las tuyas","err"); return; }
+  facturaEditId=id;
+  document.getElementById("facTitulo").textContent="Editar factura";
+  document.getElementById("fPaciente").innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre");
+  document.getElementById("fPaciente").value=f.pac;
+  document.getElementById("fMonto").value=f.monto;
+  abrir("modalFactura");
+}
+async function eliminarFactura(id){
+  const f=estado.facturas.find(x=>x.id===id); if(!f) return;
+  if(!(esAdmin()||f.solicitadaPor===estado.quien)){ toast("Solo puedes eliminar las tuyas","err"); return; }
+  if(!confirm("¿Eliminar esta factura de "+pac(f.pac).nombre+"?")) return;
+  const {error}=await sb.from("facturas").delete().eq("id",id);
+  if(error){ toast("No se pudo eliminar: "+error.message,"err"); return; }
+  await refrescar(); toast("Factura eliminada ✓","ok");
 }
 async function guardarFactura(){
   const monto=+document.getElementById("fMonto").value;
   if(!monto||monto<=0){ toast("Escribe un monto válido","err"); return; }
   const pacId=document.getElementById("fPaciente").value;
+  if(facturaEditId){
+    const {error}=await sb.from("facturas").update({paciente_id:pacId, monto}).eq("id",facturaEditId);
+    if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
+    cerrar("modalFactura"); await refrescar(); toast("Factura actualizada ✓","ok"); return;
+  }
   const {error}=await sb.from("facturas").insert({paciente_id:pacId, monto, estado:"solicitada", solicitada_por:estado.quien});
   if(error){ toast("No se pudo: "+error.message,"err"); return; }
   cerrar("modalFactura"); await refrescar();
