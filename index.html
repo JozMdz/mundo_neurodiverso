@@ -168,6 +168,16 @@
   .dia-hora span{font-weight:800; font-size:13px; color:var(--tinta); width:42px;}
   .dia-hora input{border:1px solid var(--linea-fuerte); border-radius:8px; padding:6px 9px; font-size:14px;}
   .hint-dias{font-size:12.5px; color:var(--gris); font-weight:600; margin-top:4px;}
+  .resumen-px{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+  .rp{flex:1; min-width:96px; background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px; padding:9px 12px;}
+  .rp .v{font-family:'Fredoka',sans-serif; font-size:19px; line-height:1.1; color:var(--morado);}
+  .rp .l{font-size:10.5px; font-weight:800; color:var(--gris); text-transform:uppercase; letter-spacing:.4px;}
+  .rp.rosa .v{color:var(--rosa);} .rp.verde .v{color:var(--verde);} .rp.cian .v{color:var(--cian);}
+  .buscador{margin-bottom:12px;}
+  .buscador input{width:100%; border:1px solid var(--linea-fuerte); border-radius:999px; padding:11px 16px; font-size:14.5px; font-family:inherit; background:var(--tarjeta);}
+  .buscador input:focus{outline:none; border-color:var(--morado);}
+  .lista-px .item .quien{display:inline-flex; align-items:center; gap:4px;}
+  .lista-px .item .pt{width:8px; height:8px; border-radius:50%; display:inline-block;}
   .subtotales{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
   .sub-b{flex:1; min-width:104px; background:#fff; border:1px solid var(--linea); border-radius:12px; padding:9px 12px;}
   .sub-b .l{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px;}
@@ -371,6 +381,8 @@
 
   <section class="vista" id="v-expediente">
     <div class="cabecera-vista"><h2>Expediente por paciente</h2><div class="sep"></div></div>
+    <div class="resumen-px" id="resumenPx"></div>
+    <div class="buscador"><input id="buscaPx" type="search" placeholder="🔎 Buscar paciente por nombre…" oninput="renderExpediente()"></div>
     <div class="split"><div class="lista-px" id="listaPx"></div><div id="expedienteDetalle"></div></div>
   </section>
 
@@ -590,6 +602,7 @@ async function entrar(){
   if(!user){ mostrarLogin(); return; }
   estado.quien=user.id;
   await cargarTodo();
+  if(viewer() && viewer().admin) estado.vistaAgenda="semana";
   if(!viewer()){ toast("Tu usuaria no tiene perfil creado. Avisa a Dirección.","err"); await sb.auth.signOut(); estado.quien=null; mostrarLogin(); return; }
   document.getElementById("login").classList.add("oculto");
   irA("agenda"); render(); suscribir();
@@ -764,10 +777,37 @@ function renderExpediente(){
   const lista = estado.verArchivados ? visibles : visibles.filter(p=>p.activo!==false);
   if(!lista.some(x=>x.id===pacienteSel)) pacienteSel = lista.length? lista[0].id : null;
   const nArch = visibles.filter(p=>p.activo===false).length;
-  document.getElementById("listaPx").innerHTML=lista.map(p=>`
-    <div class="item ${p.id===pacienteSel?'sel':''}" onclick="seleccionarPx('${p.id}')" style="${p.activo===false?'opacity:.55':''}">
+
+  // Resumen del módulo
+  const activos = visibles.filter(p=>p.activo!==false);
+  const ini=hoyISO().slice(0,8)+"01";
+  const sesMes = estado.notas.filter(n=>n.fecha>=ini && activos.some(p=>p.id===n.pac)).length;
+  const avisos = notasConAviso().length;
+  const rp=document.getElementById("resumenPx");
+  if(rp) rp.innerHTML =
+      `<div class="rp"><div class="v">${activos.length}</div><div class="l">Pacientes activos</div></div>`
+    + `<div class="rp cian"><div class="v">${sesMes}</div><div class="l">Sesiones este mes</div></div>`
+    + (esAdmin()? `<div class="rp ${avisos?'rosa':'verde'}"><div class="v">${avisos}</div><div class="l">Notas por revisar</div></div>`
+                : `<div class="rp ${avisos?'rosa':'verde'}"><div class="v">${avisos}</div><div class="l">Mensajes nuevos</div></div>`)
+    + (nArch? `<div class="rp"><div class="v" style="color:var(--gris)">${nArch}</div><div class="l">Archivados</div></div>` : "");
+
+  // Filtro por nombre
+  const q=(document.getElementById("buscaPx")||{}).value||"";
+  const filtrada = q.trim()? lista.filter(p=>p.nombre.toLowerCase().includes(q.trim().toLowerCase())) : lista;
+
+  document.getElementById("listaPx").innerHTML=(filtrada.length? filtrada : []).map(p=>{
+    const av=notasConAviso().filter(n=>n.pac===p.id).length;
+    const ps=psic(p.asignada);
+    const sub = p.activo===false ? "archivado"
+      : [ (p.edad? p.edad+" años" : null),
+          (esAdmin() && ps? `<span class="quien"><span class="pt" style="background:${ps.color}"></span>${corto(ps.nombre)}</span>` : null),
+          (p.tutor||null)
+        ].filter(Boolean).slice(0,2).join(" · ") || "sin datos";
+    return `<div class="item ${p.id===pacienteSel?'sel':''}" onclick="seleccionarPx('${p.id}')" style="${p.activo===false?'opacity:.55':''}">
       <div class="avatar" style="background:${colorPac(p)}">${iniciales(p.nombre)}</div>
-      <div class="info"><b>${p.nombre}</b><span>${p.activo===false?'archivado':(p.edad+' años · '+p.tutor)}</span></div>${(p.activo!==false&&notasConAviso().filter(n=>n.pac===p.id).length)?`<span class="px-badge">${notasConAviso().filter(n=>n.pac===p.id).length}</span>`:""}</div>`).join("")
+      <div class="info"><b>${p.nombre}</b><span>${sub}</span></div>${(p.activo!==false&&av)?`<span class="px-badge">${av}</span>`:""}</div>`;
+  }).join("")
+    + (q.trim()&&!filtrada.length? `<div class="add" style="color:var(--gris)">Sin coincidencias para “${q}”</div>` : "")
     + (esAdmin()? `<div class="add" onclick="abrirPaciente()">+ Nuevo paciente</div>` : "")
     + ((esAdmin()&&(nArch>0||estado.verArchivados))? `<div class="add" style="color:var(--gris)" onclick="toggleArchivados()">${estado.verArchivados?"Ocultar archivados":"Ver archivados ("+nArch+")"}</div>` : "");
 
@@ -779,8 +819,8 @@ function renderExpediente(){
   cont.innerHTML=`<div class="expediente">
     <div class="top"><div class="avatar" style="background:${colorPac(p)}">${iniciales(p.nombre)}</div>
       <div style="flex:1; min-width:180px"><h3>${p.nombre}${arch?` <span class="rev-chip por" style="vertical-align:middle">archivado</span>`:""}</h3>
-        <div class="meta">${p.edad} años · ${p.tutor}${esAdmin()?` · 📞 ${p.tel||"—"}`:""}</div>
-        <div class="meta">Motivo: <b>${p.motivo||"—"}</b> · ${notas.length} sesiones</div></div>
+        <div class="meta">${[(p.edad?p.edad+" años":null),(p.tutor||null),(esAdmin()&&p.tel?"📞 "+p.tel:null)].filter(Boolean).join(" · ")||"Sin datos capturados"}</div>
+        <div class="meta">Motivo: <b>${p.motivo||"—"}</b> · ${notas.length} ${notas.length===1?"sesión":"sesiones"}</div></div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${esAdmin()?`<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`:""}${esAdmin()?(arch?`<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>`:`<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`):""}${(arch&&!esAdmin())?"":`<button class="btn" onclick="abrirNota()">+ Nota de sesión</button>`}</div></div>
     <div class="timeline">${notas.length? notas.map((n,i)=>{ const ps=psic(n.psic); const nc=(n.comentarios||[]).length;
       return `<div class="nota"><div class="linea-tiempo" style="color:${ps.color}"><div class="punto"></div>${i<notas.length-1?'<div class="conector"></div>':''}</div>
@@ -866,7 +906,10 @@ async function guardarEdicionComentario(nid,cid){
 }
 async function marcarRevisada(id){ const {error}=await sb.from("notas").update({revisada:true}).eq("id",id); if(error){ toast("No se pudo","err"); return; } await refrescar(); toast("Nota marcada como revisada ✓","ok"); }
 function updateBadges(){ const b=document.getElementById("badgeExp"); if(!b) return; const c=notasConAviso().length; b.textContent=c?String(c):""; }
-function seleccionarPx(id){ const p=pac(id); if(p && p.activo===false && !(esAdmin()&&estado.verArchivados)) return; pacienteSel=id; renderExpediente(); }
+function seleccionarPx(id){ const p=pac(id); if(p && p.activo===false && !(esAdmin()&&estado.verArchivados)) return;
+  pacienteSel=id; renderExpediente();
+  if(window.innerWidth<820){ const d=document.getElementById("expedienteDetalle"); if(d) d.scrollIntoView({behavior:"smooth", block:"start"}); }
+}
 const EMOJIS=["😊","👍","🎉","❤️","👏","🙌","💪","✅","📌","😄","🤔","🙏","👀","🔥","😢","😅","💡","⭐","🧩","🌈","😍","🥳"];
 function toggleEmojis(id){ const p=document.getElementById("emo-"+id); if(p) p.classList.toggle("ver"); }
 function insertEmoji(id,e){ const inp=document.getElementById("com-"+id); if(inp){ inp.value+=e; inp.focus(); } const p=document.getElementById("emo-"+id); if(p) p.classList.remove("ver"); }
