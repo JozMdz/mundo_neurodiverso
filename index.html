@@ -619,7 +619,9 @@ async function loginEmail(){
 }
 function mostrarLogin(){ document.getElementById("login").classList.remove("oculto"); document.getElementById("loginEmail").value=""; document.getElementById("loginPass").value=""; }
 async function cerrarSesion(){ await sb.auth.signOut(); estado.quien=null; mostrarLogin(); }
-function pendientesHoy(){ const cit=estado.citas.filter(c=>c.fecha===hoyISO()&&c.psic===estado.quien).length;
+function citasTerminadasHoy(quien){ const ahora=minutos(ahoraHM());
+  return estado.citas.filter(c=>c.fecha===hoyISO() && (!quien||c.psic===quien) && (minutos(c.hora)+(c.dur||60))<=ahora); }
+function pendientesHoy(){ const cit=citasTerminadasHoy(estado.quien).length;
   const nt=estado.notas.filter(n=>n.fecha===hoyISO()&&n.psic===estado.quien).length;
   const co=estado.pagos.filter(g=>g.fecha===hoyISO()&&g.psic===estado.quien).length;
   return {citas:cit, notas:Math.max(0,cit-nt), cobros:Math.max(0,cit-co)}; }
@@ -673,14 +675,15 @@ function renderResumen(){
   const efHoy=pagosVisibles().filter(g=>g.fecha===hoyISO()&&g.metodo==="efectivo").reduce((s,g)=>s+g.monto,0);
   const totHoy=pagosVisibles().filter(g=>g.fecha===hoyISO()).reduce((s,g)=>s+g.monto,0);
   const fp=facturasVisibles().filter(f=>f.estado!=="entregada").length;
-  const pend=Math.max(0, cHoy - nHoy);
+  const terminadas=citasTerminadasHoy(admin?null:estado.quien).length;
+  const pend=Math.max(0, terminadas - nHoy);
   const sinRevisar=estado.notas.filter(n=>!n.revisada).length;
   const kpis=[
     {n:cHoy, l:(admin?"Citas hoy":"Mis citas hoy"), extra:"agendadas", c:COLORES.morado},
     admin ? {n:sinRevisar, l:"Notas por revisar", extra:(sinRevisar>0?"en expedientes":"todo revisado ✓"), c:(sinRevisar>0?COLORES.naranja:COLORES.verde)}
           : (notasConAviso().length>0
               ? {n:notasConAviso().length, l:"Mensajes de Dirección", extra:"en tus expedientes", c:COLORES.rosa}
-              : {n:pend, l:"Notas por registrar", extra:(pend>0?`de ${cHoy} sesiones de hoy`:"¡al día! ✓"), c:(pend>0?COLORES.naranja:COLORES.verde)}),
+              : {n:pend, l:"Notas por registrar", extra:(pend>0?`de ${terminadas} ${terminadas===1?"sesión ya dada":"sesiones ya dadas"}`:"¡al día! ✓"), c:(pend>0?COLORES.naranja:COLORES.verde)}),
     admin ? {n:mxn(totHoy), l:"Cobrado hoy", extra:"efectivo + a cuenta", c:COLORES.naranja}
           : {n:mxn(efHoy), l:"Efectivo en tu poder", extra:"que debes conciliar hoy", c:COLORES.naranja},
     {n:fp, l:(admin?"Facturas pendientes":"Tus facturas pedidas"), extra:admin?"por emitir o entregar":"en espera de Dirección", c:COLORES.cian},
