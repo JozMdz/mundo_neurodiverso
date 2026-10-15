@@ -18,7 +18,7 @@ Reglas:
    No agregues otros cortes.
 3. Nada puede causar scroll horizontal de la página. Lo que no quepa, como las tablas, va dentro de un
    contenedor con `overflow-x:auto` (`.tabla-scroll`). En grids usa `minmax(0,1fr)` y en hijos flex `min-width:0`.
-4. Áreas táctiles de **44 px** o más. Nada puede depender de `:hover`.
+4. Debe verse bien también en Android (revisa con `DISPOSITIVO='Pixel 5'` en `captura.js`). Áreas táctiles de **44 px** o más. Nada puede depender de `:hover`.
 5. Campos de texto con letra de **16 px** o más: con menos, Safari hace zoom al escribir.
 6. La navegación son las pestañas fijas abajo (`nav.tabs`). Las ventanas (`.fondo-modal`) suben desde
    abajo como hojas de iOS.
@@ -52,6 +52,12 @@ Lo que marca una psicóloga queda **por confirmar** hasta que Dirección lo corr
 de día (campo Día en la hoja de cita). Canceladas y "no asistió" no piden nota ni cobro ni ocupan el horario.
 El corte de Cobros (`sesionesDe`) compara las sesiones dadas de la agenda con los cobros de cada paciente y avisa
 las que no tienen cobro.
+Lo que le toca a cada psicóloga sale de cada paciente (`pago_psicologa`, se captura al darlo de alta; vacío = mitad de
+la tarifa, `sql/pago-psicologa.sql`). El corte (`pagoPsicologa`) suma sus sesiones por paciente, le resta el efectivo
+que ella ya tiene y dice cuánto le paga Dirección o cuánto entrega ella.
+
+Modo pruebas: abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos los días solo en ese dispositivo
+(`?pruebas=0` o el botón "Quitar" lo apaga). Los datos siguen siendo los reales.
 
 ## Seguridad
 

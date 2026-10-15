@@ -1,4 +1,4 @@
-// Captura la app en tamaño iPhone 11 (o computadora con ESCRITORIO=1) usando el Supabase falso.
+// Captura la app en tamaño iPhone 11 (computadora con ESCRITORIO=1, Android con DISPOSITIVO='Pixel 5') usando el Supabase falso.
 // Uso: node captura.js <ruta absoluta a index.html> <prefijo de salida> <d1|s1> [pasos...]
 // Pasos: js=<código>  click=<selector>  wait=<ms>  scroll=<y>  shot=<nombre>  full=<nombre>
 const { chromium, devices } = require('playwright');
@@ -6,7 +6,8 @@ const fs = require('fs');
 const [,, file, out, como='d1', ...pasos] = process.argv;
 (async () => {
   const browser = await chromium.launch();
-  const disp = process.env.ESCRITORIO ? { viewport:{ width:1280, height:800 } } : devices['iPhone 11'];
+  // DISPOSITIVO='Pixel 5' (u otro de Playwright) para revisar en Android
+  const disp = process.env.ESCRITORIO ? { viewport:{ width:1280, height:800 } } : devices[process.env.DISPOSITIVO || 'iPhone 11'];
   const ctx = await browser.newContext({ ...disp, locale:'es-MX', timezoneId:'America/Mexico_City' });
   const page = await ctx.newPage();
   const mock = fs.readFileSync(__dirname + '/mock-supabase.js', 'utf8');

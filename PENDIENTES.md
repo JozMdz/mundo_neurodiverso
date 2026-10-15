@@ -9,7 +9,7 @@ Lista de cosas por hacer. Se van quitando conforme se terminan.
 2. **Expediente agrupado por psicóloga.** En la lista de pacientes, agrupar por psicóloga para no ver un
    listado tan largo.
 3. **Facturas en modo psicóloga.** Para la psicóloga es solo un aviso: no pedirle el monto.
-4. **Cobros.** Esperar a usar los cambios de asistencia y corte (no asistió, sin cobro) y que José comente.
+4. **Cobros.** Hecho: lo que le toca a la psicóloga se captura por paciente y el corte dice cuánto pagarle. Falta que José lo pruebe.
 
 ## Ideas anteriores (sin aprobar)
 
