@@ -1468,7 +1468,7 @@ function renderEquipo(){
   document.getElementById("equipoCard").innerHTML=estado.psicologas.map(p=>`
     <div class="miembro"><span class="av" style="background:${p.color}">${esc(iniciales(p.nombre))}</span>
       <div style="flex:1"><b>${esc(p.nombre)}</b>
-        <div class="datos">📞 ${esc(p.tel||"—")} · ✉ ${esc(p.email||"—")}${p.admin?"":` · céd. ${esc(p.cedula||"—")}`}</div></div>
+        <div class="datos">📞 ${esc(p.tel||"—")}${p.admin?"":` · céd. ${esc(p.cedula||"—")}`}</div></div>
       <span class="tag">${p.admin?(p.atiende===false?"Soporte":"Dirección"):"Psicóloga"}</span></div>`).join("");
   const cc=document.getElementById("controlCard"); if(!cc) return;
   const cierres=estado.cierres||[];

@@ -1,0 +1,26 @@
+-- Datos inventados para las pruebas de permisos (pruebas/permisos.py).
+-- d1: Dirección que atiende · d2: Dirección de soporte (no atiende) · a1, a2: psicólogas
+insert into auth.users (id) values
+  ('00000000-0000-0000-0000-0000000000d1'), ('00000000-0000-0000-0000-0000000000d2'),
+  ('00000000-0000-0000-0000-0000000000a1'), ('00000000-0000-0000-0000-0000000000a2');
+insert into psicologas (id, nombre, es_direccion, atiende) values
+  ('00000000-0000-0000-0000-0000000000d1', 'Mtra. Directora', true, true),
+  ('00000000-0000-0000-0000-0000000000d2', 'Soporte', true, false),
+  ('00000000-0000-0000-0000-0000000000a1', 'Psic. Fernanda', false, true),
+  ('00000000-0000-0000-0000-0000000000a2', 'Psic. Andrea', false, true);
+insert into pacientes (id, nombre, asignada_a) values
+  ('00000000-0000-0000-0000-0000000000b1', 'Paciente de Fernanda', '00000000-0000-0000-0000-0000000000a1'),
+  ('00000000-0000-0000-0000-0000000000b2', 'Paciente de Andrea', '00000000-0000-0000-0000-0000000000a2');
+insert into notas (id, paciente_id, psicologa_id, texto, revisada) values
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a1', 'Nota sin revisar', false),
+  ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a1', 'Nota revisada con comentario', true),
+  ('00000000-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000d1', 'Nota de Dirección para Fernanda', true),
+  ('00000000-0000-0000-0000-0000000000e4', '00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000a2', 'Nota de Andrea', false);
+insert into comentarios (nota_id, autor_id, texto) values
+  ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-0000000000d1', 'Comentario de Dirección');
+insert into pagos (id, paciente_id, psicologa_id, monto, metodo, validado) values
+  ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a1', 600, 'efectivo', false),
+  ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a1', 600, 'efectivo', true);
+insert into facturas (id, paciente_id, monto, estado, solicitada_por, fecha_emitida) values
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b1', 600, 'solicitada', '00000000-0000-0000-0000-0000000000a1', null),
+  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000b1', 600, 'emitida', '00000000-0000-0000-0000-0000000000a1', current_date);
