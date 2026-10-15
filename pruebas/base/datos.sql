@@ -24,3 +24,11 @@ insert into pagos (id, paciente_id, psicologa_id, monto, metodo, validado) value
 insert into facturas (id, paciente_id, monto, estado, solicitada_por, fecha_emitida) values
   ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000b1', 600, 'solicitada', '00000000-0000-0000-0000-0000000000a1', null),
   ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000b1', 600, 'emitida', '00000000-0000-0000-0000-0000000000a1', current_date);
+-- Citas de ayer y antier: 71 programada · 72 no asistió por confirmar · 73 no asistió confirmada · 74 de Andrea
+-- 75: de Fernanda en dos días (todavía no llega)
+insert into citas (id, fecha, hora, psicologa_id, paciente_id, estado, confirmada_por) values
+  ('00000000-0000-0000-0000-000000000071', current_date - 1, '15:00', '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b1', 'programada', null),
+  ('00000000-0000-0000-0000-000000000072', current_date - 1, '16:00', '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b1', 'no_asistio', null),
+  ('00000000-0000-0000-0000-000000000073', current_date - 2, '15:00', '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b1', 'no_asistio', '00000000-0000-0000-0000-0000000000d1'),
+  ('00000000-0000-0000-0000-000000000074', current_date - 1, '15:00', '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000b2', 'programada', null),
+  ('00000000-0000-0000-0000-000000000075', current_date + 2, '15:00', '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b1', 'programada', null);

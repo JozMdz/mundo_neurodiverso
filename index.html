@@ -147,10 +147,17 @@
   .cal .mas{position:absolute; right:0; width:44px; display:flex; align-items:center; justify-content:center;
     color:var(--morado); font-weight:800; font-size:16px; cursor:pointer; opacity:.32; border-left:1px dashed var(--linea);}
   .cal .mas:hover,.cal .mas:active{opacity:1; background:#F7F1FB;}
-  .cal .ev{position:absolute; border-radius:9px; color:#fff; padding:5px 8px; overflow:hidden; box-shadow:0 2px 7px rgba(80,60,110,.2); pointer-events:auto; border:1.5px solid rgba(255,255,255,.35);}
+  .cal .ev{position:absolute; border-radius:9px; color:#fff; padding:5px 8px; overflow:hidden; box-shadow:0 2px 7px rgba(80,60,110,.2); pointer-events:auto; border:1.5px solid rgba(255,255,255,.35); cursor:pointer;}
   .cal .ev .p{font-weight:800; font-size:12.5px; line-height:1.15;}
   .cal .ev .r{font-size:11.5px; opacity:.96; font-weight:700; line-height:1.2;}
   .cal .ev .q{font-size:10px; opacity:.9; text-transform:uppercase; letter-spacing:.3px; margin-top:1px;}
+  /* No asistió: rayada y tenue · Cancelada: más tenue y tachada */
+  .cal .ev.no-asistio{opacity:.62; box-shadow:none; background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.32) 0 6px, transparent 6px 12px);}
+  .cal .ev.cancelada{opacity:.42; box-shadow:none;}
+  .cal .ev.cancelada .p{text-decoration:line-through;}
+  .aviso-pendiente{display:flex; align-items:center; gap:10px; width:100%; min-height:48px; margin:0 0 12px; padding:10px 14px; border-radius:var(--r-sm);
+    background:var(--amb-suave); border:1px solid #F1E0B0; color:var(--amb); font-weight:800; font-size:14px; text-align:left;}
+  .aviso-pendiente .ir{margin-left:auto; white-space:nowrap;}
 
   .cab-sub{font-size:12.5px; font-weight:800; color:var(--morado); margin-top:2px;}
   .sw-vista{display:inline-flex; background:var(--fondo); border:1px solid var(--linea); border-radius:999px; padding:3px; gap:2px;}
@@ -197,6 +204,7 @@
   .px-hora{flex:none; width:44px; font-family:"Fredoka"; font-weight:600; font-size:15px; color:var(--morado); font-variant-numeric:tabular-nums;}
   .px-tag{flex:none; font-size:11px; font-weight:800; padding:3px 9px; border-radius:999px; white-space:nowrap;}
   .px-tag.ok{background:var(--ok-suave); color:var(--ok);} .px-tag.falta{background:var(--alerta-suave); color:var(--alerta);}
+  .px-tag.gris{background:#F1EEF5; color:var(--gris);}
   .px-vacio{padding:24px 16px; text-align:center; color:var(--gris); font-size:13.5px; font-weight:700;}
   .avatar{width:38px; height:38px; border-radius:11px; flex:none; display:grid; place-items:center; color:#fff; font-family:"Fredoka"; font-weight:600; font-size:15px;}
 
@@ -230,6 +238,15 @@
   .acc-lista{display:flex; flex-direction:column; gap:8px;}
   .acc-btn{display:flex; align-items:center; gap:12px; width:100%; min-height:50px; padding:0 16px; border-radius:var(--r-sm); background:var(--fondo); border:1px solid var(--linea); color:var(--tinta); font-weight:800; font-size:15px; text-align:left;}
   .acc-btn.peligro{background:var(--alerta-suave); border-color:transparent; color:var(--alerta);}
+  .acc-btn.hecho{color:var(--ok);}
+  .acc-info{border-radius:var(--r-sm); padding:11px 14px; font-size:14px; font-weight:700; background:var(--fondo); color:var(--gris);}
+  .acc-info.amb{background:var(--amb-suave); color:var(--amb);}
+  .acc-info.alerta{background:var(--alerta-suave); color:var(--alerta);}
+  .conf-fila{background:var(--fondo); border:1px solid var(--linea); border-radius:var(--r-sm); padding:12px;}
+  .conf-fila b{display:block; font-size:15px; overflow-wrap:anywhere;}
+  .conf-fila .cuando{display:block; font-size:12.5px; color:var(--gris); font-weight:700; margin-top:1px;}
+  .conf-acc{display:flex; gap:8px; margin-top:10px;}
+  .conf-acc .btn{flex:1 1 0; min-height:44px;}
   .chip{font-size:11.5px; font-weight:800; padding:3px 10px; border-radius:999px; color:#fff; letter-spacing:.2px;}
   .chip.sm{font-size:10.5px; padding:2px 8px;}
   .rev-chip{font-size:11px; font-weight:800; padding:2px 9px; border-radius:999px;}
@@ -326,6 +343,13 @@
   .corte .met.efectivo{background:var(--ok-suave); color:var(--ok);}
   .corte .met.transferencia{background:#E9F3FC; color:var(--cian);}
   .corte .met.tarjeta{background:#F3EAF8; color:var(--morado);}
+  .corte .corte-aviso{margin:8px 0 10px; padding:10px 12px; border-radius:10px; background:var(--alerta-suave); color:var(--alerta); font-size:13px; font-weight:700;}
+  .corte .corte-aviso.amb{display:flex; align-items:center; gap:8px; background:var(--amb-suave); color:var(--amb);}
+  .corte .corte-aviso.amb .rev-btn{margin-left:auto;}
+  .corte .corte-aviso b{font-weight:800;}
+  .corte .corte-aviso .rev-btn{min-height:44px; background:#fff; flex:none;}
+  .corte .falta{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px; color:var(--tinta);}
+  .corte .falta span{min-width:0; overflow-wrap:anywhere;}
   .estado-wrap{display:inline-flex; align-items:center; gap:6px;}
   .undo-btn{background:var(--fondo); border:1px solid var(--linea-fuerte); border-radius:999px; width:26px; height:26px; font-size:14px; color:var(--gris); cursor:pointer; line-height:1;}
   .undo-btn:hover{background:#fff; color:var(--tinta);}
@@ -367,7 +391,9 @@
   .campo input,.campo select,.campo textarea{width:100%; border:1px solid var(--linea-fuerte); border-radius:10px; padding:11px 12px; background:#fff; outline:none;}
   .campo input:focus,.campo select:focus,.campo textarea:focus{border-color:var(--morado); box-shadow:0 0 0 3px rgba(139,61,158,.13);}
   .campo textarea{resize:vertical; min-height:72px;}
-  .fila2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .fila2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;}
+  .campo input[type=date], .campo input[type=time]{min-width:0; min-height:46px;}
+  .campo input::-webkit-date-and-time-value{text-align:left;}
   .modal .pie{padding:15px 22px; background:#FAF7FD; border-top:1px solid var(--linea); display:flex; gap:10px; justify-content:flex-end;}
   .aviso-conflicto{background:var(--alerta-suave); color:var(--alerta); border-radius:10px; padding:11px 13px; font-size:13px; font-weight:700; display:none; align-items:center; gap:8px;}
   .aviso-conflicto.ver{display:flex;}
@@ -489,7 +515,7 @@
 <main>
   <div class="resumen" id="resumen"></div>
   <nav class="tabs" id="tabs">
-    <button class="activa" data-vista="agenda" onclick="tocarPestana('agenda')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Agenda</button>
+    <button class="activa" data-vista="agenda" onclick="tocarPestana('agenda')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Agenda<span class="tab-badge" id="badgeAg"></span></button>
     <button data-vista="expediente" onclick="tocarPestana('expediente')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9.5 3h5v3h-5zM8.5 11h7M8.5 15h4.5"/></svg>Expediente<span class="tab-badge" id="badgeExp"></span></button>
     <button data-vista="cobros" onclick="tocarPestana('cobros')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/></svg>Cobros</button>
     <button data-vista="facturas" onclick="tocarPestana('facturas')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Facturas</button>
@@ -508,6 +534,7 @@
         <button class="btn" id="btnAgendar" onclick="abrirCita(horaInicial())">+ Agendar cita</button>
       </span>
     </div>
+    <div id="avisoAgenda"></div>
     <div class="leyenda" id="leyenda" style="margin:0 2px 12px;"></div>
     <div class="sem-cab" id="semCab" style="display:none"></div>
     <div id="agenda"></div>
@@ -562,9 +589,10 @@
     <div class="campo"><label>Psicóloga</label><select id="cPsic" onchange="renderPacientesCita()"></select></div>
     <div class="campo"><label>Paciente</label><select id="cPaciente" onchange="pacienteElegido=true; pedirPaciente=false;"></select></div>
     <div class="fila2">
-      <div class="campo"><label>Hora inicio</label><input type="time" id="cHora" step="900" value="09:00"></div>
-      <div class="campo"><label>Duración</label><select id="cDur"><option value="60">60 min</option><option value="45">45 min</option><option value="90">90 min</option><option value="30">30 min</option></select></div>
+      <div class="campo"><label>Día</label><input type="date" id="cFechaIn" onchange="textoCuandoCita()"></div>
+      <div class="campo"><label>Hora inicio</label><input type="time" id="cHora" step="900" value="09:00" onchange="textoCuandoCita()"></div>
     </div>
+    <div class="campo"><label>Duración</label><select id="cDur"><option value="60">60 min</option><option value="45">45 min</option><option value="90">90 min</option><option value="30">30 min</option></select></div>
     <div id="cRepetirCampo">
       <div class="campo"><label>¿Qué días acude? (opcional)</label>
         <div class="dias-chips" id="cDias"></div></div>
@@ -665,7 +693,7 @@
 <div class="fondo-modal" id="modalAcciones"><div class="modal">
   <div class="cab"><h3 id="accTitulo">Opciones</h3><div class="cab-sub" id="accSub"></div></div>
   <div class="cuerpo"><div class="acc-lista" id="accBotones"></div></div>
-  <div class="pie"><button class="btn fantasma" onclick="cerrar('modalAcciones')">Cancelar</button></div>
+  <div class="pie"><button class="btn fantasma" id="accCerrar" onclick="cerrar('modalAcciones')">Cancelar</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -741,7 +769,8 @@ async function cargarTodo(){
   ]);
   estado.psicologas=(ps.data||[]).map(r=>({id:r.id,nombre:r.nombre,color:r.color,admin:r.es_direccion,atiende:r.atiende!==false,tel:r.telefono,cedula:r.cedula}));
   estado.pacientes=(pac.data||[]).map(r=>({id:r.id,nombre:r.nombre,edad:r.edad,tutor:r.tutor,tel:r.telefono,motivo:r.motivo,tarifa:Number(r.tarifa)||0,asignada:r.asignada_a,activo:r.activo!==false}));
-  estado.citas=(cit.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),dur:r.duracion,psic:r.psicologa_id,pac:r.paciente_id}));
+  estado.citas=(cit.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),dur:r.duracion,psic:r.psicologa_id,pac:r.paciente_id,
+    estado:r.estado||"programada",confirmadaPor:r.confirmada_por||null}));
   estado.notas=(nts.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,pac:r.paciente_id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,texto:r.texto,revisada:r.revisada,vistaPsic:r.vista_psic!==false,
     comentarios:(r.comentarios||[]).slice().sort((a,b)=>(a.creado_en||"").localeCompare(b.creado_en||"")).map(c=>{ const cd=c.creado_en?new Date(c.creado_en):null; return {id:c.id,autor:c.autor_id,fecha:cd?(cd.getFullYear()+"-"+String(cd.getMonth()+1).padStart(2,"0")+"-"+String(cd.getDate()).padStart(2,"0")):"",hora:cd?cd.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false}):"",texto:c.texto,editado:c.editado}; })}; });
   estado.pagos=(pgs.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,fecha:_t.f,hora:_t.h,pac:r.paciente_id,psic:r.psicologa_id,monto:Number(r.monto)||0,metodo:r.metodo,validado:r.validado}; });
@@ -779,8 +808,18 @@ async function loginEmail(){
 }
 function mostrarLogin(){ document.getElementById("login").classList.remove("oculto"); document.getElementById("loginEmail").value=""; document.getElementById("loginPass").value=""; }
 async function cerrarSesion(){ await sb.auth.signOut(); estado.quien=null; mostrarLogin(); }
-function citasTerminadasHoy(quien){ const ahora=minutos(ahoraHM());
-  return estado.citas.filter(c=>c.fecha===hoyISO() && (!quien||c.psic===quien) && (minutos(c.hora)+(c.dur||60))<=ahora); }
+/* Estado de una cita: "programada" (si ya pasó, cuenta como sesión dada: pide nota y cobro), "no_asistio" o "cancelada".
+   La psicóloga marca "no asistió" y queda por confirmar hasta que Dirección lo corrobora (sql/citas-estado.sql). */
+function citaEmpezo(c){ const h=hoyISO(); return c.fecha<h || (c.fecha===h && minutos(c.hora)<=minutos(ahoraHM())); }
+function citaTermino(c){ const h=hoyISO(); return c.fecha<h || (c.fecha===h && minutos(c.hora)+(c.dur||60)<=minutos(ahoraHM())); }
+function porConfirmar(){ return citasVisibles().filter(c=>c.estado==="no_asistio" && !c.confirmadaPor); }
+function estadoCita(c){
+  if(c.estado==="cancelada") return {clase:"cancelada", corto:"cancelada", texto:"Cancelada"};
+  if(c.estado==="no_asistio") return {clase:"no-asistio", corto:"no asistió", texto:c.confirmadaPor? "No asistió" : "No asistió · por confirmar"};
+  return null;
+}
+function citasTerminadasHoy(quien){
+  return estado.citas.filter(c=>c.fecha===hoyISO() && (!quien||c.psic===quien) && c.estado==="programada" && citaTermino(c)); }
 function pendientesHoy(){ const cit=citasTerminadasHoy(estado.quien).length;
   const nt=estado.notas.filter(n=>n.fecha===hoyISO()&&n.psic===estado.quien).length;
   const co=estado.pagos.filter(g=>g.fecha===hoyISO()&&g.psic===estado.quien).length;
@@ -843,7 +882,7 @@ function renderRol(){
 
 function renderResumen(){
   const admin=esAdmin();
-  const cHoy=citasVisibles().filter(c=>c.fecha===hoyISO()).length;
+  const cHoy=citasVisibles().filter(c=>c.fecha===hoyISO() && c.estado!=="cancelada").length;
   const nHoy=(admin?estado.notas:estado.notas.filter(n=>n.psic===estado.quien)).filter(n=>n.fecha===hoyISO()).length;
   const efHoy=pagosVisibles().filter(g=>g.fecha===hoyISO()&&g.metodo==="efectivo").reduce((s,g)=>s+g.monto,0);
   const totHoy=pagosVisibles().filter(g=>g.fecha===hoyISO()).reduce((s,g)=>s+g.monto,0);
@@ -922,6 +961,10 @@ function renderAgenda(){
   const _btnAg=document.getElementById("btnAgendar"); if(_btnAg) _btnAg.style.display=_puedeAgendar?"":"none";
   const _btnVoz=document.getElementById("btnVoz"); if(_btnVoz) _btnVoz.style.display=(_puedeAgendar && vozSoportada())?"":"none";
   document.getElementById("semCab").style.display = semanal? "flex" : "none";
+  // Dirección ve arriba cuántas inasistencias esperan que las corrobore
+  const pend=_puedeAgendar? porConfirmar().length : 0;
+  document.getElementById("avisoAgenda").innerHTML = pend? `<button class="aviso-pendiente" onclick="verPorConfirmar()">🚫
+    <span><b>${pend}</b> ${pend===1?"inasistencia":"inasistencias"} por confirmar</span><span class="ir">Revisar ›</span></button>` : "";
   const dias = semanal? [0,1,2,3,4,5].map(i=>addDaysISO(lunS,i)) : [estado.fechaAgenda];
   const R=rangoAgenda(dias);
   if(!R){ document.getElementById("agenda").innerHTML=`<div class="cal agenda-cerrado"><div class="em">🌙</div><b>${fechaLarga(estado.fechaAgenda)}</b>Sin horario de consulta.</div>`; return; }
@@ -930,14 +973,14 @@ function renderAgenda(){
   const marco=interior=>`<div class="cal" style="height:${R.n*H+PAD*2}px"><div class="cal-in" style="top:${PAD}px; height:${R.n*H}px">${lineas}${interior}</div></div>`;
   if(semanal){ renderAgendaSemana(dias, R, marco); return; }
   const evs=layoutDia(citasVisibles().filter(c=>c.fecha===estado.fechaAgenda).slice());
-  const _adm=esAdmin();
-  const eventos=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
+  const eventos=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac), est=estadoCita(e);
     const top=Math.max(0,(e._s-R.ini*60)/60*H), hgt=Math.max(24,e.dur/60*H-4);
     const left=e._col/e._cols*100, w=100/e._cols;
-    const sub=(pa.motivo&&pa.motivo!=="—")?esc(pa.motivo):"";
-    return `<div class="ev" style="top:${top}px; height:${hgt}px; left:${left}%; width:calc(${w}% - 5px); background:${p.color}; ${_adm?'cursor:pointer':''}" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)}${_adm?' — toca para editar':''}" ${_adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
+    // El estado se ve siempre; el motivo de consulta, solo si cabe
+    const sub=est? est.texto : (hgt>=42&&e._cols<3&&pa.motivo&&pa.motivo!=="—")? esc(pa.motivo) : "";
+    return `<div class="ev${est?" "+est.clase:""}" data-cita="${e.id}" style="top:${top}px; height:${hgt}px; left:${left}%; width:calc(${w}% - 5px); background:${p.color};" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)}${est?" · "+est.texto:""}" onclick="menuCita('${e.id}')">
       <div class="p">${esc(pa.nombre)}</div>
-      <div class="r">${e.hora}–${hhmm(e._e)}${hgt>=42&&e._cols<3&&sub?` · ${sub}`:""}</div>
+      <div class="r">${e.hora}–${hhmm(e._e)}${sub?` · ${sub}`:""}</div>
       ${hgt>=56&&e._cols<3?`<div class="q">${esc(corto(p.nombre))}</div>`:""}</div>`;
   }).join("");
   const huecos=fueraYHuecos(estado.fechaAgenda, R, _puedeAgendar? t=>`abrirCita('${t}')` : null, "");
@@ -951,11 +994,11 @@ function renderAgendaSemana(dias, R, marco){
   const cols=dias.map(f=>{
     const evs=layoutDia(citasVisibles().filter(c=>c.fecha===f).slice());
     const huecos=fueraYHuecos(f, R, adm? t=>`abrirCitaEn('${f}','${t}')` : null, "; width:18px; font-size:12px");
-    const items=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
+    const items=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac), est=estadoCita(e);
       const top=Math.max(0,(e._s-R.ini*60)/60*H), hgt=Math.max(20,e.dur/60*H-3);
       const left=e._col/e._cols*100, w=100/e._cols;
-      return `<div class="ev" style="top:${top}px; height:${hgt}px; left:calc(${left}% * 0.88); width:calc(${w}% * 0.88 - 3px); background:${p.color}; ${adm?'cursor:pointer':''}" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)} · ${esc(corto(p.nombre))}" ${adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
-        <div class="p">${esc(pa.nombre)}</div>${hgt>=34?`<div class="r">${e.hora}</div>`:""}</div>`;
+      return `<div class="ev${est?" "+est.clase:""}" data-cita="${e.id}" style="top:${top}px; height:${hgt}px; left:calc(${left}% * 0.88); width:calc(${w}% * 0.88 - 3px); background:${p.color};" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)} · ${esc(corto(p.nombre))}${est?" · "+est.texto:""}" onclick="menuCita('${e.id}')">
+        <div class="p">${esc(pa.nombre)}</div>${hgt>=34?`<div class="r">${est? est.corto : e.hora}</div>`:""}</div>`;
     }).join("");
     return `<div class="sem-col">${huecos}${items}</div>`;
   }).join("");
@@ -1159,13 +1202,15 @@ function renderExpediente(){
   let html="";
   if(f==="activos" && !nq){
     const hoy=hoyISO(), ahora=minutos(ahoraHM());
-    const citasHoy=citasVisibles().filter(c=>c.fecha===hoy && activos.some(p=>p.id===c.pac)).sort((a,b)=>a.hora.localeCompare(b.hora));
+    const citasHoy=citasVisibles().filter(c=>c.fecha===hoy && c.estado!=="cancelada" && activos.some(p=>p.id===c.pac)).sort((a,b)=>a.hora.localeCompare(b.hora));
     if(citasHoy.length){
       html+=`<div class="px-grupo">Hoy · ${citasHoy.length} ${citasHoy.length===1?"cita":"citas"}</div><div class="px-lista">`+citasHoy.map(c=>{
         const p=pac(c.pac), ps=psic(c.psic);
         const conNota=estado.notas.some(n=>n.pac===c.pac && n.psic===c.psic && n.fecha===hoy);
         const termino=minutos(c.hora)+(c.dur||60)<=ahora;
-        const tag=conNota? `<span class="px-tag ok">nota ✓</span>` : termino? `<span class="px-tag falta">falta nota</span>` : "";
+        // Si no asistió no hay nota que escribir
+        const tag=c.estado==="no_asistio"? `<span class="px-tag gris">no asistió</span>`
+          : conNota? `<span class="px-tag ok">nota ✓</span>` : termino? `<span class="px-tag falta">falta nota</span>` : "";
         return `<button class="px-fila" onclick="seleccionarPx('${p.id}')"><span class="px-hora">${c.hora}</span>
           <span class="px-info"><b>${esc(p.nombre)}</b><span class="px-sub">${ps?`<span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))}`:""}</span></span>${tag}<span class="px-chev">›</span></button>`;
       }).join("")+`</div>`;
@@ -1283,6 +1328,7 @@ function menuNota(id){
   const ps=psic(n.psic);
   document.getElementById("accTitulo").textContent="Nota de sesión";
   document.getElementById("accSub").textContent=fechaCorta(n.fecha,true)+(n.hora?" · "+n.hora:"")+(ps?" · "+corto(ps.nombre):"");
+  document.getElementById("accCerrar").textContent="Cancelar";
   document.getElementById("accBotones").innerHTML=
       `<button class="acc-btn" onclick="cerrar('modalAcciones'); editarNota('${id}')">✎ Editar nota</button>`
     + `<button class="acc-btn peligro" onclick="cerrar('modalAcciones'); eliminarNota('${id}')">🗑 Eliminar nota</button>`;
@@ -1349,7 +1395,9 @@ async function guardarEdicionComentario(nid,cid){
   comEditId=null; await refrescar(); toast("Comentario editado ✓","ok");
 }
 async function marcarRevisada(id){ const {error}=await sb.from("notas").update({revisada:true}).eq("id",id); if(error){ toast("No se pudo","err"); return; } await refrescar(); toast("Nota marcada como revisada ✓","ok"); }
-function updateBadges(){ const b=document.getElementById("badgeExp"); if(!b) return; const c=notasConAviso().length; b.textContent=c?String(c):""; }
+function updateBadges(){
+  const b=document.getElementById("badgeExp"); if(b){ const c=notasConAviso().length; b.textContent=c?String(c):""; }
+  const a=document.getElementById("badgeAg"); if(a){ const n=esAdmin()? porConfirmar().length : 0; a.textContent=n?String(n):""; } }
 const EMOJIS=["😊","👍","🎉","❤️","👏","🙌","💪","✅","📌","😄","🤔","🙏","👀","🔥","😢","😅","💡","⭐","🧩","🌈","😍","🥳"];
 function toggleEmojis(id){ const p=document.getElementById("emo-"+id); if(p) p.classList.toggle("ver"); }
 function insertEmoji(id,e){ const inp=document.getElementById("com-"+id); if(inp){ inp.value+=e; inp.focus(); } const p=document.getElementById("emo-"+id); if(p) p.classList.remove("ver"); }
@@ -1392,37 +1440,66 @@ function renderCobros(){
     + cel("to","Total",{n:totN,m:totM},admin);
 
   const corte=document.getElementById("corte");
+  const filaCobro=g=>`<div class="ses"><span>${esc(pac(g.pac).nombre)} <span class="met ${esc(g.metodo)}" title="${esc(g.metodo)}">${esc(metodoCorto(g.metodo))}</span></span><span class="num">${mxn(g.monto)}</span></div>`;
+  const reng=(txt,n)=>`<div class="reng"><span>${txt}</span><span class="num">${n}</span></div>`;
   if(admin){
-    const porPsic={}; const mio={total:0,ef:0,cuenta:0,items:[]};
-    pagos.forEach(g=>{ const k=g.psic;
-      if(psic(k).admin){ mio.total+=g.monto; mio[g.metodo==="efectivo"?"ef":"cuenta"]+=g.monto; mio.items.push(g); return; }
-      porPsic[k]=porPsic[k]||{total:0,ef:0,cuenta:0,items:[]}; porPsic[k].total+=g.monto; porPsic[k][g.metodo==="efectivo"?"ef":"cuenta"]+=g.monto; porPsic[k].items.push(g); });
+    // Un bloque por cada psicóloga con cobros o sesiones en el periodo. Dirección no reparte: lo suyo es íntegro.
+    const ids=[...new Set(pagos.map(g=>g.psic).concat(estado.citas.filter(c=>c.fecha>=r.desde && c.fecha<=r.hasta && c.estado!=="cancelada" && citaTermino(c)).map(c=>c.psic)))].filter(id=>psic(id));
+    ids.sort((a,b)=>(psic(b).admin?1:0)-(psic(a).admin?1:0) || corto(psic(a).nombre).localeCompare(corto(psic(b).nombre),"es"));
     let totalAPagar=0;
-    const bloques=Object.keys(porPsic).map(k=>{ const p=psic(k), d=porPsic[k], parte=Math.round(d.total/2); totalAPagar+=parte;
-      const lista=d.items.map(g=>`<div class="ses"><span>${esc(pac(g.pac).nombre)} <span class="met ${esc(g.metodo)}" title="${esc(g.metodo)}">${esc(metodoCorto(g.metodo))}</span></span><span class="num">${mxn(g.monto)}</span></div>`).join("");
-      return `<div class="psic"><div class="nom"><span class="mini-color" style="background:${p.color}"></span>${esc(p.nombre)}<span class="cuenta-ses">${d.items.length} ${d.items.length===1?"sesión":"sesiones"}</span></div>
-        <div class="lista-ses">${lista}</div>
-        <div class="reng"><span>Atendido</span><span class="num">${mxn(d.total)}</span></div>
-        <div class="reng"><span>Consultorio (50%)</span><span class="num">${mxn(d.total-parte)}</span></div>
-        <div class="reng total"><span>Le toca (50%)</span><span class="num">${mxn(parte)}</span></div>
-        <div class="desglose"><div class="d ef">Efectivo (ella tiene)<br>${mxn(d.ef)}</div><div class="d tr">A cuenta (a ti)<br>${mxn(d.cuenta)}</div></div></div>`;
+    const bloques=ids.map(id=>{ const p=psic(id), suyos=pagos.filter(g=>g.psic===id), s=sesionesDe(id, r, pagos), yo=id===estado.quien;
+      const total=suyos.reduce((a,g)=>a+g.monto,0), ef=suyos.filter(g=>g.metodo==="efectivo").reduce((a,g)=>a+g.monto,0);
+      let dinero;
+      if(p.admin){
+        dinero=`<div class="reng total"><span>Íntegro para ${yo?"ti":"Dirección"} (sin reparto)</span><span class="num">${mxn(total)}</span></div>
+          <div class="desglose"><div class="d ef">Efectivo ${yo?"en tu poder":"(ella tiene)"}<br>${mxn(ef)}</div><div class="d tr">${yo?"A tu cuenta":"A cuenta"}<br>${mxn(total-ef)}</div></div>`;
+      } else {
+        const parte=Math.round(total/2); totalAPagar+=parte;
+        dinero=reng("Atendido", mxn(total)) + reng("Consultorio (50%)", mxn(total-parte))
+          + `<div class="reng total"><span>Le toca (50%)</span><span class="num">${mxn(parte)}</span></div>
+          <div class="desglose"><div class="d ef">Efectivo (ella tiene)<br>${mxn(ef)}</div><div class="d tr">A cuenta (a ti)<br>${mxn(total-ef)}</div></div>`;
+      }
+      const noVino=s.noAsistio.length-s.porConf.length;
+      return `<div class="psic"><div class="nom"><span class="mini-color" style="background:${p.color}"></span>${esc(corto(p.nombre))}${p.admin?` <span class="rev-chip ok">Dirección</span>`:""}<span class="cuenta-ses">${suyos.length} ${suyos.length===1?"cobro":"cobros"}</span></div>
+        ${suyos.length? `<div class="lista-ses">${suyos.map(filaCobro).join("")}</div>` : ""}
+        ${avisosCorte(s, true)}
+        ${reng("Sesiones dadas (agenda)", s.dadas.length)}${noVino? reng("No asistió (no se cobra)", noVino) : ""}
+        ${dinero}</div>`;
     }).join("");
-    const pDir=viewer();
-    const bloqueMio = mio.items.length? `<div class="psic"><div class="nom"><span class="mini-color" style="background:${pDir.color}"></span>${esc(pDir.nombre)} <span class="rev-chip ok">tus sesiones</span><span class="cuenta-ses">${mio.items.length} ${mio.items.length===1?"sesión":"sesiones"}</span></div>
-        <div class="lista-ses">${mio.items.map(g=>`<div class="ses"><span>${esc(pac(g.pac).nombre)} <span class="met ${esc(g.metodo)}">${esc(metodoCorto(g.metodo))}</span></span><span class="num">${mxn(g.monto)}</span></div>`).join("")}</div>
-        <div class="reng total"><span>Íntegro para ti (sin reparto)</span><span class="num">${mxn(mio.total)}</span></div>
-        <div class="desglose"><div class="d ef">Efectivo en tu poder<br>${mxn(mio.ef)}</div><div class="d tr">A tu cuenta<br>${mxn(mio.cuenta)}</div></div></div>` : "";
     corte.innerHTML=`<div class="cab"><h3>Corte del periodo</h3><span>${fmtDia(r.desde)} – ${fmtDia(r.hasta)} · reparto 50/50</span></div>
-      ${bloqueMio}
-      ${bloques || (mio.items.length? "" : '<div class="psic"><div class="vacio"><b>Sin cobros para repartir</b></div></div>')}
+      ${bloques || '<div class="psic"><div class="vacio"><b>Sin sesiones ni cobros en este periodo</b></div></div>'}
       <div class="pie"><span style="font-weight:800; color:var(--gris)">Total a repartir a psicólogas</span><span class="g num">${mxn(totalAPagar)}</span></div>`;
   } else {
     const ef=pagos.filter(g=>g.metodo==="efectivo").reduce((s,g)=>s+g.monto,0);
+    const s=sesionesDe(estado.quien, r, pagos), noVino=s.noAsistio.length-s.porConf.length;
     corte.innerHTML=`<div class="cab"><h3>Tu efectivo</h3><span>${fmtDia(r.desde)} – ${fmtDia(r.hasta)}</span></div>
       <div class="caja-efectivo"><div class="lbl">Efectivo en tu poder</div><div class="big">${mxn(ef)}</div>
         <div class="hint">Este efectivo lo conservas hasta conciliar con Dirección.</div></div>
-      <div class="pie"><span style="font-weight:800; color:var(--gris)">Sesiones atendidas</span><span class="num" style="font-weight:800;">${pagos.length}</span></div>`;
+      <div class="psic">${avisosCorte(s, false)}
+        ${reng("Sesiones dadas (agenda)", s.dadas.length)}${noVino? reng("No asistió (no se cobra)", noVino) : ""}
+        ${reng("Cobros registrados", pagos.length)}</div>`;
   }
+}
+// Sesiones del periodo según la agenda. Cada sesión dada espera un cobro del mismo paciente:
+// primero se empareja con uno del mismo día y luego con los que sobren (por ejemplo, si pagó después).
+function sesionesDe(psicId, r, pagos){
+  const cs=estado.citas.filter(c=>c.psic===psicId && c.fecha>=r.desde && c.fecha<=r.hasta && citaTermino(c));
+  const dadas=cs.filter(c=>c.estado==="programada").sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const noAsistio=cs.filter(c=>c.estado==="no_asistio");
+  const libres=pagos.filter(g=>g.psic===psicId);
+  const tomar=f=>{ const i=libres.findIndex(f); if(i<0) return false; libres.splice(i,1); return true; };
+  const sinCobro=dadas.filter(c=>!tomar(g=>g.pac===c.pac && g.fecha===c.fecha)).filter(c=>!tomar(g=>g.pac===c.pac));
+  return {dadas, noAsistio, porConf:noAsistio.filter(c=>!c.confirmadaPor), sinCobro};
+}
+function avisosCorte(s, admin){
+  let h="";
+  if(s.sinCobro.length){ const n=s.sinCobro.length, monto=s.sinCobro.reduce((a,c)=>a+((pac(c.pac)||{}).tarifa||0),0);
+    h+=`<div class="corte-aviso">⚠ <b>${n} ${n===1?"sesión":"sesiones"} sin cobro registrado</b>${monto?` (≈ ${mxn(monto)})`:""}`
+      + s.sinCobro.map(c=>`<div class="falta"><span>${esc((pac(c.pac)||{}).nombre||"—")} · ${fechaCorta(c.fecha,true)}</span><button class="rev-btn" onclick="cobroDesdeCita('${c.id}')">Registrar</button></div>`).join("")
+      + `</div>`; }
+  if(s.porConf.length){ const n=s.porConf.length;
+    h+=`<div class="corte-aviso amb"><span>🚫 <b>${n} no ${n===1?"asistió":"asistieron"}</b> · ${admin?"por confirmar":"falta que Dirección lo confirme"}</span>${admin?`<button class="rev-btn" onclick="verPorConfirmar()">Revisar</button>`:""}</div>`; }
+  return h;
 }
 
 /* ---- Facturas ---- */
@@ -1529,8 +1606,13 @@ function renderPacientesCita(){
   if(pacienteElegido && prev && base.some(p=>p.id===prev)) sel.value=prev;
   else if(pedirPaciente || !suyos.length){ sel.insertAdjacentHTML("afterbegin", `<option value="">— Elige paciente —</option>`); sel.value=""; }
 }
-function fechaCitaTxt(){ return fechaLarga(estado.fechaAgenda); }
-function abrirCita(h){
+function textoCuandoCita(){ const f=document.getElementById("cFechaIn").value, h=document.getElementById("cHora").value;
+  document.getElementById("cFecha").textContent=(f? fechaLarga(f) : "Elige el día")+(h? " · "+h : ""); }
+// Agrega a una lista la opción que falta (por ejemplo, un paciente archivado o una psicóloga que ya no atiende)
+function asegurarOpcion(sel, id, nombre){ const s=document.getElementById(sel);
+  if(!Array.from(s.options).some(o=>o.value===id)) s.insertAdjacentHTML("beforeend", `<option value="${esc(id)}">${esc(nombre||"—")}</option>`);
+  s.value=id; }
+function abrirCita(h, fecha){
   citaEditId=null; pacienteElegido=false; pedirPaciente=false;
   document.getElementById("cTitulo").textContent="Agendar cita";
   document.getElementById("cGuardar").textContent="Agendar cita";
@@ -1538,10 +1620,24 @@ function abrirCita(h){
   document.getElementById("cVoz").className="voz-entendi";
   fijarPsic("cPsic");
   renderPacientesCita();
-  document.getElementById("cFecha").textContent=fechaCitaTxt()+" · "+h;
+  document.getElementById("cFechaIn").value=fecha||estado.fechaAgenda;
   document.getElementById("cHora").value=h; document.getElementById("cDur").value="60";
-  document.getElementById("cHora").onchange=function(){ document.getElementById("cFecha").textContent=fechaCitaTxt()+" · "+this.value; };
+  textoCuandoCita();
   document.getElementById("conflicto").classList.remove("ver"); diasSel={}; document.getElementById("cRepetirCampo").style.display=""; renderDiasChips(); abrir("modalCita");
+}
+// Otra cita para el mismo paciente; la original se queda como no asistió o cancelada
+function reagendarCita(id){
+  const c=estado.citas.find(x=>x.id===id); if(!c || !esAdmin()) return;
+  let f=addDaysISO(c.fecha,7); while(f<hoyISO()) f=addDaysISO(f,7);
+  abrirCita(c.hora, f);
+  document.getElementById("cTitulo").textContent="Reagendar cita";
+  asegurarOpcion("cPsic", c.psic, (psic(c.psic)||{}).nombre);
+  pacienteElegido=true; renderPacientesCita();
+  asegurarOpcion("cPaciente", c.pac, (pac(c.pac)||{}).nombre);
+  document.getElementById("cDur").value=String(c.dur||60);
+  const caja=document.getElementById("cVoz");
+  caja.textContent=`📅 Elige el nuevo día y la hora. La cita del ${fmtDia(c.fecha)} se queda como ${c.estado==="cancelada"?"cancelada":"no asistió"}.`;
+  caja.className="voz-entendi ver";
 }
 function abrirEditarCita(id){
   if(!esAdmin()) return;
@@ -1560,43 +1656,47 @@ function abrirEditarCita(id){
     document.getElementById("cPaciente").innerHTML+=`<option value="${c.pac}">${esc(pac(c.pac).nombre)}</option>`;
   }
   document.getElementById("cPaciente").value=c.pac;
-  document.getElementById("cFecha").textContent=fechaLarga(c.fecha)+" · "+c.hora;
+  document.getElementById("cFechaIn").value=c.fecha;
   document.getElementById("cHora").value=c.hora; document.getElementById("cDur").value=String(c.dur);
+  textoCuandoCita();
   diasSel={}; document.getElementById("cRepetirCampo").style.display="none";
   document.getElementById("conflicto").classList.remove("ver"); abrir("modalCita");
 }
 async function guardarCita(){
   const psicId=document.getElementById("cPsic").value, hora=document.getElementById("cHora").value, dur=+document.getElementById("cDur").value;
-  const pacId=document.getElementById("cPaciente").value, ini=minutos(hora), fin=ini+dur;
+  const pacId=document.getElementById("cPaciente").value, dia=document.getElementById("cFechaIn").value;
   if(!pacId){ toast("Elige el paciente","err"); return; }
-  const choque=estado.citas.find(c=>{ if(c.id===citaEditId) return false; if(c.fecha!==estado.fechaAgenda||c.psic!==psicId) return false;
-    const ci=minutos(c.hora), cf=ci+c.dur; return ini<cf && ci<fin; });
+  if(!dia || !hora){ toast("Elige el día y la hora","err"); return; }
+  const ini=minutos(hora), fin=ini+dur;
+  // Las citas canceladas o en las que no asistió el paciente no ocupan el horario
+  const ocupa=(c,f,a,b)=>c.estado==="programada" && c.fecha===f && c.psic===psicId && a<minutos(c.hora)+c.dur && minutos(c.hora)<b;
+  const choque=estado.citas.find(c=>c.id!==citaEditId && ocupa(c,dia,ini,fin));
   if(choque){ const p=psic(psicId);
-    document.getElementById("txtConflicto").textContent=`${p.nombre} ya tiene a ${pac(choque.pac).nombre} a las ${choque.hora}. Elige otra hora u otra psicóloga.`;
+    document.getElementById("txtConflicto").textContent=`${p.nombre} ya tiene a ${pac(choque.pac).nombre} a las ${choque.hora} ese día. Elige otra hora u otra psicóloga.`;
     document.getElementById("conflicto").classList.add("ver"); return; }
   const editando=citaEditId;
   if(editando){
-    const {error}=await sb.from("citas").update({paciente_id:pacId, psicologa_id:psicId, hora, duracion:dur}).eq("id",editando);
+    const antes=estado.citas.find(c=>c.id===editando)||{};
+    const {error}=await sb.from("citas").update({paciente_id:pacId, psicologa_id:psicId, fecha:dia, hora, duracion:dur}).eq("id",editando);
     if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
-    cerrar("modalCita"); await refrescar(); toast("Cita actualizada ✓","ok"); return;
+    estado.fechaAgenda=dia; cerrar("modalCita"); await refrescar();
+    toast(antes.fecha && antes.fecha!==dia? "Cita movida al "+fechaLarga(dia).toLowerCase()+" ✓" : "Cita actualizada ✓","ok"); return;
   }
   const dias=Object.keys(diasSel);
   if(!dias.length){
-    const {error}=await sb.from("citas").insert({fecha:estado.fechaAgenda, hora, duracion:dur, psicologa_id:psicId, paciente_id:pacId});
+    const {error}=await sb.from("citas").insert({fecha:dia, hora, duracion:dur, psicologa_id:psicId, paciente_id:pacId});
     if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
-    cerrar("modalCita"); await refrescar(); toast("Cita agendada: "+hora+"–"+hhmm(ini+dur)+" ✓","ok"); return;
+    estado.fechaAgenda=dia; cerrar("modalCita"); await refrescar(); toast("Cita agendada: "+hora+"–"+hhmm(ini+dur)+" ✓","ok"); return;
   }
   const semanas=+document.getElementById("cSemanas").value||1;
-  const lunes=mondayISO(estado.fechaAgenda);
+  const lunes=mondayISO(dia);
   const nuevas=[], choques=[];
   for(let w=0; w<semanas; w++){
     dias.forEach(k=>{
       const fecha=addDaysISO(lunes, (+k-1) + 7*w);
-      if(fecha < estado.fechaAgenda) return;
+      if(fecha < dia) return;
       const h=diasSel[k], a=minutos(h), b=a+dur;
-      const ch=estado.citas.find(c=>{ if(c.fecha!==fecha||c.psic!==psicId) return false;
-        const ci=minutos(c.hora), cf=ci+c.dur; return a<cf && ci<b; });
-      if(ch){ choques.push(fmtDia(fecha)+" "+h); return; }
+      if(estado.citas.some(c=>ocupa(c,fecha,a,b))){ choques.push(fmtDia(fecha)+" "+h); return; }
       if(nuevas.some(x=>x.fecha===fecha && x.hora===h)) return;
       nuevas.push({fecha, hora:h, duracion:dur, psicologa_id:psicId, paciente_id:pacId});
     });
@@ -1604,14 +1704,105 @@ async function guardarCita(){
   if(!nuevas.length){ toast("Todas esas horas ya están ocupadas","err"); return; }
   const {error}=await sb.from("citas").insert(nuevas);
   if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
-  cerrar("modalCita"); await refrescar();
+  estado.fechaAgenda=dia; cerrar("modalCita"); await refrescar();
   toast(nuevas.length+" citas agendadas ✓"+(choques.length?` · ${choques.length} se omitieron por empalme`:""),"ok");
 }
-async function eliminarCita(){
-  if(!citaEditId) return; const c=estado.citas.find(x=>x.id===citaEditId); const nom=c?pac(c.pac).nombre:""; const idc=citaEditId; citaEditId=null;
-  const {error}=await sb.from("citas").delete().eq("id",idc);
+async function eliminarCita(id){
+  id=id||citaEditId; if(!id) return;
+  const c=estado.citas.find(x=>x.id===id), nom=c? (pac(c.pac)||{}).nombre||"" : "";
+  if(!confirm("¿Eliminar la cita"+(nom?" de "+nom:"")+"? No se puede deshacer. Si solo no va a venir, mejor cancélala.")) return;
+  const {error}=await sb.from("citas").delete().eq("id",id);
   if(error){ toast("No se pudo eliminar","err"); return; }
-  cerrar("modalCita"); await refrescar(); toast("Cita eliminada"+(nom?" de "+nom:"")+" ✓","ok");
+  citaEditId=null; cerrar("modalCita"); await refrescar(); toast("Cita eliminada"+(nom?" de "+nom:"")+" ✓","ok");
+}
+
+/* ---- Al tocar una cita: nota, cobro, asistencia ----
+   Dirección además edita, cambia de día, cancela, reagenda y confirma inasistencias. */
+function menuCita(id){
+  const c=estado.citas.find(x=>x.id===id); if(!c) return;
+  const admin=esAdmin(), mia=c.psic===estado.quien;
+  if(!admin && !mia) return;
+  const pa=pac(c.pac)||{nombre:"—"}, ps=psic(c.psic);
+  document.getElementById("accTitulo").textContent=pa.nombre;
+  document.getElementById("accSub").textContent=fechaCorta(c.fecha,true)+" · "+c.hora+"–"+hhmm(minutos(c.hora)+(c.dur||60))+(ps?" · "+corto(ps.nombre):"");
+  document.getElementById("accCerrar").textContent="Cancelar";
+  const b=[], boton=(txt,fn,cls)=>`<button class="acc-btn${cls?" "+cls:""}" onclick="${fn}">${txt}</button>`;
+  if(c.estado==="programada"){
+    if(admin) b.push(boton("✎ Editar o cambiar de día", `cerrar('modalAcciones'); abrirEditarCita('${id}')`));
+    if(citaEmpezo(c)){
+      const conNota=estado.notas.some(n=>n.pac===c.pac && n.psic===c.psic && n.fecha===c.fecha);
+      // Igual que en el corte: el cobro puede registrarse otro día
+      const r={desde:c.fecha, hasta:hoyISO()}, conCobro=citaTermino(c)? !sesionesDe(c.psic, r, estado.pagos.filter(g=>g.fecha>=r.desde)).sinCobro.some(x=>x.id===c.id)
+        : estado.pagos.some(g=>g.pac===c.pac && g.psic===c.psic && g.fecha===c.fecha);
+      b.push(conNota? boton("📝 Nota escrita ✓", `expedienteDeCita('${id}')`, "hecho") : boton("📝 Escribir nota", `notaDesdeCita('${id}')`));
+      b.push(conCobro? boton("💵 Cobro registrado ✓", `cerrar('modalAcciones'); irA('cobros')`, "hecho") : boton("💵 Registrar cobro", `cobroDesdeCita('${id}')`));
+      b.push(boton("🚫 No asistió", `marcarCita('${id}','no_asistio')`));
+    }
+    if(admin) b.push(boton("✕ Cancelar cita", `marcarCita('${id}','cancelada')`, "peligro"));
+  } else {
+    const info = c.estado==="cancelada"? "Cita cancelada: no se cobra ni lleva nota."
+      : c.confirmadaPor? "No asistió · Dirección lo confirmó. No se cobra ni lleva nota."
+      : admin? "No asistió · falta que lo confirmes." : "Marcaste que no asistió · falta que Dirección lo confirme.";
+    b.push(`<div class="acc-info ${c.estado==="cancelada"?"alerta":"amb"}">${info}</div>`);
+    if(c.estado==="no_asistio" && admin && !c.confirmadaPor) b.push(boton("✓ Confirmar que no asistió", `confirmarCita('${id}')`));
+    if(c.estado==="no_asistio" && (admin || !c.confirmadaPor)) b.push(boton("↩︎ Sí asistió", `marcarCita('${id}','programada')`));
+    if(c.estado==="cancelada" && admin) b.push(boton("↩︎ Reactivar cita", `marcarCita('${id}','programada')`));
+    if(admin) b.push(boton("📅 Reagendar en otro día", `cerrar('modalAcciones'); reagendarCita('${id}')`));
+    if(admin) b.push(boton("🗑 Eliminar cita", `cerrar('modalAcciones'); eliminarCita('${id}')`, "peligro"));
+  }
+  b.push(boton("👤 Ver expediente", `expedienteDeCita('${id}')`));
+  document.getElementById("accBotones").innerHTML=b.join("");
+  abrir("modalAcciones");
+}
+async function marcarCita(id, nuevo, enLista){
+  const c=estado.citas.find(x=>x.id===id); if(!c) return;
+  const antes=c.estado;
+  if(!enLista) cerrar("modalAcciones");
+  // La base anota quién y cuándo; lo que marca Dirección queda confirmado (sql/citas-estado.sql)
+  const {error}=await sb.from("citas").update({estado:nuevo}).eq("id",id);
+  if(error){ toast("No se pudo: "+error.message,"err"); return; }
+  await refrescar();
+  toast(nuevo==="no_asistio"? (esAdmin()? "Anotado: no asistió ✓" : "Anotado: no asistió. Dirección lo confirmará ✓")
+    : nuevo==="cancelada"? "Cita cancelada · el horario quedó libre"
+    : antes==="cancelada"? "Cita reactivada ✓" : "Listo: sí asistió ✓", "ok");
+  if(enLista) verPorConfirmar();
+}
+async function confirmarCita(id, enLista){
+  if(!esAdmin()) return;
+  if(!enLista) cerrar("modalAcciones");
+  const {error}=await sb.from("citas").update({confirmada_por:estado.quien}).eq("id",id);
+  if(error){ toast("No se pudo confirmar: "+error.message,"err"); return; }
+  await refrescar(); toast("Confirmado: no asistió ✓","ok");
+  if(enLista) verPorConfirmar();
+}
+// Lista para que Dirección corrobore las inasistencias que marcaron las psicólogas
+function verPorConfirmar(){
+  if(!esAdmin()) return;
+  const lista=porConfirmar().sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  if(!lista.length){ cerrar("modalAcciones"); return; }
+  document.getElementById("accTitulo").textContent="Inasistencias por confirmar";
+  document.getElementById("accSub").textContent="Corrobora que de verdad no asistieron: no se cobran ni llevan nota.";
+  document.getElementById("accCerrar").textContent="Cerrar";
+  document.getElementById("accBotones").innerHTML=lista.map(c=>{ const pa=pac(c.pac)||{nombre:"—"}, ps=psic(c.psic)||{nombre:"—", color:"#A9A3B6"};
+    return `<div class="conf-fila"><b>${esc(pa.nombre)}</b>
+      <span class="cuando"><span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))} · ${fechaCorta(c.fecha,true)} · ${c.hora}</span>
+      <div class="conf-acc"><button class="btn" onclick="confirmarCita('${c.id}',true)">✓ Confirmar</button><button class="btn fantasma" onclick="marcarCita('${c.id}','programada',true)">Sí asistió</button></div></div>`;
+  }).join("");
+  abrir("modalAcciones");
+}
+function expedienteDeCita(id){
+  const c=estado.citas.find(x=>x.id===id); cerrar("modalAcciones"); if(!c) return false;
+  irA("expediente"); seleccionarPx(c.pac);
+  if(pacienteSel!==c.pac){ toast("No puedes abrir el expediente de este paciente (¿está archivado?)","err"); return false; }
+  return true;
+}
+function notaDesdeCita(id){ if(expedienteDeCita(id)) abrirNota(); }
+function cobroDesdeCita(id){
+  const c=estado.citas.find(x=>x.id===id); if(!c) return;
+  cerrar("modalAcciones"); abrirPago();
+  asegurarOpcion("pPaciente", c.pac, (pac(c.pac)||{}).nombre);
+  if(!document.getElementById("pPsic").disabled) asegurarOpcion("pPsic", c.psic, (psic(c.psic)||{}).nombre);
+  sincronizarTarifa();
 }
 
 function abrirNota(){ const p=pac(pacienteSel); if(!p) return; if(p.activo===false&&!esAdmin()){ toast("Paciente archivado — no puedes agregar notas","err"); return; }

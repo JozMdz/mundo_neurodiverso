@@ -1,7 +1,7 @@
 -- Mundo Neurodiverso · Estructura completa de la base en Supabase (sin datos).
 --
--- Reconstruida el 15 oct 2026 con sql/inventario.sql y sql/revisar.sql; ya incluye sql/seguridad.sql y
--- sql/ajustes.sql. Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
+-- Reconstruida el 15 oct 2026 con sql/inventario.sql y sql/revisar.sql; ya incluye sql/seguridad.sql,
+-- sql/ajustes.sql y sql/citas-estado.sql. Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
 -- (SQL Editor → pega todo → Run). Si cambias la base, actualiza este archivo para que siga siendo fiel.
 
 begin;
@@ -36,7 +36,11 @@ create table public.citas (
   duracion integer not null default 60,
   psicologa_id uuid not null references public.psicologas(id),
   paciente_id uuid not null references public.pacientes(id),
-  creado_en timestamptz not null default now()
+  creado_en timestamptz not null default now(),
+  estado text not null default 'programada' check (estado in ('programada', 'no_asistio', 'cancelada')),
+  marcada_por uuid references public.psicologas(id),                -- quién marcó el estado y cuándo
+  marcada_en timestamptz,
+  confirmada_por uuid references public.psicologas(id)              -- Dirección que lo confirmó; null = por confirmar
 );
 create table public.notas (
   id uuid primary key default gen_random_uuid(),
@@ -230,6 +234,45 @@ begin
   return coalesce(new, old);
 end $$;
 
+-- De sql/citas-estado.sql: la psicóloga solo marca si asistió a sus citas; Dirección confirma y cancela
+create function public.proteger_citas() returns trigger
+language plpgsql set search_path = public, pg_temp as $$
+begin
+  if current_user not in ('authenticated', 'anon') then
+    return new;
+  end if;
+  if new.estado is distinct from old.estado then
+    new.marcada_por := auth.uid();
+    new.marcada_en := now();
+    -- Lo que marca Dirección queda confirmado; lo que marca una psicóloga espera a Dirección
+    new.confirmada_por := case when es_direccion() and new.estado <> 'programada' then auth.uid() end;
+  elsif new.confirmada_por is distinct from old.confirmada_por then
+    if not es_direccion() then
+      raise exception 'Solo Dirección confirma inasistencias.';
+    end if;
+    new.confirmada_por := case when new.confirmada_por is not null then auth.uid() end;
+  end if;
+  if es_direccion() then
+    return new;
+  end if;
+  if old.confirmada_por is not null then
+    raise exception 'Dirección ya confirmó esta cita: pídele el cambio.';
+  end if;
+  if new.estado not in ('programada', 'no_asistio') then
+    raise exception 'Solo Dirección cancela citas.';
+  end if;
+  -- Una cita de otro día que aún no llega no se puede marcar (hora de la Ciudad de México)
+  if new.estado = 'no_asistio' and old.estado <> 'no_asistio'
+     and old.fecha > (now() at time zone 'America/Mexico_City')::date then
+    raise exception 'Esa cita todavía no llega: márcala el día de la cita.';
+  end if;
+  if (to_jsonb(new) - 'estado' - 'marcada_por' - 'marcada_en' - 'confirmada_por')
+     is distinct from (to_jsonb(old) - 'estado' - 'marcada_por' - 'marcada_en' - 'confirmada_por') then
+    raise exception 'De una cita solo puedes marcar si asistió.';
+  end if;
+  return new;
+end $$;
+
 -- ================= Triggers =================
 -- Los a0_ corren antes que los demás de su tabla (orden alfabético).
 create trigger tr_comentario_revisar after insert on public.comentarios for each row execute function marcar_nota_por_revisar();
@@ -240,6 +283,7 @@ create trigger tr_texto before update on public.notas for each row execute funct
 create trigger a0_proteger_pagos before insert or delete or update on public.pagos for each row execute function proteger_pagos();
 create trigger tr_validado before update on public.pagos for each row execute function proteger_validado();
 create trigger a0_proteger_facturas before insert or delete or update on public.facturas for each row execute function proteger_facturas();
+create trigger a0_proteger_citas before update on public.citas for each row execute function proteger_citas();
 
 -- ================= Seguridad por renglón (RLS) =================
 alter table public.psicologas  enable row level security;
@@ -263,6 +307,7 @@ create policy p_pac_update on public.pacientes for update to authenticated using
 
 create policy p_cita_select on public.citas for select to authenticated using (es_direccion() or psicologa_id = auth.uid());
 create policy p_cita_write on public.citas for all to authenticated using (es_direccion()) with check (es_direccion());
+create policy p_cita_marcar on public.citas for update to authenticated using (psicologa_id = auth.uid()) with check (psicologa_id = auth.uid());
 
 create policy p_nota_select on public.notas for select to authenticated using (es_direccion() or psicologa_id = auth.uid() or mi_paciente(paciente_id));
 create policy p_nota_insert on public.notas for insert to authenticated with check (psicologa_id = auth.uid() or es_direccion());

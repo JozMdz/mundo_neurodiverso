@@ -45,6 +45,14 @@ paciente, psicóloga ("con Andrea"), día, hora, duración y repetición ("todos
 mes"). Sin "de la tarde", la hora se elige dentro del `HORARIO` de ese día. Abre la hoja de cita ya llena
 para confirmar: nunca guarda sola. Las frases de prueba están en `pruebas/flujos.js`.
 
+Estado de las citas (`sql/citas-estado.sql`): una cita que ya pasó cuenta como **atendida** y pide nota y cobro.
+Al tocar una cita se abre su hoja de opciones (`menuCita`): nota, cobro con la tarifa del paciente y "No asistió".
+Lo que marca una psicóloga queda **por confirmar** hasta que Dirección lo corrobora (aviso arriba de la agenda y
+`verPorConfirmar`); lo que marca Dirección queda confirmado. Solo Dirección cancela, reactiva, reagenda y cambia
+de día (campo Día en la hoja de cita). Canceladas y "no asistió" no piden nota ni cobro ni ocupan el horario.
+El corte de Cobros (`sesionesDe`) compara las sesiones dadas de la agenda con los cobros de cada paciente y avisa
+las que no tienen cobro.
+
 ## Seguridad
 
 - Los permisos los hace cumplir Supabase: las políticas RLS y los triggers de `sql/seguridad.sql`.
@@ -59,6 +67,8 @@ para confirmar: nunca guarda sola. Las frases de prueba están en `pruebas/flujo
   conteos y resumen de psicólogas). Ninguna muestra datos de pacientes.
 - `pruebas/permisos.py` carga `sql/esquema.sql` con datos inventados en un Postgres local desechable y
   prueba lo que una psicóloga no debe poder hacer y lo que sí. Las instrucciones están al inicio del archivo.
+- `sql/citas-estado.sql` agrega el estado de las citas y su trigger (`proteger_citas`): la psicóloga solo marca si
+  asistió a sus propias citas, desde el día de la cita, y no cambia lo que Dirección ya confirmó.
 - Cuentas: hay dos de Dirección. Una es de soporte y no atiende (`atiende = false`); la otra es la
   directora, que sí atiende. Solo Dirección agenda citas.
 - `supabase-js` está fijo en una versión exacta. Súbela a propósito y prueba antes.
