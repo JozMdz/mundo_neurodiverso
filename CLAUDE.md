@@ -27,10 +27,21 @@ Reglas:
    (`seleccionarPx`, `volverPx`).
 8. Borrar y editar van en una hoja de opciones (`menuNota` / `modalAcciones`), no como íconos chicos
    junto a otros botones.
-9. Lo que escriben las usuarias (notas, comentarios, nombres) se inserta en el HTML con `esc()`.
+9. Lo que escriben las usuarias (notas, comentarios, nombres, método de pago…) se inserta en el HTML
+   con `esc()`, también dentro de atributos y de `<option>`.
 
 Identidad visual: los colores de `:root` (morado, verde, cian, rosa, naranja, amarillo) y las
 tipografías Fredoka (títulos) y Nunito (texto).
+
+## Seguridad
+
+- Los permisos los hace cumplir Supabase: las políticas RLS y los triggers de `sql/seguridad.sql`.
+  Lo que revisa la app (`esAdmin()`, botones ocultos) es solo para la pantalla: cualquiera con sesión
+  puede saltárselo desde el navegador.
+- Si agregas una escritura nueva en la app, revisa que la base la permita y que una psicóloga no pueda
+  usarla para hacer más de lo que la pantalla le muestra.
+- `sql/revisar.sql` muestra la configuración actual de la base (sin datos de pacientes).
+- `supabase-js` está fijo en una versión exacta. Súbela a propósito y prueba antes.
 
 ## App instalable (iPhone y Android)
 
