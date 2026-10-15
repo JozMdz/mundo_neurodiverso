@@ -17,12 +17,12 @@
     --sombra:0 2px 4px rgba(80,60,110,.05), 0 8px 24px rgba(80,60,110,.06);
     --sombra-alta:0 8px 30px rgba(80,60,110,.14); --r:16px; --r-sm:11px;
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  html{scroll-behavior:smooth;}
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html{scroll-behavior:smooth; -webkit-text-size-adjust:100%; text-size-adjust:100%;}
   body{font-family:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--fondo); color:var(--tinta); font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;}
   h1,h2,h3,.display{font-family:"Fredoka","Nunito",sans-serif; font-weight:600; letter-spacing:.2px;}
   .num{font-variant-numeric:tabular-nums;}
-  button{font-family:inherit; cursor:pointer; border:none; font-size:15px;}
+  button{font-family:inherit; cursor:pointer; border:none; font-size:15px; touch-action:manipulation;}
   input,select,textarea{font-family:inherit; font-size:16px; color:var(--tinta);}
   select:disabled{opacity:.65; cursor:not-allowed; background:#F4F1F8;}
   a{color:var(--morado);}
@@ -45,7 +45,7 @@
   .login-accts button:hover{border-color:var(--linea-fuerte); background:#fff;}
   .login-accts .pt{width:11px; height:11px; border-radius:3px;}
 
-  header{background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; position:sticky; top:0; z-index:20;}
+  header{background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px max(18px, env(safe-area-inset-right)) 12px max(18px, env(safe-area-inset-left)); display:flex; align-items:center; gap:14px; flex-wrap:wrap; position:sticky; top:0; z-index:20;}
   .marca{display:flex; align-items:center; gap:11px;}
   .marca .nombre{font-family:"Fredoka"; font-weight:600; font-size:20px; line-height:1;}
   .marca .nombre .m{color:var(--amarillo);} .marca .nombre .n{color:var(--morado);}
@@ -65,7 +65,7 @@
   #rolBanner{text-align:center; font-size:12.5px; font-weight:700; padding:8px 16px; border-bottom:1px solid var(--linea); display:none;}
   #rolBanner.ver{display:block;}
 
-  main{max-width:1120px; margin:0 auto; padding:20px 16px 80px;}
+  main{max-width:1120px; margin:0 auto; padding:20px max(16px, env(safe-area-inset-right)) 80px max(16px, env(safe-area-inset-left));}
   .resumen{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;}
   .tarjeta{background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra);}
   .kpi{padding:15px 16px; position:relative; overflow:hidden;}
@@ -80,6 +80,7 @@
   nav.tabs button:hover{transform:translateY(-1px); color:var(--tinta);}
   nav.tabs button.activa{background:var(--morado); color:#fff; border-color:var(--morado);}
   nav.tabs button.activa .dot{background:#fff;}
+  nav.tabs .ico{display:none; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
 
   section.vista{display:none; animation:surge .3s ease both;}
   section.vista.activa{display:block;}
@@ -89,6 +90,8 @@
 
   .btn{background:var(--morado); color:#fff; border-radius:var(--r-sm); padding:10px 16px; font-weight:700; box-shadow:var(--sombra); transition:filter .12s; white-space:nowrap;}
   .btn:hover{filter:brightness(1.07);}
+  .btn,.px-filtros button{transition:filter .12s, transform .09s ease;}
+  .btn:active,.px-filtros button:active{transform:scale(.97);}
   .btn.verde{background:var(--verde);} .btn.cian{background:var(--cian);} .btn.naranja{background:var(--naranja);}
   .btn.fantasma{background:#fff; color:var(--morado); border:1px solid var(--linea-fuerte); box-shadow:none;}
 
@@ -132,29 +135,69 @@
   .cal .sem-col .ev{padding:3px 5px;}
   .cal .sem-col .ev .p{font-size:11px;}
   .cal .sem-col .ev .r{font-size:10px;}
-  .split{display:grid; grid-template-columns:262px 1fr; gap:16px;}
-  .lista-px{background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra); overflow:hidden; align-self:start;}
-  .lista-px .item{padding:12px 15px; border-top:1px solid var(--linea); cursor:pointer; display:flex; align-items:center; gap:11px;}
-  .lista-px .item:first-child{border-top:none;}
-  .lista-px .item:hover{background:#FBF9FE;} .lista-px .item.sel{background:#F4ECFA;}
-  .avatar{width:34px; height:34px; border-radius:10px; flex:none; display:grid; place-items:center; color:#fff; font-family:"Fredoka"; font-weight:600; font-size:15px;}
-  .lista-px .item .info b{font-size:14.5px; display:block;} .lista-px .item .info span{font-size:12px; color:var(--gris); font-weight:600;}
-  .lista-px .add{padding:13px 15px; border-top:1px solid var(--linea); color:var(--morado); font-weight:800; cursor:pointer; font-size:14px;}
-  .lista-px .add:hover{background:#FBF9FE;}
+  /* ---------- Expediente: lista de pacientes → ficha y notas ---------- */
+  .split{display:grid; grid-template-columns:300px minmax(0,1fr); gap:16px; align-items:start;}
+  .px-col-lista,.px-col-detalle{min-width:0;}
+  .px-titulo{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .px-titulo h2{font-size:21px; line-height:1.15;}
+  .px-titulo .cap{font-size:12.5px; color:var(--gris); font-weight:700;}
+  .px-titulo .btn{margin-left:auto;}
+  .px-filtros{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;}
+  .px-filtros button{flex:none; background:var(--tarjeta); border:1px solid var(--linea-fuerte); color:var(--gris); border-radius:999px; padding:7px 13px; font-weight:800; font-size:13px; white-space:nowrap;}
+  .px-filtros button b{margin-left:3px; font-variant-numeric:tabular-nums; color:var(--tinta);}
+  .px-filtros button.alerta b{color:var(--rosa);}
+  .px-filtros button.on{background:var(--morado); border-color:var(--morado); color:#fff;}
+  .px-filtros button.on b{color:#fff;}
+  .px-grupo{font-size:11.5px; font-weight:800; color:var(--gris); text-transform:uppercase; letter-spacing:.5px; margin:16px 4px 7px;}
+  .px-grupo:first-child{margin-top:0;}
+  .px-lista{background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra); overflow:hidden;}
+  .px-fila{display:flex; align-items:center; gap:11px; width:100%; min-height:62px; padding:10px 12px 10px 14px; background:none; border:none; border-top:1px solid var(--linea); text-align:left; color:inherit;}
+  .px-fila:first-child{border-top:none;}
+  .px-fila:hover{background:#FBF9FE;} .px-fila.sel{background:#F4ECFA;} .px-fila:active{background:#F4ECFA;}
+  .px-fila.archivado{opacity:.6;}
+  .px-info{flex:1; min-width:0;}
+  .px-info b{display:block; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .px-sub{display:block; font-size:12.5px; color:var(--gris); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pt{width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:5px; vertical-align:1px;}
+  .px-lado{display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex:none;}
+  .px-fecha{font-size:11.5px; color:var(--gris-claro); font-weight:700; white-space:nowrap;}
+  .px-chev{flex:none; color:var(--gris-claro); font-size:22px; line-height:1; margin:-2px -2px 0 0;}
+  .px-hora{flex:none; width:44px; font-family:"Fredoka"; font-weight:600; font-size:15px; color:var(--morado); font-variant-numeric:tabular-nums;}
+  .px-tag{flex:none; font-size:11px; font-weight:800; padding:3px 9px; border-radius:999px; white-space:nowrap;}
+  .px-tag.ok{background:var(--ok-suave); color:var(--ok);} .px-tag.falta{background:var(--alerta-suave); color:var(--alerta);}
+  .px-vacio{padding:24px 16px; text-align:center; color:var(--gris); font-size:13.5px; font-weight:700;}
+  .avatar{width:38px; height:38px; border-radius:11px; flex:none; display:grid; place-items:center; color:#fff; font-family:"Fredoka"; font-weight:600; font-size:15px;}
 
-  .expediente{background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra); padding:20px;}
-  .expediente .top{display:flex; align-items:flex-start; gap:14px; padding-bottom:16px; border-bottom:1px solid var(--linea); margin-bottom:4px; flex-wrap:wrap;}
-  .expediente .top .avatar{width:48px; height:48px; border-radius:13px; font-size:19px;}
-  .expediente .top h3{font-size:20px;} .expediente .top .meta{font-size:13px; color:var(--gris); font-weight:600; margin-top:2px;}
-  .expediente .top .meta b{color:var(--tinta);}
-  .timeline{position:relative; padding-left:6px;}
-  .nota{display:grid; grid-template-columns:auto 1fr; gap:13px; padding:16px 0; border-bottom:1px solid var(--linea);}
-  .nota:last-child{border-bottom:none;}
-  .nota .linea-tiempo{display:flex; flex-direction:column; align-items:center;}
-  .nota .punto{width:14px; height:14px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 2px currentColor;}
-  .nota .conector{flex:1; width:2px; background:var(--linea); margin-top:4px;}
-  .nota .cuerpo .encab{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:5px;}
-  .nota .cuerpo .fecha{font-weight:800; font-size:13px;}
+  .px-barra{display:none;}
+  .px-ficha{background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra); padding:18px;}
+  .px-ficha-top{display:flex; align-items:center; gap:14px;}
+  .px-ficha-top .avatar{width:54px; height:54px; border-radius:15px; font-size:21px;}
+  .px-ficha-top h3{font-size:20px; line-height:1.2; overflow-wrap:anywhere;}
+  .px-ficha-top .meta{font-size:13.5px; color:var(--gris); font-weight:600; margin-top:3px;}
+  .px-datos{display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; margin-top:16px; padding-top:14px; border-top:1px solid var(--linea);}
+  .px-dato{min-width:0;} .px-dato.ancho{grid-column:1 / -1;}
+  .px-dato dt{font-size:11px; font-weight:800; color:var(--gris); text-transform:uppercase; letter-spacing:.4px;}
+  .px-dato dd{font-size:14.5px; font-weight:700; margin-top:1px; overflow-wrap:anywhere;}
+  .px-dato a{font-weight:800; text-decoration:none;}
+  .px-acciones{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px;}
+  .px-notas-cab{display:flex; align-items:center; gap:8px; margin:20px 0 10px 4px;}
+  .px-notas-cab .btn{margin-left:auto;}
+  .px-notas-cab h3{font-size:17px;} .px-notas-cab span{font-size:13px; color:var(--gris); font-weight:800;}
+  .nota{position:relative; background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra); padding:14px 14px 8px 18px; margin-bottom:10px; overflow:hidden;}
+  .nota::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--c, var(--linea-fuerte));}
+  .nota.nueva{border-color:#F7B9D5;}
+  .nota-cab{display:flex; align-items:flex-start; gap:8px;}
+  .nota-cab .cuando{flex:1; min-width:0;}
+  .nota-cab .fecha{font-weight:800; font-size:14.5px;}
+  .nota-cab .quien{display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:12.5px; font-weight:700; color:var(--gris); margin-top:2px;}
+  .nota-mas{flex:none; width:42px; height:42px; margin:-10px -8px -8px 0; border-radius:12px; background:none; color:var(--gris); font-size:22px; font-weight:800; line-height:1;}
+  .nota-mas:hover,.nota-mas:active{background:var(--fondo); color:var(--tinta);}
+  .nota-texto{font-size:15px; color:#4b4653; margin-top:8px; white-space:pre-wrap; overflow-wrap:anywhere;}
+  .nota-pie{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .nota-pie .rev-btn{margin-left:auto;}
+  .acc-lista{display:flex; flex-direction:column; gap:8px;}
+  .acc-btn{display:flex; align-items:center; gap:12px; width:100%; min-height:50px; padding:0 16px; border-radius:var(--r-sm); background:var(--fondo); border:1px solid var(--linea); color:var(--tinta); font-weight:800; font-size:15px; text-align:left;}
+  .acc-btn.peligro{background:var(--alerta-suave); border-color:transparent; color:var(--alerta);}
   .chip{font-size:11.5px; font-weight:800; padding:3px 10px; border-radius:999px; color:#fff; letter-spacing:.2px;}
   .chip.sm{font-size:10.5px; padding:2px 8px;}
   .rev-chip{font-size:11px; font-weight:800; padding:2px 9px; border-radius:999px;}
@@ -168,16 +211,9 @@
   .dia-hora span{font-weight:800; font-size:13px; color:var(--tinta); width:42px;}
   .dia-hora input{border:1px solid var(--linea-fuerte); border-radius:8px; padding:6px 9px; font-size:14px;}
   .hint-dias{font-size:12.5px; color:var(--gris); font-weight:600; margin-top:4px;}
-  .resumen-px{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
-  .rp{flex:1; min-width:96px; background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px; padding:9px 12px;}
-  .rp .v{font-family:'Fredoka',sans-serif; font-size:19px; line-height:1.1; color:var(--morado);}
-  .rp .l{font-size:10.5px; font-weight:800; color:var(--gris); text-transform:uppercase; letter-spacing:.4px;}
-  .rp.rosa .v{color:var(--rosa);} .rp.verde .v{color:var(--verde);} .rp.cian .v{color:var(--cian);}
-  .buscador{margin-bottom:12px;}
-  .buscador input{width:100%; border:1px solid var(--linea-fuerte); border-radius:999px; padding:11px 16px; font-size:14.5px; font-family:inherit; background:var(--tarjeta);}
-  .buscador input:focus{outline:none; border-color:var(--morado);}
-  .lista-px .item .quien{display:inline-flex; align-items:center; gap:4px;}
-  .lista-px .item .pt{width:8px; height:8px; border-radius:50%; display:inline-block;}
+  .buscador{margin-bottom:10px;}
+  .buscador input{width:100%; border:1px solid var(--linea-fuerte); border-radius:999px; padding:11px 16px; font-size:15px; background:var(--tarjeta); -webkit-appearance:none; appearance:none;}
+  .buscador input:focus{outline:none; border-color:var(--morado); box-shadow:0 0 0 3px rgba(139,61,158,.13);}
   .subtotales{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
   .sub-b{flex:1; min-width:104px; background:#fff; border:1px solid var(--linea); border-radius:12px; padding:9px 12px;}
   .sub-b .l{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px;}
@@ -185,29 +221,30 @@
   .sub-b .c{font-size:11.5px; color:var(--gris); font-weight:700;}
   .sub-b.ef .l{color:var(--ok);} .sub-b.tr .l{color:var(--cian);} .sub-b.ta .l{color:var(--morado);} .sub-b.to .l{color:var(--gris);}
   .fila-acc{white-space:nowrap; text-align:right;}
-  .rev-btn{background:none; border:1px solid var(--linea-fuerte); color:var(--morado); border-radius:999px; padding:3px 10px; font-weight:800; font-size:11.5px; cursor:pointer;}
+  .rev-btn{background:none; border:1px solid var(--linea-fuerte); color:var(--morado); border-radius:999px; padding:7px 13px; font-weight:800; font-size:12.5px; cursor:pointer;}
   .rev-btn:hover{background:#FBF9FE;}
   .tab-badge{background:var(--rosa); color:#fff; font-size:11px; font-weight:800; border-radius:999px; padding:1px 7px; margin-left:2px;}
   .tab-badge:empty{display:none;}
-  .px-badge{background:var(--rosa); color:#fff; font-size:11px; font-weight:800; border-radius:999px; padding:1px 8px; margin-left:auto;}
-  .nota .cuerpo p{font-size:14px; color:#4b4653;}
-  .com-toggle{background:none; border:none; color:var(--morado); font-weight:800; font-size:12.5px; padding:8px 0 2px; cursor:pointer;}
-  .comentarios{margin-top:8px; background:#FAF7FD; border:1px solid var(--linea); border-radius:12px; padding:12px;}
-  .com{padding:7px 0; border-bottom:1px dashed var(--linea);}
+  .px-badge{background:var(--rosa); color:#fff; font-size:11px; font-weight:800; border-radius:999px; padding:1px 8px; min-width:20px; text-align:center;}
+  .com-toggle{background:none; border:none; color:var(--morado); font-weight:800; font-size:13px; min-height:40px; padding:0 6px 0 0; cursor:pointer;}
+  .comentarios{margin:2px 0 8px; background:#FAF7FD; border:1px solid var(--linea); border-radius:12px; padding:10px 12px 12px;}
+  .com{padding:8px 0; border-bottom:1px dashed var(--linea);}
   .com:last-of-type{border-bottom:none;}
   .com-meta{font-size:11px; color:var(--gris-claro); font-weight:700; margin-left:6px;}
-  .com-edit-btn{background:none; border:none; color:var(--gris-claro); cursor:pointer; font-size:13px; margin-left:6px;}
-  .com-edit-btn:hover{color:var(--morado);}
-  .com-edit{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
-  .com-edit input{flex:1; min-width:140px; border:1px solid var(--linea-fuerte); border-radius:8px; padding:7px 10px; font-size:14px;}
-  .com-edit .btn{padding:7px 12px; font-size:13px;}
+  .com-vacio{font-size:12.5px; color:var(--gris-claro); font-weight:600;}
+  .com-acc{float:right; display:flex; gap:2px; margin:-6px -6px 0 0;}
+  .com-acc button{background:none; border:none; color:var(--gris); font-weight:800; font-size:12px; padding:6px 8px; border-radius:8px;}
+  .com-acc button:hover,.com-acc button:active{background:#fff; color:var(--morado);}
+  .com-edit{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;}
+  .com-edit input{flex:1; min-width:0; border:1px solid var(--linea-fuerte); border-radius:9px; padding:9px 11px; font-size:14px;}
+  .com-edit .btn{padding:8px 12px; font-size:13px;}
+  .nota-edit textarea{width:100%; min-height:120px; border:1px solid var(--linea-fuerte); border-radius:10px; padding:10px; font-size:15px; font-family:inherit; resize:vertical; margin-top:8px;}
+  .nota-edit-acc{display:flex; gap:8px; margin:6px 0 4px;}
   .nota-mini{background:none; border:none; cursor:pointer; color:var(--gris-claro); font-size:13px; padding:2px 5px; border-radius:6px;}
   .nota-mini:hover{color:var(--morado); background:#FBF9FE;}
-  .nota-edit textarea{width:100%; min-height:84px; border:1px solid var(--linea-fuerte); border-radius:10px; padding:10px; font-size:14px; font-family:inherit; resize:vertical;}
-  .nota-edit-acc{display:flex; gap:8px; margin-top:6px;}
-  .com-txt{font-size:13.5px; color:#4b4653; margin-top:3px;}
+  .com-txt{font-size:14px; color:#4b4653; margin-top:3px; white-space:pre-wrap; overflow-wrap:anywhere;}
   .com-add{display:flex; gap:8px; margin-top:10px; position:relative;}
-  .com-add input{flex:1; border:1px solid var(--linea-fuerte); border-radius:9px; padding:9px 11px; outline:none; font-size:14px;}
+  .com-add input{flex:1; min-width:0; border:1px solid var(--linea-fuerte); border-radius:9px; padding:9px 11px; outline:none; font-size:14px;}
   .com-add input:focus{border-color:var(--morado);}
   .com-add button{padding:9px 14px; font-size:14px;}
 
@@ -312,14 +349,76 @@
   .vacio{text-align:center; padding:40px 20px; color:var(--gris-claro);}
   .vacio .em{font-size:34px; margin-bottom:8px;} .vacio b{color:var(--gris); display:block; font-size:15px;}
 
+  /* ================= CELULAR =================
+     El diseño de referencia es un iPhone 11: 414 × 896 pt, y en Safari quedan
+     unos 414 × 715 útiles. Todo lo de abajo se piensa primero para ese tamaño. */
   @media(max-width:860px){
-    .resumen{grid-template-columns:repeat(2,1fr);}
-    .split{grid-template-columns:1fr;} .grid-cobros{grid-template-columns:1fr;} .corte{position:static;}
-    nav.tabs{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px;}
-    nav.tabs button{flex:0 0 auto;}
-    .der{gap:8px;} .identidad .rl{display:none;}
-    main{padding:16px 12px 80px;}
+    header{position:static; flex-wrap:nowrap; gap:10px; padding:calc(10px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 10px max(14px, env(safe-area-inset-left));}
+    .marca{gap:9px; min-width:0;}
+    .marca-logo{height:34px;}
+    .marca .nombre{font-size:17px; white-space:nowrap;}
+    .marca .sub, #reloj{display:none;}
+    .der{gap:6px; flex-wrap:nowrap;}
+    .identidad{padding:4px;}
+    .identidad > span:not(.av){display:none;}
+    .identidad .av{width:30px; height:30px; border-radius:9px;}
+    .icono-btn{min-height:38px;}
+    main{padding:12px max(12px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));}
+
+    /* Indicadores: una sola fila compacta en vez de 4 tarjetas grandes */
+    .resumen{grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; margin-bottom:14px;}
+    .kpi{padding:9px 6px 9px 11px; border-radius:13px;}
+    .kpi .cinta{width:4px;}
+    .kpi .n{font-size:17px; white-space:nowrap; letter-spacing:-.2px;}
+    .kpi .l{font-size:9.5px; line-height:1.2; letter-spacing:.1px; margin-top:4px;}
+    .kpi .extra{display:none;}
+
+    /* Pestañas fijas abajo, al alcance del pulgar */
+    nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:60; margin:0; gap:0; flex-wrap:nowrap;
+      padding:5px max(4px, env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+      background:rgba(255,255,255,.94); -webkit-backdrop-filter:saturate(1.6) blur(14px); backdrop-filter:saturate(1.6) blur(14px); border-top:1px solid var(--linea);}
+    nav.tabs button{flex:1 1 0; min-width:0; flex-direction:column; justify-content:center; gap:1px; position:relative; min-height:52px; padding:4px 2px;
+      background:none; border:none; box-shadow:none; border-radius:12px; font-size:10.5px; font-weight:800; color:var(--gris);}
+    nav.tabs button:hover{transform:none;}
+    nav.tabs button .dot{display:none;}
+    nav.tabs .ico{display:block; width:56px; height:28px; padding:2px 16px; border-radius:999px;}
+    nav.tabs button.activa{background:none; color:var(--morado);}
+    nav.tabs button.activa .ico{background:#F1E6F7;}
+    nav.tabs .tab-badge{position:absolute; top:1px; left:calc(50% + 8px); margin:0; min-width:18px; text-align:center;}
+
+    /* Las ventanas suben desde abajo, como hojas de iOS */
+    .fondo-modal{padding:0; align-items:end; justify-items:center; overscroll-behavior:contain;}
+    .modal{max-width:600px; margin:0; border-radius:22px 22px 0 0; max-height:92vh; max-height:92dvh; display:flex; flex-direction:column; animation:sube .26s ease both;}
+    .modal::before{content:""; flex:none; width:38px; height:5px; border-radius:3px; background:var(--linea-fuerte); margin:8px auto 0;}
+    .modal .cab{padding:10px 20px 12px;}
+    .modal .cuerpo{flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px 20px;}
+    .modal .pie{padding:12px 16px calc(12px + env(safe-area-inset-bottom));}
+    .modal .pie .btn{flex:1 1 0; min-height:48px;}
+    #nTexto{min-height:170px;}
+    .toast{bottom:calc(84px + env(safe-area-inset-bottom));}
+
+    /* Safari en iPhone hace zoom al escribir en campos con letra menor a 16px */
+    input, select, textarea{font-size:16px !important;}
+    .btn{min-height:44px;}
+    .split, .grid-cobros{grid-template-columns:minmax(0,1fr);} .corte{position:static;}
+    .tabla-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:var(--r);}
+    .tabla-scroll table.pagos{min-width:560px;}
+
+    /* Expediente: primero la lista; al tocar un paciente se abre su expediente a pantalla completa */
+    #v-expediente.con-detalle .px-col-lista{display:none;}
+    #v-expediente:not(.con-detalle) .px-col-detalle{display:none;}
+    .px-filtros{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; margin:0 -12px 14px; padding:0 12px;}
+    .px-filtros::-webkit-scrollbar{display:none;}
+    .px-filtros button{padding:9px 14px;}
+    .px-fila.sel{background:none;}
+    .px-barra{display:flex; align-items:center; position:sticky; top:0; z-index:15; margin:0 -12px 12px; padding:calc(2px + env(safe-area-inset-top)) 12px 2px 2px;
+      background:rgba(246,243,251,.94); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); border-bottom:1px solid var(--linea);}
+    .px-volver{flex:none; display:flex; align-items:center; gap:6px; min-height:46px; padding:0 10px 0 8px; background:none; border:none; color:var(--morado); font-weight:800; font-size:16px;}
+    .px-barra b{flex:1; min-width:0; text-align:center; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:84px;}
+    .px-ficha{padding:16px;}
+    .px-acciones .btn{flex:1 1 0;}
   }
+  @keyframes sube{from{transform:translateY(40px); opacity:.5;} to{transform:none; opacity:1;}}
   @media(prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important;}}
 </style>
 </head>
@@ -358,11 +457,11 @@
 <main>
   <div class="resumen" id="resumen"></div>
   <nav class="tabs" id="tabs">
-    <button class="activa" data-vista="agenda" onclick="irA('agenda')"><span class="dot"></span>Agenda</button>
-    <button data-vista="expediente" onclick="irA('expediente')"><span class="dot"></span>Expediente<span class="tab-badge" id="badgeExp"></span></button>
-    <button data-vista="cobros" onclick="irA('cobros')"><span class="dot"></span>Cobros</button>
-    <button data-vista="facturas" onclick="irA('facturas')"><span class="dot"></span>Facturas</button>
-    <button data-vista="equipo" id="tabEquipo" onclick="irA('equipo')"><span class="dot"></span>Equipo</button>
+    <button class="activa" data-vista="agenda" onclick="tocarPestana('agenda')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Agenda</button>
+    <button data-vista="expediente" onclick="tocarPestana('expediente')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9.5 3h5v3h-5zM8.5 11h7M8.5 15h4.5"/></svg>Expediente<span class="tab-badge" id="badgeExp"></span></button>
+    <button data-vista="cobros" onclick="tocarPestana('cobros')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/></svg>Cobros</button>
+    <button data-vista="facturas" onclick="tocarPestana('facturas')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Facturas</button>
+    <button data-vista="equipo" id="tabEquipo" onclick="tocarPestana('equipo')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5c.6-3.3 2.8-5.2 5.5-5.2s4.9 1.9 5.5 5.2"/><circle cx="17" cy="9" r="2.5"/><path d="M15.6 14.3c2.5-.3 4.4 1.3 4.9 4.5"/></svg>Equipo</button>
   </nav>
 
   <section class="vista activa" id="v-agenda">
@@ -380,10 +479,16 @@
   </section>
 
   <section class="vista" id="v-expediente">
-    <div class="cabecera-vista"><h2>Expediente por paciente</h2><div class="sep"></div></div>
-    <div class="resumen-px" id="resumenPx"></div>
-    <div class="buscador"><input id="buscaPx" type="search" placeholder="🔎 Buscar paciente por nombre…" oninput="renderExpediente()"></div>
-    <div class="split"><div class="lista-px" id="listaPx"></div><div id="expedienteDetalle"></div></div>
+    <div class="split">
+      <div class="px-col-lista">
+        <div class="px-titulo"><div><h2>Pacientes</h2><div class="cap" id="pxCaption"></div></div>
+          <button class="btn" id="btnNuevoPx" onclick="abrirPaciente()">+ Nuevo</button></div>
+        <div class="buscador"><input id="buscaPx" type="search" placeholder="🔎 Buscar paciente…" autocomplete="off" enterkeyhint="search" oninput="renderExpediente()"></div>
+        <div class="px-filtros" id="pxFiltros"></div>
+        <div id="listaPx"></div>
+      </div>
+      <div class="px-col-detalle" id="expedienteDetalle"></div>
+    </div>
   </section>
 
   <section class="vista" id="v-cobros">
@@ -394,8 +499,8 @@
     <div class="grid-cobros">
       <div>
         <div class="subtotales" id="subCobros"></div>
-        <table class="pagos"><thead><tr><th>Paciente</th><th>Psicóloga</th><th>Método</th><th style="text-align:right;">Monto</th><th>Estado</th><th></th></tr></thead>
-          <tbody id="tbodyPagos"></tbody></table>
+        <div class="tabla-scroll"><table class="pagos"><thead><tr><th>Paciente</th><th>Psicóloga</th><th>Método</th><th style="text-align:right;">Monto</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="tbodyPagos"></tbody></table></div>
       </div>
       <div class="corte" id="corte"></div>
     </div>
@@ -438,7 +543,7 @@
 </div></div>
 
 <div class="fondo-modal" id="modalNota"><div class="modal">
-  <div class="cab"><h3>Nueva nota de sesión</h3></div>
+  <div class="cab"><h3>Nueva nota de sesión</h3><div class="cab-sub" id="nPara"></div></div>
   <div class="cuerpo">
     <div class="campo"><label>Escribe como</label><select id="nPsic"></select></div>
     <div class="campo"><label>¿Qué se trabajó en la sesión?</label><textarea id="nTexto" placeholder="Avance, observaciones, tarea para casa…"></textarea></div>
@@ -514,6 +619,12 @@
     <button class="btn" onclick="registrarAhora()">Registrar ahora</button></div>
 </div></div>
 
+<div class="fondo-modal" id="modalAcciones"><div class="modal">
+  <div class="cab"><h3 id="accTitulo">Opciones</h3><div class="cab-sub" id="accSub"></div></div>
+  <div class="cuerpo"><div class="acc-lista" id="accBotones"></div></div>
+  <div class="pie"><button class="btn fantasma" onclick="cerrar('modalAcciones')">Cancelar</button></div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -531,7 +642,7 @@ const sb = supabase.createClient(
 );
 const estado = {
   psicologas:[], pacientes:[], citas:[], notas:[], pagos:[], facturas:[], cierres:[],
-  fechaAgenda:hoyISO(), quien:null, verArchivados:false, vistaAgenda:"dia",
+  fechaAgenda:hoyISO(), quien:null, filtroPx:"activos", vistaAgenda:"dia",
   cobrosPeriodo:{tipo:"semana", desde:hoyISO(), hasta:hoyISO()},
 };
 
@@ -562,9 +673,7 @@ function notasConAviso(){ return esAdmin()? estado.notas.filter(n=>!n.revisada)
   : estado.notas.filter(n=>n.vistaPsic===false && (n.psic===estado.quien || (pac(n.pac)||{}).asignada===estado.quien)); }
 function atienden(){ return estado.psicologas.filter(p=>p.atiende!==false); }
 function pacActivos(base){ return (base||estado.pacientes).filter(p=>p.activo!==false); }
-function toggleArchivados(){ estado.verArchivados=!estado.verArchivados; renderExpediente(); }
 async function archivarPaciente(id){ if(!esAdmin()) return; const {error}=await sb.from("pacientes").update({activo:false}).eq("id",id); if(error){ toast("No se pudo archivar: "+error.message,"err"); return; }
-  if(pacienteSel===id && !estado.verArchivados) pacienteSel=null;
   await refrescar(); toast("Paciente archivado ✓","ok"); }
 async function reactivarPaciente(id){ if(!esAdmin()) return; const {error}=await sb.from("pacientes").update({activo:true}).eq("id",id); if(error){ toast("No se pudo reactivar","err"); return; } await refrescar(); toast("Paciente reactivado ✓","ok"); }
 
@@ -651,10 +760,23 @@ function pacientesVisibles(){
 }
 function facturasVisibles(){ return esAdmin()? estado.facturas : estado.facturas.filter(f=>f.solicitadaPor===estado.quien); }
 
+const MOVIL=window.matchMedia("(max-width:860px)");
+const scrollVista={};
+function saltarA(y){ const h=document.documentElement, antes=h.style.scrollBehavior; h.style.scrollBehavior="auto"; window.scrollTo(0,y); h.style.scrollBehavior=antes; }
 function irA(v){
+  const antes=document.body.dataset.vista;
+  if(antes && antes!==v) scrollVista[antes]=window.scrollY;
   document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("activa", b.dataset.vista===v));
   document.querySelectorAll("section.vista").forEach(s=>s.classList.remove("activa"));
   document.getElementById("v-"+v).classList.add("activa");
+  document.body.dataset.vista=v;
+  // En el celular cada pestaña recuerda hasta dónde habías bajado
+  if(MOVIL.matches && antes && antes!==v) saltarA(scrollVista[v]||0);
+}
+// Tocar la pestaña en la que ya estás regresa a la lista o sube al inicio, como en iOS
+function tocarPestana(v){
+  if(document.body.dataset.vista!==v){ irA(v); return; }
+  if(v==="expediente" && pxDetalle) volverPx(); else if(MOVIL.matches) saltarA(0);
 }
 
 function render(){ renderRol(); renderResumen(); renderAgenda(); renderExpediente(); renderFiltroCobros(); renderCobros(); renderFacturas(); renderEquipo(); updateBadges(); }
@@ -773,80 +895,180 @@ function moverDia(d){ const paso = estado.vistaAgenda==="semana"? d*7 : d;
 function hoy(){ estado.fechaAgenda=hoyISO(); renderAgenda(); }
 
 /* ---- Expediente ---- */
-let pacienteSel="p1"; let notasAbiertas=new Set(); let comEditId=null; let pacienteEditId=null; let notaEditId=null;
+// En el celular funciona como en iOS: lista de pacientes → expediente a pantalla completa,
+// con "‹ Pacientes" arriba y el gesto de regresar del iPhone. En computadora se ven lado a lado.
+let pacienteSel=null; let notasAbiertas=new Set(); let comEditId=null; let pacienteEditId=null; let notaEditId=null;
+let pxDetalle=false, pxScrollLista=0;
+const DSEM=["dom","lun","mar","mié","jue","vie","sáb"], MESES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function plegar(s){ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
+function dato(v){ return (v && v!=="—")? v : null; }
+// "hoy", "ayer", "13 oct" · con día: "Mar 13 oct". Agrega el año solo si no es el actual.
+function fechaCorta(iso, conDia){
+  if(!iso) return ""; const d=new Date(iso+"T12:00:00"); if(isNaN(d)) return "";
+  let s = iso===hoyISO()? "hoy" : iso===addDaysISO(hoyISO(),-1)? "ayer"
+    : (conDia? DSEM[d.getDay()]+" " : "")+d.getDate()+" "+MESES[d.getMonth()]+(d.getFullYear()!==new Date().getFullYear()? " "+d.getFullYear() : "");
+  return conDia? s.charAt(0).toUpperCase()+s.slice(1) : s;
+}
+function filtrarPx(f){ estado.filtroPx=f; renderExpediente(); }
+
 function renderExpediente(){
+  const admin=esAdmin();
   const visibles=pacientesVisibles();
-  if(!visibles.find(p=>p.id===pacienteSel)) pacienteSel=(visibles[0]||{}).id;
-  const lista = estado.verArchivados ? visibles : visibles.filter(p=>p.activo!==false);
-  if(!lista.some(x=>x.id===pacienteSel)) pacienteSel = lista.length? lista[0].id : null;
-  const nArch = visibles.filter(p=>p.activo===false).length;
+  const activos=visibles.filter(p=>p.activo!==false);
+  const archivados=visibles.filter(p=>p.activo===false);
+  const avisos=notasConAviso();
+  const avisosPx={}; avisos.forEach(n=>avisosPx[n.pac]=(avisosPx[n.pac]||0)+1);
+  if(estado.filtroPx==="archivados" && !archivados.length) estado.filtroPx="activos";
+  const f=estado.filtroPx;
+  const base = f==="archivados"? archivados : f==="avisos"? activos.filter(p=>avisosPx[p.id]) : activos;
+  const q=((document.getElementById("buscaPx")||{}).value||"").trim(), nq=plegar(q);
+  const lista=base.filter(p=>!nq || plegar(p.nombre).includes(nq)).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||"","es"));
+  // El expediente abierto no depende del filtro: si marcas una nota como revisada, no se cierra
+  if(!visibles.some(p=>p.id===pacienteSel)){ pacienteSel=(lista[0]||activos[0]||{}).id||null; pxDetalle=false; }
 
-  // Resumen del módulo
-  const activos = visibles.filter(p=>p.activo!==false);
+  // Encabezado y filtros
   const ini=hoyISO().slice(0,8)+"01";
-  const sesMes = estado.notas.filter(n=>n.fecha>=ini && activos.some(p=>p.id===n.pac)).length;
-  const avisos = notasConAviso().length;
-  const rp=document.getElementById("resumenPx");
-  if(rp) rp.innerHTML =
-      `<div class="rp"><div class="v">${activos.length}</div><div class="l">Pacientes activos</div></div>`
-    + `<div class="rp cian"><div class="v">${sesMes}</div><div class="l">Sesiones este mes</div></div>`
-    + (esAdmin()? `<div class="rp ${avisos?'rosa':'verde'}"><div class="v">${avisos}</div><div class="l">Notas por revisar</div></div>`
-                : `<div class="rp ${avisos?'rosa':'verde'}"><div class="v">${avisos}</div><div class="l">Mensajes nuevos</div></div>`)
-    + (nArch? `<div class="rp"><div class="v" style="color:var(--gris)">${nArch}</div><div class="l">Archivados</div></div>` : "");
+  const sesMes=estado.notas.filter(n=>n.fecha>=ini && activos.some(p=>p.id===n.pac)).length;
+  document.getElementById("pxCaption").textContent=`${activos.length} ${activos.length===1?"activo":"activos"} · ${sesMes} ${sesMes===1?"sesión":"sesiones"} este mes`;
+  document.getElementById("btnNuevoPx").style.display=admin?"":"none";
+  document.getElementById("pxFiltros").innerHTML=
+      `<button class="${f==="activos"?"on":""}" onclick="filtrarPx('activos')">Activos<b>${activos.length}</b></button>`
+    + `<button class="alerta ${f==="avisos"?"on":""}" onclick="filtrarPx('avisos')">${admin?"Por revisar":"Mensajes nuevos"}<b>${avisos.length}</b></button>`
+    + (archivados.length? `<button class="${f==="archivados"?"on":""}" onclick="filtrarPx('archivados')">Archivados<b>${archivados.length}</b></button>` : "");
 
-  // Filtro por nombre
-  const q=(document.getElementById("buscaPx")||{}).value||"";
-  const filtrada = q.trim()? lista.filter(p=>p.nombre.toLowerCase().includes(q.trim().toLowerCase())) : lista;
+  // Lista: primero las citas de hoy (para escribir la nota al terminar), luego todos en orden alfabético
+  let html="";
+  if(f==="activos" && !nq){
+    const hoy=hoyISO(), ahora=minutos(ahoraHM());
+    const citasHoy=citasVisibles().filter(c=>c.fecha===hoy && activos.some(p=>p.id===c.pac)).sort((a,b)=>a.hora.localeCompare(b.hora));
+    if(citasHoy.length){
+      html+=`<div class="px-grupo">Hoy · ${citasHoy.length} ${citasHoy.length===1?"cita":"citas"}</div><div class="px-lista">`+citasHoy.map(c=>{
+        const p=pac(c.pac), ps=psic(c.psic);
+        const conNota=estado.notas.some(n=>n.pac===c.pac && n.psic===c.psic && n.fecha===hoy);
+        const termino=minutos(c.hora)+(c.dur||60)<=ahora;
+        const tag=conNota? `<span class="px-tag ok">nota ✓</span>` : termino? `<span class="px-tag falta">falta nota</span>` : "";
+        return `<button class="px-fila" onclick="seleccionarPx('${p.id}')"><span class="px-hora">${c.hora}</span>
+          <span class="px-info"><b>${esc(p.nombre)}</b><span class="px-sub">${ps?`<span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))}`:""}</span></span>${tag}<span class="px-chev">›</span></button>`;
+      }).join("")+`</div>`;
+    }
+  }
+  const ultima={}; estado.notas.forEach(n=>{ if(!ultima[n.pac] || n.fecha>ultima[n.pac]) ultima[n.pac]=n.fecha; });
+  const titulo = nq? `Resultados · ${lista.length}` : f==="avisos"? (admin?"Con notas por revisar":"Con mensajes nuevos") : f==="archivados"? "Archivados" : html? "Todos" : "";
+  if(titulo) html+=`<div class="px-grupo">${titulo}</div>`;
+  html+=`<div class="px-lista">`+(lista.length? lista.map(p=>{
+      const ps=psic(p.asignada), av=p.activo!==false? (avisosPx[p.id]||0) : 0;
+      const sub=[ p.edad? p.edad+" años" : null,
+                  admin&&ps? `<span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))}` : (dato(p.tutor)? esc(p.tutor) : null)
+                ].filter(Boolean).join(" · ") || "sin datos";
+      return `<button class="px-fila ${p.id===pacienteSel?"sel":""} ${p.activo===false?"archivado":""}" onclick="seleccionarPx('${p.id}')">
+        <span class="avatar" style="background:${colorPac(p)}">${esc(iniciales(p.nombre))}</span>
+        <span class="px-info"><b>${esc(p.nombre)}</b><span class="px-sub">${sub}</span></span>
+        <span class="px-lado"><span class="px-fecha">${ultima[p.id]? fechaCorta(ultima[p.id]) : "sin notas"}</span>${av?`<span class="px-badge">${av}</span>`:""}</span>
+        <span class="px-chev">›</span></button>`;
+    }).join("")
+    : `<div class="px-vacio">${nq? `Sin coincidencias para “${esc(q)}”` : f==="avisos"? "Todo al día ✓" : `Aún no hay pacientes en tu lista${admin?'. Agrega uno con "+ Nuevo".':"."}`}</div>`)+`</div>`;
+  document.getElementById("listaPx").innerHTML=html;
 
-  document.getElementById("listaPx").innerHTML=(filtrada.length? filtrada : []).map(p=>{
-    const av=notasConAviso().filter(n=>n.pac===p.id).length;
-    const ps=psic(p.asignada);
-    const sub = p.activo===false ? "archivado"
-      : [ (p.edad? p.edad+" años" : null),
-          (esAdmin() && ps? `<span class="quien"><span class="pt" style="background:${ps.color}"></span>${corto(ps.nombre)}</span>` : null),
-          (p.tutor||null)
-        ].filter(Boolean).slice(0,2).join(" · ") || "sin datos";
-    return `<div class="item ${p.id===pacienteSel?'sel':''}" onclick="seleccionarPx('${p.id}')" style="${p.activo===false?'opacity:.55':''}">
-      <div class="avatar" style="background:${colorPac(p)}">${iniciales(p.nombre)}</div>
-      <div class="info"><b>${p.nombre}</b><span>${sub}</span></div>${(p.activo!==false&&av)?`<span class="px-badge">${av}</span>`:""}</div>`;
-  }).join("")
-    + (q.trim()&&!filtrada.length? `<div class="add" style="color:var(--gris)">Sin coincidencias para “${q}”</div>` : "")
-    + (esAdmin()? `<div class="add" onclick="abrirPaciente()">+ Nuevo paciente</div>` : "")
-    + ((esAdmin()&&(nArch>0||estado.verArchivados))? `<div class="add" style="color:var(--gris)" onclick="toggleArchivados()">${estado.verArchivados?"Ocultar archivados":"Ver archivados ("+nArch+")"}</div>` : "");
-
-  const cont=document.getElementById("expedienteDetalle");
-  if(!pacienteSel){ cont.innerHTML=`<div class="expediente"><div class="vacio"><div class="em">🧩</div><b>Aún no tienes pacientes en tu lista</b>Agrega uno con "+ Nuevo paciente".</div></div>`; return; }
+  // Expediente del paciente
+  const sec=document.getElementById("v-expediente"), cont=document.getElementById("expedienteDetalle");
   const p=pac(pacienteSel);
-  const notas=estado.notas.filter(n=>n.pac===pacienteSel).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
-  const arch = p.activo===false;
-  cont.innerHTML=`<div class="expediente">
-    <div class="top"><div class="avatar" style="background:${colorPac(p)}">${iniciales(p.nombre)}</div>
-      <div style="flex:1; min-width:180px"><h3>${p.nombre}${arch?` <span class="rev-chip por" style="vertical-align:middle">archivado</span>`:""}</h3>
-        <div class="meta">${[(p.edad?p.edad+" años":null),(p.tutor||null),(esAdmin()&&p.tel?"📞 "+p.tel:null)].filter(Boolean).join(" · ")||"Sin datos capturados"}</div>
-        <div class="meta">Motivo: <b>${p.motivo||"—"}</b> · ${notas.length} ${notas.length===1?"sesión":"sesiones"}</div></div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">${esAdmin()?`<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`:""}${esAdmin()?(arch?`<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>`:`<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`):""}${(arch&&!esAdmin())?"":`<button class="btn" onclick="abrirNota()">+ Nota de sesión</button>`}</div></div>
-    <div class="timeline">${notas.length? notas.map((n,i)=>{ const ps=psic(n.psic); const nc=(n.comentarios||[]).length;
-      return `<div class="nota"><div class="linea-tiempo" style="color:${ps.color}"><div class="punto"></div>${i<notas.length-1?'<div class="conector"></div>':''}</div>
-        <div class="cuerpo"><div class="encab"><span class="fecha">${fechaLarga(n.fecha)}${n.hora?` · ${n.hora}`:""}</span><span class="chip" style="background:${ps.color}">${corto(ps.nombre)}</span>${n.revisada?`<span class="rev-chip ok">revisada ✓</span>`:(esAdmin()?`<span class="rev-chip por">por revisar</span>`:``)}${(!esAdmin()&&n.vistaPsic===false)?`<span class="rev-chip nuevo">mensaje nuevo</span><button class="rev-btn" onclick="marcarLeida('${n.id}')">Marcar leída</button>`:``}${(esAdmin()&&!n.revisada)?`<button class="rev-btn" onclick="marcarRevisada('${n.id}')">Marcar revisada</button>`:``}${(n.psic===estado.quien||esAdmin())?`<button class="nota-mini" title="Editar nota" onclick="editarNota('${n.id}')">✎</button><button class="nota-mini" title="Eliminar nota" onclick="eliminarNota('${n.id}')">🗑</button>`:``}</div>
-          ${notaEditId===n.id?`<div class="nota-edit"><textarea id="notaedit-${n.id}">${(n.texto||"").replace(/&/g,"&amp;").replace(/</g,"&lt;")}</textarea><div class="nota-edit-acc"><button class="btn" onclick="guardarEdicionNota('${n.id}')">Guardar</button><button class="rev-btn" onclick="cancelarEdicionNota()">Cancelar</button></div></div>`:`<p>${n.texto}</p>`}
-          <button class="com-toggle" onclick="toggleNota('${n.id}')">💬 ${nc? (nc+" comentario"+(nc>1?"s":"")) : "Comentar"}${notasAbiertas.has(n.id)?" ▲":" ▾"}</button>
-          ${notasAbiertas.has(n.id)? renderHilo(n) : ""}
-        </div></div>`;
-    }).join(""):`<div class="vacio"><div class="em">📝</div><b>Sin notas todavía</b>Agrega la primera nota de sesión.</div>`}</div></div>`;
+  sec.classList.toggle("con-detalle", pxDetalle && !!p);
+  if(!p){ cont.innerHTML=""; return; }
+  const arch=p.activo===false, puedeNota=!(arch&&!admin);
+  // Lo que estabas escribiendo sobrevive aunque otra persona guarde algo y la pantalla se redibuje
+  const borradores={}; cont.querySelectorAll("input[id^='com'], textarea[id^='notaedit-']").forEach(el=>borradores[el.id]=el.value);
+  const foco=cont.contains(document.activeElement)? document.activeElement.id : null;
+
+  const notas=estado.notas.filter(n=>n.pac===p.id).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  const ps=psic(p.asignada), tel=dato(p.tel);
+  const meta=[p.edad? p.edad+" años" : null, dato(p.tutor)? esc(p.tutor) : null].filter(Boolean).join(" · ");
+  const datos=[
+    `<div class="px-dato ancho"><dt>Motivo de consulta</dt><dd>${dato(p.motivo)? esc(p.motivo) : "—"}</dd></div>`,
+    ps? `<div class="px-dato"><dt>Psicóloga</dt><dd><span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))}</dd></div>` : "",
+    `<div class="px-dato"><dt>Sesiones</dt><dd>${notas.length} ${notas.length===1?"nota":"notas"}</dd></div>`,
+    admin&&tel? `<div class="px-dato"><dt>Teléfono</dt><dd><a href="tel:${esc(String(tel).replace(/[^\d+]/g,""))}">📞 ${esc(tel)}</a></dd></div>` : "",
+  ].join("");
+  const acciones = admin? `<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`
+    + (arch? `<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>` : `<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`) : "";
+  cont.innerHTML=`
+    <div class="px-barra"><button class="px-volver" onclick="volverPx()"><svg viewBox="0 0 12 20" width="12" height="20" aria-hidden="true"><path d="M10 2 2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Pacientes</button><b>${esc(p.nombre)}</b></div>
+    <div class="px-ficha">
+      <div class="px-ficha-top"><span class="avatar" style="background:${colorPac(p)}">${esc(iniciales(p.nombre))}</span>
+        <div style="min-width:0"><h3>${esc(p.nombre)}${arch?` <span class="rev-chip por" style="vertical-align:middle">archivado</span>`:""}</h3>
+          <div class="meta">${meta||"Sin datos capturados"}</div></div></div>
+      <dl class="px-datos">${datos}</dl>
+      ${acciones? `<div class="px-acciones">${acciones}</div>` : ""}
+    </div>
+    <div class="px-notas-cab"><h3>Notas de sesión</h3><span>${notas.length||""}</span>
+      ${puedeNota? `<button class="btn" onclick="abrirNota()">+ Nota de sesión</button>` : ""}</div>
+    ${notas.length? notas.map(notaHTML).join("")
+      : `<div class="px-ficha"><div class="vacio"><div class="em">📝</div><b>Sin notas todavía</b>${puedeNota?"Agrega la primera nota de sesión.":""}</div></div>`}`;
+
+  Object.keys(borradores).forEach(id=>{ const el=document.getElementById(id); if(el) el.value=borradores[id]; });
+  if(foco){ const el=document.getElementById(foco); if(el) el.focus({preventScroll:true}); }
+}
+function notaHTML(n){
+  const admin=esAdmin(), ps=psic(n.psic)||{nombre:"—", color:"#A9A3B6"};
+  const nc=(n.comentarios||[]).length, abierta=notasAbiertas.has(n.id);
+  const nuevo=!admin && n.vistaPsic===false;
+  const chip = n.revisada? `<span class="rev-chip ok">revisada ✓</span>` : admin? `<span class="rev-chip por">por revisar</span>` : "";
+  const accion = nuevo? `<button class="rev-btn" onclick="marcarLeida('${n.id}')">Marcar leída</button>`
+    : (admin && !n.revisada)? `<button class="rev-btn" onclick="marcarRevisada('${n.id}')">Marcar revisada</button>` : "";
+  const cuerpo = notaEditId===n.id
+    ? `<div class="nota-edit"><textarea id="notaedit-${n.id}">${esc(n.texto)}</textarea><div class="nota-edit-acc"><button class="btn" onclick="guardarEdicionNota('${n.id}')">Guardar</button><button class="btn fantasma" onclick="cancelarEdicionNota()">Cancelar</button></div></div>`
+    : `<p class="nota-texto">${esc(n.texto)}</p>`;
+  return `<article class="nota${nuevo?" nueva":""}" style="--c:${ps.color}">
+    <div class="nota-cab"><div class="cuando"><div class="fecha">${fechaCorta(n.fecha,true)}${n.hora?` · ${n.hora}`:""}</div>
+      <div class="quien">${esc(corto(ps.nombre))}${chip}${nuevo?`<span class="rev-chip nuevo">mensaje nuevo</span>`:""}</div></div>
+      ${(n.psic===estado.quien||admin)? `<button class="nota-mas" aria-label="Opciones de la nota" onclick="menuNota('${n.id}')">⋯</button>` : ""}</div>
+    ${cuerpo}
+    <div class="nota-pie"><button class="com-toggle" onclick="toggleNota('${n.id}')">💬 ${nc? nc+" comentario"+(nc>1?"s":"") : "Comentar"} ${abierta?"▴":"▾"}</button>${accion}</div>
+    ${abierta? renderHilo(n) : ""}
+  </article>`;
 }
 function renderHilo(n){
   const coms=(n.comentarios||[]).map(c=>{ const a=psic(c.autor)||{nombre:"—",color:"#999"}; const mio=c.autor===estado.quien;
+    const cab=`<span class="chip sm" style="background:${a.color}">${esc(corto(a.nombre))}</span><span class="com-meta">${fechaCorta(c.fecha)} ${c.hora}${c.editado?" · editado":""}</span>`;
     if(comEditId===c.id){
-      return `<div class="com"><span class="chip sm" style="background:${a.color}">${corto(a.nombre)}</span><span class="com-meta">${fmtDia(c.fecha)} ${c.hora}</span>
-        <div class="com-edit"><input id="comedit-${c.id}" value="${(c.texto||"").replace(/"/g,"&quot;")}" onkeydown="if(event.key==='Enter')guardarEdicionComentario('${n.id}','${c.id}')"><button class="btn" onclick="guardarEdicionComentario('${n.id}','${c.id}')">Guardar</button><button class="rev-btn" onclick="cancelarEdicionComentario()">Cancelar</button></div></div>`;
+      return `<div class="com">${cab}<div class="com-edit"><input id="comedit-${c.id}" value="${esc(c.texto)}" enterkeyhint="done" onkeydown="if(event.key==='Enter')guardarEdicionComentario('${n.id}','${c.id}')"><button class="btn" onclick="guardarEdicionComentario('${n.id}','${c.id}')">Guardar</button><button class="btn fantasma" onclick="cancelarEdicionComentario()">Cancelar</button></div></div>`;
     }
-    return `<div class="com"><span class="chip sm" style="background:${a.color}">${corto(a.nombre)}</span><span class="com-meta">${fmtDia(c.fecha)} ${c.hora}${c.editado?" · editado":""}</span>${mio?`<button class="com-edit-btn" title="Editar" onclick="editarComentario('${c.id}')">✎</button><button class="com-edit-btn" title="Eliminar" onclick="eliminarComentario('${c.id}')">🗑</button>`:""}<div class="com-txt">${c.texto}</div></div>`; }).join("");
-  return `<div class="comentarios">${coms||'<div style="font-size:12.5px;color:var(--gris-claro);font-weight:600;">Sé la primera en comentar esta nota.</div>'}
+    return `<div class="com">${mio?`<span class="com-acc"><button onclick="editarComentario('${c.id}')">Editar</button><button onclick="eliminarComentario('${c.id}')">Borrar</button></span>`:""}${cab}<div class="com-txt">${esc(c.texto)}</div></div>`; }).join("");
+  return `<div class="comentarios">${coms||'<div class="com-vacio">Sé la primera en comentar esta nota.</div>'}
     <div class="com-add">
-      <button class="emoji-btn" type="button" onclick="toggleEmojis('${n.id}')">😊</button>
+      <button class="emoji-btn" type="button" aria-label="Emojis" onclick="toggleEmojis('${n.id}')">😊</button>
       <div class="emoji-pop" id="emo-${n.id}">${EMOJIS.map(x=>`<span onclick="insertEmoji('${n.id}','${x}')">${x}</span>`).join("")}</div>
-      <input id="com-${n.id}" placeholder="Escribe un comentario o abre un debate…" onkeydown="if(event.key==='Enter')agregarComentario('${n.id}')">
+      <input id="com-${n.id}" placeholder="Escribe un comentario…" enterkeyhint="send" onkeydown="if(event.key==='Enter')agregarComentario('${n.id}')">
       <button class="btn" onclick="agregarComentario('${n.id}')">Enviar</button></div></div>`;
+}
+function seleccionarPx(id){
+  if(!pacientesVisibles().some(p=>p.id===id)) return;
+  if(pacienteSel!==id){ notaEditId=null; comEditId=null; }
+  pacienteSel=id;
+  if(MOVIL.matches){
+    if(!pxDetalle){ pxScrollLista=window.scrollY; history.pushState({px:id},""); }
+    pxDetalle=true;
+  }
+  renderExpediente();
+  if(MOVIL.matches) saltarA(document.getElementById("v-expediente").getBoundingClientRect().top+window.scrollY);
+}
+function volverPx(){ if(history.state && history.state.px) history.back(); else cerrarDetallePx(); }
+function cerrarDetallePx(){ pxDetalle=false; notaEditId=null; comEditId=null; renderExpediente(); saltarA(pxScrollLista); }
+window.addEventListener("popstate", ()=>{
+  if(!pxDetalle) return;
+  // Con una hoja abierta (por ejemplo, una nota a medio escribir) el gesto de regresar no cierra nada
+  if(document.querySelector(".fondo-modal.abierto")){ history.pushState({px:pacienteSel},""); return; }
+  cerrarDetallePx();
+});
+function menuNota(id){
+  const n=estado.notas.find(x=>x.id===id); if(!n) return;
+  const ps=psic(n.psic);
+  document.getElementById("accTitulo").textContent="Nota de sesión";
+  document.getElementById("accSub").textContent=fechaCorta(n.fecha,true)+(n.hora?" · "+n.hora:"")+(ps?" · "+corto(ps.nombre):"");
+  document.getElementById("accBotones").innerHTML=
+      `<button class="acc-btn" onclick="cerrar('modalAcciones'); editarNota('${id}')">✎ Editar nota</button>`
+    + `<button class="acc-btn peligro" onclick="cerrar('modalAcciones'); eliminarNota('${id}')">🗑 Eliminar nota</button>`;
+  abrir("modalAcciones");
 }
 async function toggleNota(id){
   if(notasAbiertas.has(id)) notasAbiertas.delete(id); else notasAbiertas.add(id);
@@ -866,6 +1088,7 @@ async function agregarComentario(id){
   if(!texto){ toast("Escribe un comentario","err"); return; }
   const {error}=await sb.from("comentarios").insert({nota_id:id, autor_id:estado.quien, texto});
   if(error){ toast("No se pudo comentar","err"); return; }
+  if(inp) inp.value="";
   if(esAdmin()){ await sb.from("notas").update({revisada:true}).eq("id",id); }
   notasAbiertas.add(id); await refrescar(); toast("Comentario agregado ✓","ok");
 }
@@ -909,10 +1132,6 @@ async function guardarEdicionComentario(nid,cid){
 }
 async function marcarRevisada(id){ const {error}=await sb.from("notas").update({revisada:true}).eq("id",id); if(error){ toast("No se pudo","err"); return; } await refrescar(); toast("Nota marcada como revisada ✓","ok"); }
 function updateBadges(){ const b=document.getElementById("badgeExp"); if(!b) return; const c=notasConAviso().length; b.textContent=c?String(c):""; }
-function seleccionarPx(id){ const p=pac(id); if(p && p.activo===false && !(esAdmin()&&estado.verArchivados)) return;
-  pacienteSel=id; renderExpediente();
-  if(window.innerWidth<820){ const d=document.getElementById("expedienteDetalle"); if(d) d.scrollIntoView({behavior:"smooth", block:"start"}); }
-}
 const EMOJIS=["😊","👍","🎉","❤️","👏","🙌","💪","✅","📌","😄","🤔","🙏","👀","🔥","😢","😅","💡","⭐","🧩","🌈","😍","🥳"];
 function toggleEmojis(id){ const p=document.getElementById("emo-"+id); if(p) p.classList.toggle("ver"); }
 function insertEmoji(id,e){ const inp=document.getElementById("com-"+id); if(inp){ inp.value+=e; inp.focus(); } const p=document.getElementById("emo-"+id); if(p) p.classList.remove("ver"); }
@@ -1160,7 +1379,9 @@ async function eliminarCita(){
   cerrar("modalCita"); await refrescar(); toast("Cita eliminada"+(nom?" de "+nom:"")+" ✓","ok");
 }
 
-function abrirNota(){ const p=pac(pacienteSel); if(p&&p.activo===false&&!esAdmin()){ toast("Paciente archivado — no puedes agregar notas","err"); return; } fijarPsic("nPsic", true); document.getElementById("nTexto").value=""; abrir("modalNota"); }
+function abrirNota(){ const p=pac(pacienteSel); if(!p) return; if(p.activo===false&&!esAdmin()){ toast("Paciente archivado — no puedes agregar notas","err"); return; }
+  document.getElementById("nPara").textContent="Para "+p.nombre;
+  fijarPsic("nPsic", true); document.getElementById("nTexto").value=""; abrir("modalNota"); }
 async function guardarNota(){ const texto=document.getElementById("nTexto").value.trim();
   if(!texto){ toast("Escribe qué se trabajó en la sesión","err"); return; }
   const {error}=await sb.from("notas").insert({paciente_id:pacienteSel, psicologa_id:document.getElementById("nPsic").value, texto, revisada:esAdmin(), fecha:hoyISO(), hora:ahoraHM()});
@@ -1261,7 +1482,7 @@ async function guardarPaciente(){
     const {data,error}=await sb.from("pacientes").insert(datos).select().single();
     if(error){ toast("No se pudo agregar: "+error.message,"err"); return; }
     if(data) pacienteSel=data.id;
-    cerrar("modalPaciente"); await refrescar(); irA("expediente"); toast("Paciente agregado ✓","ok");
+    cerrar("modalPaciente"); await refrescar(); irA("expediente"); if(data) seleccionarPx(data.id); toast("Paciente agregado ✓","ok");
   }
 }
 
