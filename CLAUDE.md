@@ -32,6 +32,18 @@ Reglas:
 Identidad visual: los colores de `:root` (morado, verde, cian, rosa, naranja, amarillo) y las
 tipografías Fredoka (títulos) y Nunito (texto).
 
+## App instalable (iPhone y Android)
+
+Se publica con GitHub Pages desde `main`: https://jozmdz.github.io/mundo_neurodiverso/
+
+- `manifest.webmanifest` + `sw.js` + íconos (`icon-192.png`, `icon-512.png`, `icon-maskable-512.png`,
+  `apple-touch-icon.png`). Los íconos son el árbol del logo sobre blanco, sin el texto.
+- El service worker va **a la red primero** y solo guarda archivos de este sitio. Los datos de
+  pacientes vienen de Supabase y **nunca** deben guardarse en la caché.
+- Cambiar `index.html` no requiere nada más. Si cambias `sw.js` o los íconos, sube la versión de
+  `CACHE` en `sw.js` (`consultorio-v1` → `consultorio-v2`).
+- Sin internet, la app muestra "Sin conexión" con un botón para reintentar.
+
 ## Cómo revisar en tamaño iPhone 11
 
 `pruebas/` tiene un Supabase falso con datos inventados. Nunca toca la base real: bloquea `*.supabase.co`.
@@ -39,6 +51,7 @@ tipografías Fredoka (títulos) y Nunito (texto).
 ```bash
 export NODE_PATH=$(npm root -g)                  # Playwright instalado de forma global
 node pruebas/flujos.js "$PWD/index.html"          # recorre el expediente en iPhone 11 y en computadora
+node pruebas/instalable.js "$PWD"                 # manifest, íconos, service worker y modo sin señal
 node pruebas/captura.js "$PWD/index.html" /tmp/cap d1 "js=irA('expediente')" "shot=lista"
 ```
 

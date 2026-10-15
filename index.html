@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Mundo Neurodiverso — Sistema del consultorio</title>
+<!-- App instalable en iPhone y Android -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Consultorio">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
@@ -44,6 +53,10 @@
   .login-accts button{display:flex; align-items:center; gap:7px; background:var(--fondo); border:1px solid var(--linea); border-radius:999px; padding:7px 13px; font-weight:800; font-size:13px; color:var(--tinta);}
   .login-accts button:hover{border-color:var(--linea-fuerte); background:#fff;}
   .login-accts .pt{width:11px; height:11px; border-radius:3px;}
+  .sin-red{color:var(--gris); font-weight:600; font-size:14.5px;}
+  .sin-red .em{font-size:38px; margin-bottom:4px;}
+  .sin-red b{display:block; color:var(--tinta); font-family:"Fredoka"; font-size:21px; font-weight:600; margin-bottom:4px;}
+  .sin-red .login-btn{margin-top:18px;}
 
   header{background:var(--tarjeta); border-bottom:1px solid var(--linea); padding:12px max(18px, env(safe-area-inset-right)) 12px max(18px, env(safe-area-inset-left)); display:flex; align-items:center; gap:14px; flex-wrap:wrap; position:sticky; top:0; z-index:20;}
   .marca{display:flex; align-items:center; gap:11px;}
@@ -636,6 +649,13 @@ const SUPABASE_URL      = "https://vovniymxjkqvfqqblyeu.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvdm5peW14amtxdmZxcWJseWV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MTE0MjQsImV4cCI6MjEwMTM4NzQyNH0.PxKj8-rFBbMUdFBuR43s8ycKLhAwkIN7SDLWXa3u8T0";
 /* ===================================================================== */
 function configPendiente(){ return SUPABASE_URL.indexOf("PEGA_AQUI")>=0 || SUPABASE_ANON_KEY.indexOf("PEGA_AQUI")>=0; }
+// Sin internet no carga Supabase: en vez de una pantalla que no responde, avisa y deja reintentar
+if(typeof supabase==="undefined"){
+  const c=document.querySelector(".login-card");
+  c.querySelectorAll(".campo, .login-btn, .login-demo").forEach(e=>e.remove());
+  c.insertAdjacentHTML("beforeend",`<div class="sin-red"><div class="em">📶</div><b>Sin conexión</b>Revisa tu internet y vuelve a intentar.<button class="btn login-btn" onclick="location.reload()">Reintentar</button></div>`);
+  throw new Error("Supabase no cargó: sin conexión");
+}
 const sb = supabase.createClient(
   configPendiente() ? "https://placeholder.supabase.co" : SUPABASE_URL,
   configPendiente() ? "public-anon-placeholder"         : SUPABASE_ANON_KEY
@@ -1562,6 +1582,8 @@ var _ll=document.getElementById("loginLogo"); if(_ll){ document.getElementById("
 document.querySelectorAll(".fondo-modal").forEach(f=>f.addEventListener("click",e=>{ if(e.target===f) f.classList.remove("abierto"); }));
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.querySelectorAll(".fondo-modal").forEach(f=>f.classList.remove("abierto")); });
 entrar();
+// App instalable: el service worker solo funciona en https (o localhost), no al abrir el archivo directo
+if("serviceWorker" in navigator && location.protocol!=="file:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
 </html>
