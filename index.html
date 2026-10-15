@@ -1484,12 +1484,21 @@ function renderEquipo(){
 function opciones(arr,val,txt){ return arr.map(o=>`<option value="${o[val]}">${esc(o[txt])}</option>`).join(""); }
 function abrir(id){ document.getElementById(id).classList.add("abierto"); }
 function cerrar(id){ document.getElementById(id).classList.remove("abierto"); }
+// Psicóloga que proponen las hojas de cita y cobro: tú, si atiendes; si no, quien tiene más pacientes activos
+function psicPorDefecto(){
+  const lista=atienden();
+  if(lista.some(p=>p.id===estado.quien)) return estado.quien;
+  const cuantos=id=>pacActivos().filter(p=>p.asignada===id).length;
+  return (lista.slice().sort((a,b)=>cuantos(b.id)-cuantos(a.id))[0]||{}).id;
+}
 function fijarPsic(sel, incluirDireccion){ const s=document.getElementById(sel);
   let lista = esAdmin()? atienden() : estado.psicologas.filter(p=>!p.admin);
   if(esAdmin() && incluirDireccion && !lista.some(x=>x.id===estado.quien)) lista=[viewer()].concat(lista);
+  // Tú primero y luego por nombre: el orden en que los devuelve la base no es fijo
+  lista=lista.slice().sort((a,b)=>(b.id===estado.quien)-(a.id===estado.quien) || corto(a.nombre).localeCompare(corto(b.nombre),"es"));
   s.innerHTML=opciones(lista,"id","nombre");
   if(!esAdmin()){ s.value=estado.quien; s.disabled=true; }
-  else { s.disabled=false; if(incluirDireccion) s.value=estado.quien; } }
+  else { s.disabled=false; s.value = incluirDireccion? estado.quien : psicPorDefecto(); } }
 
 let citaEditId=null; let pagoEditId=null; let facturaEditId=null;
 const DIAS=[{i:1,n:"Lun"},{i:2,n:"Mar"},{i:3,n:"Mié"},{i:4,n:"Jue"},{i:5,n:"Vie"},{i:6,n:"Sáb"}];
@@ -1506,7 +1515,7 @@ function toggleDia(i){ if(diasSel[i]!==undefined) delete diasSel[i]; else diasSe
 function renderPacientesCita(){
   const sel=document.getElementById("cPaciente"); const prev=sel.value;
   const psicId=document.getElementById("cPsic").value;
-  const base=pacActivos(esAdmin()?estado.pacientes:pacientesVisibles());
+  const base=pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()).slice().sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||"","es"));
   const suyos=base.filter(p=>p.asignada===psicId);
   const otros=base.filter(p=>p.asignada!==psicId);
   const op=a=>a.map(p=>`<option value="${p.id}">${esc(p.nombre)}</option>`).join("");

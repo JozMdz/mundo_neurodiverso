@@ -250,6 +250,22 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.evaluate(() => { window.SpeechRecognition = window.webkitSpeechRecognition = class {}; renderAgenda(); });
   ok(!(await visible(page, '#btnVoz')), 'las psicólogas no ven el micrófono (solo Dirección agenda)');
 
+  console.log('Hoja de cita: psicóloga y pacientes que propone');
+  page = await abrir(browser, 'd1');
+  const propuesta = () => page.evaluate(() => { abrirCita('15:00'); const s = document.getElementById('cPsic');
+    const g = [...document.querySelectorAll('#cPaciente optgroup')];
+    const r = { psic: s.value, grupos: g.map(x => x.label), suyos: g[0] ? [...g[0].children].map(o => o.textContent) : [] };
+    cerrar('modalCita'); return r; });
+  // Como en la base real: Dirección atiende y tiene pacientes, pero no es la primera fila de psicologas
+  await page.evaluate(async () => { __DB.pacientes.slice(0, 4).forEach(x => x.asignada_a = 'd1'); __DB.psicologas.push(__DB.psicologas.shift()); await refrescar(); });
+  let pr = await propuesta();
+  ok(pr.psic === 'd1' && pr.grupos[0] === 'Pacientes de Mtra. Laura Gómez', `propone a quien agenda y sus pacientes primero (${pr.grupos.join(' / ')})`);
+  ok(pr.suyos.length === 4 && pr.suyos.join() === pr.suyos.slice().sort((a, b) => a.localeCompare(b, 'es')).join(), 'sus pacientes en orden alfabético');
+  await page.evaluate(async () => { __DB.psicologas.find(x => x.id === 'd1').atiende = false; __DB.pacientes.forEach(x => { if (x.asignada_a === 'd1') x.asignada_a = 's2'; }); await refrescar(); });
+  pr = await propuesta();
+  ok(pr.psic === 's2', 'si quien agenda no atiende, propone a la psicóloga con más pacientes');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
   console.log('Dirección en computadora');
   page = await abrir(browser, 'd1', { viewport: { width: 1280, height: 800 } });
   ok(await page.evaluate(() => estado.vistaAgenda) === 'semana', 'en computadora Dirección empieza en la semana');
