@@ -125,6 +125,12 @@
   .cal .media .hint{position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--gris-claro); font-weight:700; opacity:0;}
   .cal .media.b:hover .hint{opacity:1;}
   .cal .lane{position:absolute; left:54px; right:48px; top:0; bottom:0; pointer-events:none;}
+  .cal .cal-in{position:absolute; left:0; right:0;}
+  .cal .fuera{position:absolute; left:54px; right:0; pointer-events:none; background:repeating-linear-gradient(135deg, #F7F4FA 0 7px, #EFEAF5 7px 14px);}
+  .cal .sem-col .fuera{left:0;}
+  .agenda-cerrado{text-align:center; padding:44px 20px; color:var(--gris);}
+  .agenda-cerrado .em{font-size:34px; margin-bottom:6px;}
+  .agenda-cerrado b{display:block; color:var(--tinta); font-size:16px; margin-bottom:2px;}
   .cal .mas{position:absolute; right:0; width:44px; display:flex; align-items:center; justify-content:center;
     color:var(--morado); font-weight:800; font-size:16px; cursor:pointer; opacity:.32; border-left:1px dashed var(--linea);}
   .cal .mas:hover,.cal .mas:active{opacity:1; background:#F7F1FB;}
@@ -484,7 +490,7 @@
       <button class="nav" onclick="moverDia(1)">›</button>
       <button class="btn fantasma" style="padding:9px 14px;" onclick="hoy()">Hoy</button>
       <span class="sw-vista"><button id="swDia" onclick="setVistaAgenda('dia')">Día</button><button id="swSem" onclick="setVistaAgenda('semana')">Semana</button></span>
-      <button class="btn" id="btnAgendar" style="margin-left:auto;" onclick="abrirCita('09:00')">+ Agendar cita</button>
+      <button class="btn" id="btnAgendar" style="margin-left:auto;" onclick="abrirCita(horaInicial())">+ Agendar cita</button>
     </div>
     <div class="leyenda" id="leyenda" style="margin:0 2px 12px;"></div>
     <div class="sem-cab" id="semCab" style="display:none"></div>
@@ -731,7 +737,8 @@ async function entrar(){
   if(!user){ mostrarLogin(); return; }
   estado.quien=user.id;
   await cargarTodo();
-  if(viewer() && viewer().admin) estado.vistaAgenda="semana";
+  // Dirección empieza en la semana en computadora; en el celular todas empiezan en el día
+  if(viewer() && viewer().admin && !MOVIL.matches) estado.vistaAgenda="semana";
   if(!viewer()){ toast("Tu usuaria no tiene perfil creado. Avisa a Dirección.","err"); await sb.auth.signOut(); estado.quien=null; mostrarLogin(); return; }
   document.getElementById("login").classList.add("oculto");
   irA("agenda"); render(); suscribir();
@@ -836,7 +843,32 @@ function renderResumen(){
 }
 
 /* ---- Agenda proporcional ---- */
-const START=8, END=20, H=64;
+/* Horario de consulta por día de la semana (0 = domingo): lunes a viernes de 2 a 9 pm y sábado de 8 am a 6 pm.
+   La agenda muestra solo esas horas. Si una cita cae fuera, se amplía para que nunca quede escondida. */
+const HORARIO={1:[14,21], 2:[14,21], 3:[14,21], 4:[14,21], 5:[14,21], 6:[8,18]};
+const H=64, PAD=12;
+function horarioDe(f){ return HORARIO[new Date(f+"T12:00:00").getDay()]||null; }
+function horaInicial(){ const h=horarioDe(estado.fechaAgenda); return String(h?h[0]:9).padStart(2,"0")+":00"; }
+// Horas que cubre la agenda para esos días: su horario más cualquier cita que caiga fuera de él
+function rangoAgenda(fechas){
+  let ini=24, fin=0;
+  fechas.forEach(f=>{ const h=horarioDe(f); if(h){ ini=Math.min(ini,h[0]); fin=Math.max(fin,h[1]); } });
+  citasVisibles().filter(c=>fechas.includes(c.fecha)).forEach(c=>{ const s=minutos(c.hora);
+    ini=Math.min(ini,Math.floor(s/60)); fin=Math.max(fin,Math.ceil((s+(c.dur||60))/60)); });
+  return ini<fin? {ini, n:fin-ini} : null;
+}
+// Sombrea lo que queda fuera del horario de ese día y pone "+" solo dentro de él
+function fueraYHuecos(f, R, alAgendar, estilo){
+  const h=horarioDe(f)||[R.ini,R.ini];
+  let html="";
+  if(h[0]>R.ini) html+=`<div class="fuera" style="top:0; height:${(h[0]-R.ini)*H}px"></div>`;
+  if(h[1]<R.ini+R.n) html+=`<div class="fuera" style="top:${(h[1]-R.ini)*H}px; bottom:0"></div>`;
+  if(alAgendar) for(let hh=h[0]; hh<h[1]; hh++) for(const mm of ["00","30"]){
+    const t=String(hh).padStart(2,"0")+":"+mm, top=(hh-R.ini)*H+(mm==="30"?H/2:0);
+    html+=`<div class="mas" style="top:${top}px; height:${H/2}px${estilo}" title="Agendar ${t}" onclick="${alAgendar(t)}">+</div>`;
+  }
+  return html;
+}
 function setVistaAgenda(v){ estado.vistaAgenda=v; renderAgenda(); }
 function layoutDia(evs){
   evs.forEach(e=>{ e._s=minutos(e.hora); e._e=e._s+e.dur; });
@@ -862,22 +894,20 @@ function renderAgenda(){
     : fechaLarga(estado.fechaAgenda);
   document.getElementById("leyenda").innerHTML=(esAdmin()?atienden():[viewer()])
     .map(p=>`<span><i style="background:${p.color}"></i>${esc(corto(p.nombre))}</span>`).join("");
-  const N=END-START;
-  let lineas="";
-  for(let i=0;i<=N;i++){ lineas+=`<div class="banda" style="top:${i*H}px"><div class="etq">${String(START+i).padStart(2,"0")}:00</div></div>`; }
-  let medias="";
   const _puedeAgendar=esAdmin();
   const _btnAg=document.getElementById("btnAgendar"); if(_btnAg) _btnAg.style.display=_puedeAgendar?"":"none";
-  for(let i=0;i<N && _puedeAgendar;i++){ const hh=String(START+i).padStart(2,"0");
-    medias+=`<div class="mas" style="top:${i*H}px; height:${H/2}px" title="Agendar ${hh}:00" onclick="abrirCita('${hh}:00')">+</div>`;
-    medias+=`<div class="mas" style="top:${i*H+H/2}px; height:${H/2}px" title="Agendar ${hh}:30" onclick="abrirCita('${hh}:30')">+</div>`;
-  }
   document.getElementById("semCab").style.display = semanal? "flex" : "none";
-  if(semanal){ renderAgendaSemana(lunS, lineas, N); return; }
+  const dias = semanal? [0,1,2,3,4,5].map(i=>addDaysISO(lunS,i)) : [estado.fechaAgenda];
+  const R=rangoAgenda(dias);
+  if(!R){ document.getElementById("agenda").innerHTML=`<div class="cal agenda-cerrado"><div class="em">🌙</div><b>${fechaLarga(estado.fechaAgenda)}</b>Sin horario de consulta.</div>`; return; }
+  let lineas="";
+  for(let i=0;i<=R.n;i++){ lineas+=`<div class="banda" style="top:${i*H}px"><div class="etq">${String(R.ini+i).padStart(2,"0")}:00</div></div>`; }
+  const marco=interior=>`<div class="cal" style="height:${R.n*H+PAD*2}px"><div class="cal-in" style="top:${PAD}px; height:${R.n*H}px">${lineas}${interior}</div></div>`;
+  if(semanal){ renderAgendaSemana(dias, R, marco); return; }
   const evs=layoutDia(citasVisibles().filter(c=>c.fecha===estado.fechaAgenda).slice());
   const _adm=esAdmin();
   const eventos=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
-    const top=Math.max(0,(e._s-START*60)/60*H), hgt=Math.max(24,e.dur/60*H-4);
+    const top=Math.max(0,(e._s-R.ini*60)/60*H), hgt=Math.max(24,e.dur/60*H-4);
     const left=e._col/e._cols*100, w=100/e._cols;
     const sub=(pa.motivo&&pa.motivo!=="—")?esc(pa.motivo):"";
     return `<div class="ev" style="top:${top}px; height:${hgt}px; left:${left}%; width:calc(${w}% - 5px); background:${p.color}; ${_adm?'cursor:pointer':''}" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)}${_adm?' — toca para editar':''}" ${_adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
@@ -885,33 +915,33 @@ function renderAgenda(){
       <div class="r">${e.hora}–${hhmm(e._e)}${hgt>=42&&e._cols<3&&sub?` · ${sub}`:""}</div>
       ${hgt>=56&&e._cols<3?`<div class="q">${esc(corto(p.nombre))}</div>`:""}</div>`;
   }).join("");
-  document.getElementById("agenda").innerHTML=`<div class="cal" style="height:${N*H+1}px">${lineas}${medias}<div class="lane">${eventos}</div></div>`;
+  const huecos=fueraYHuecos(estado.fechaAgenda, R, _puedeAgendar? t=>`abrirCita('${t}')` : null, "");
+  document.getElementById("agenda").innerHTML=marco(`${huecos}<div class="lane">${eventos}</div>`);
 }
-function renderAgendaSemana(lun, lineas, N){
+function renderAgendaSemana(dias, R, marco){
   const adm=esAdmin(), hoyI=hoyISO();
-  const dias=[0,1,2,3,4,5].map(i=>addDaysISO(lun,i));
   const nom=["Lun","Mar","Mié","Jue","Vie","Sáb"];
   document.getElementById("semCab").innerHTML=dias.map((f,i)=>
     `<div class="${f===hoyI?'hoy':''}">${nom[i]}<b>${f.slice(8,10)}</b></div>`).join("");
   const cols=dias.map(f=>{
     const evs=layoutDia(citasVisibles().filter(c=>c.fecha===f).slice());
-    const slots = adm? [...Array(N).keys()].map(i=>{ const hh=String(START+i).padStart(2,"0");
-      return `<div class="mas" style="width:18px;top:${i*H}px;height:${H/2}px;font-size:12px" onclick="abrirCitaEn('${f}','${hh}:00')">+</div>`
-           + `<div class="mas" style="width:18px;top:${i*H+H/2}px;height:${H/2}px;font-size:12px" onclick="abrirCitaEn('${f}','${hh}:30')">+</div>`;
-    }).join("") : "";
+    const huecos=fueraYHuecos(f, R, adm? t=>`abrirCitaEn('${f}','${t}')` : null, "; width:18px; font-size:12px");
     const items=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
-      const top=Math.max(0,(e._s-START*60)/60*H), hgt=Math.max(20,e.dur/60*H-3);
+      const top=Math.max(0,(e._s-R.ini*60)/60*H), hgt=Math.max(20,e.dur/60*H-3);
       const left=e._col/e._cols*100, w=100/e._cols;
       return `<div class="ev" style="top:${top}px; height:${hgt}px; left:calc(${left}% * 0.88); width:calc(${w}% * 0.88 - 3px); background:${p.color}; ${adm?'cursor:pointer':''}" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)} · ${esc(corto(p.nombre))}" ${adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
         <div class="p">${esc(pa.nombre)}</div>${hgt>=34?`<div class="r">${e.hora}</div>`:""}</div>`;
     }).join("");
-    return `<div class="sem-col">${slots}${items}</div>`;
+    return `<div class="sem-col">${huecos}${items}</div>`;
   }).join("");
-  document.getElementById("agenda").innerHTML=`<div class="cal" style="height:${N*H+1}px">${lineas}<div class="sem-lanes">${cols}</div></div>`;
+  document.getElementById("agenda").innerHTML=marco(`<div class="sem-lanes">${cols}</div>`);
 }
 function abrirCitaEn(fecha,h){ estado.fechaAgenda=fecha; abrirCita(h); }
 function moverDia(d){ const paso = estado.vistaAgenda==="semana"? d*7 : d;
-  const dt=new Date(estado.fechaAgenda+"T12:00:00"); dt.setDate(dt.getDate()+paso); estado.fechaAgenda=dt.toISOString().slice(0,10); renderAgenda(); }
+  let f=addDaysISO(estado.fechaAgenda, paso);
+  // En la vista de día se brinca el domingo si no tiene citas: ese día no hay consulta
+  if(estado.vistaAgenda!=="semana" && !horarioDe(f) && !citasVisibles().some(c=>c.fecha===f)) f=addDaysISO(f, d);
+  estado.fechaAgenda=f; renderAgenda(); }
 function hoy(){ estado.fechaAgenda=hoyISO(); renderAgenda(); }
 
 /* ---- Expediente ---- */

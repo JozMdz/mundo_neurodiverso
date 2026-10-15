@@ -26,8 +26,10 @@
   ];
   const pacientes = nombres.map((x,i)=>({id:"p"+(i+1), nombre:x[0], edad:x[1], tutor:x[2], telefono:"833-5"+String(10+i)+"-"+String(1000+i*37), motivo:x[3], tarifa:[600,650,700][i%3], asignada_a:x[4], activo:x[5]!==false}));
   const citas=[]; let k=1;
-  const horas=["09:00","10:00","11:00","12:00","16:00","17:00","18:00"];
-  for(let d=-3; d<=4; d++){ pacientes.filter(p=>p.activo).forEach((p,i)=>{ if((i+d+20)%3===0) citas.push({id:"c"+(k++), fecha:dia(d), hora:horas[(i+d+21)%horas.length]+":00", duracion:60, psicologa_id:p.asignada_a, paciente_id:p.id}); }); }
+  // Horario del consultorio: lunes a viernes de 2 a 9 pm, sábado de 8 am a 6 pm, domingo cerrado
+  const horasLV=["14:00","15:00","16:00","17:00","18:00","19:00","20:00"], horasSab=["08:00","09:00","10:00","11:00","12:00","15:00","16:00"];
+  for(let d=-3; d<=4; d++){ const dow=new Date(dia(d)+"T12:00:00").getDay(); if(dow===0) continue; const horas=dow===6? horasSab : horasLV;
+    pacientes.filter(p=>p.activo).forEach((p,i)=>{ if((i+d+20)%3===0) citas.push({id:"c"+(k++), fecha:dia(d), hora:horas[(i+d+21)%horas.length]+":00", duracion:60, psicologa_id:p.asignada_a, paciente_id:p.id}); }); }
   const textos=[
     "Trabajamos la rutina visual de la mañana. Logró seguir 4 de 5 pasos sin apoyo. Se acordó con mamá reforzar en casa con el tablero de pictogramas.",
     "Sesión centrada en reconocimiento de emociones con tarjetas. Identificó enojo y tristeza; le costó diferenciar miedo de sorpresa. Tarea: diario de emociones con caritas.",

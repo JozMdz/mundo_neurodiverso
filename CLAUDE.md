@@ -33,6 +33,13 @@ Reglas:
 Identidad visual: los colores de `:root` (morado, verde, cian, rosa, naranja, amarillo) y las
 tipografías Fredoka (títulos) y Nunito (texto).
 
+## Agenda
+
+El horario de consulta está en la constante `HORARIO` de `index.html` (por día de la semana, 0 = domingo):
+lunes a viernes de 14 a 21 h y sábado de 8 a 18 h. La agenda muestra solo esas horas; si una cita cae
+fuera, se amplía para mostrarla. En la semana, las horas sin consulta de cada día se ven rayadas. En el
+celular la agenda empieza en la vista de día; en computadora, Dirección empieza en la semana.
+
 ## Seguridad
 
 - Los permisos los hace cumplir Supabase: las políticas RLS y los triggers de `sql/seguridad.sql`.
