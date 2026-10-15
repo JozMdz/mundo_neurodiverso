@@ -81,6 +81,7 @@
             if(p.estado!==undefined && p.estado!==r.estado){ p.marcada_por=uid; p.marcada_en=new Date().toISOString(); p.confirmada_por=(dir && p.estado!=="programada")? uid : null; }
             else if(p.confirmada_por!==undefined) p.confirmada_por=(dir && p.confirmada_por)? uid : r.confirmada_por;
           }
+          if(tabla==="cierres" && p.revisado_por) p.revisado_por=uid;   // como proteger_cierres
           Object.assign(r,p); }); return {data:null, error:null}; }
       if(st.op==="delete"){ for(let i=t.length-1;i>=0;i--) if(match(t[i])) t.splice(i,1); if(tabla==="notas") for(let i=DB.comentarios.length-1;i>=0;i--) if(!DB.notas.some(n=>n.id===DB.comentarios[i].nota_id)) DB.comentarios.splice(i,1); return {data:null, error:null}; }
       if(st.op==="insert"){ const arr=(Array.isArray(st.datos)?st.datos:[st.datos]).map(d=>({id:"m"+(nid++), creado_en:new Date().toISOString(), ...(tabla==="citas"? {estado:"programada", marcada_por:null, marcada_en:null, confirmada_por:null} : {}), ...d})); t.push(...arr); return {data: st.single? arr[0] : arr, error:null}; }

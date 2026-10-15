@@ -32,3 +32,6 @@ insert into citas (id, fecha, hora, psicologa_id, paciente_id, estado, confirmad
   ('00000000-0000-0000-0000-000000000073', current_date - 2, '15:00', '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b1', 'no_asistio', '00000000-0000-0000-0000-0000000000d1'),
   ('00000000-0000-0000-0000-000000000074', current_date - 1, '15:00', '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000b2', 'programada', null),
   ('00000000-0000-0000-0000-000000000075', current_date + 2, '15:00', '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b1', 'programada', null);
+-- Un cierre de Fernanda con pendientes
+insert into cierres (psicologa_id, notas_pendientes, cobros_pendientes, detalle) values
+  ('00000000-0000-0000-0000-0000000000a1', 1, 1, '[{"nota": true, "cobro": true}]');

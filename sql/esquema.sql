@@ -1,7 +1,8 @@
 -- Mundo Neurodiverso · Estructura completa de la base en Supabase (sin datos).
 --
 -- Reconstruida el 15 oct 2026 con sql/inventario.sql y sql/revisar.sql; ya incluye sql/seguridad.sql,
--- sql/ajustes.sql, sql/citas-estado.sql y sql/pago-psicologa.sql. Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
+-- sql/ajustes.sql, sql/citas-estado.sql, sql/pago-psicologa.sql
+-- y sql/cierres-detalle.sql. Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
 -- (SQL Editor → pega todo → Run). Si cambias la base, actualiza este archivo para que siga siendo fiel.
 
 begin;
@@ -91,7 +92,10 @@ create table public.cierres (
   hora time not null default (now())::time,
   notas_pendientes integer not null default 0,
   cobros_pendientes integer not null default 0,
-  creado_en timestamptz not null default now()
+  creado_en timestamptz not null default now(),
+  detalle jsonb not null default '[]'::jsonb,                        -- [{cita, pac, nota, cobro}] lo que quedó pendiente
+  revisado_por uuid references public.psicologas(id),               -- Dirección que lo comprobó; null = por revisar
+  revisado_en timestamptz
 );
 
 -- ================= Índices =================
@@ -274,6 +278,26 @@ begin
   return new;
 end $$;
 
+-- De sql/cierres-detalle.sql: la psicóloga deja su cierre; Dirección solo marca que lo revisó
+create function public.proteger_cierres() returns trigger
+language plpgsql set search_path = public, pg_temp as $$
+begin
+  if current_user not in ('authenticated', 'anon') then
+    return new;
+  end if;
+  if tg_op = 'INSERT' then
+    new.revisado_por := null;
+    new.revisado_en := null;
+    return new;
+  end if;
+  if (to_jsonb(new) - 'revisado_por' - 'revisado_en') is distinct from (to_jsonb(old) - 'revisado_por' - 'revisado_en') then
+    raise exception 'De un cierre solo se marca si ya se revisó.';
+  end if;
+  new.revisado_por := case when new.revisado_por is not null then auth.uid() end;
+  new.revisado_en := case when new.revisado_por is not null then now() end;
+  return new;
+end $$;
+
 -- ================= Triggers =================
 -- Los a0_ corren antes que los demás de su tabla (orden alfabético).
 create trigger tr_comentario_revisar after insert on public.comentarios for each row execute function marcar_nota_por_revisar();
@@ -285,6 +309,7 @@ create trigger a0_proteger_pagos before insert or delete or update on public.pag
 create trigger tr_validado before update on public.pagos for each row execute function proteger_validado();
 create trigger a0_proteger_facturas before insert or delete or update on public.facturas for each row execute function proteger_facturas();
 create trigger a0_proteger_citas before update on public.citas for each row execute function proteger_citas();
+create trigger a0_proteger_cierres before insert or update on public.cierres for each row execute function proteger_cierres();
 
 -- ================= Seguridad por renglón (RLS) =================
 alter table public.psicologas  enable row level security;
@@ -333,6 +358,7 @@ create policy p_fac_delete on public.facturas for delete to authenticated using 
 
 create policy p_cie_select on public.cierres for select to authenticated using (es_direccion());
 create policy p_cie_insert on public.cierres for insert to authenticated with check (psicologa_id = auth.uid());
+create policy p_cie_update on public.cierres for update to authenticated using (es_direccion()) with check (es_direccion());
 
 -- ================= Permisos =================
 -- Sin sesión no se puede nada; con sesión, lo que dejen las políticas.

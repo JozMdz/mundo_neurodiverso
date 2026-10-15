@@ -62,6 +62,9 @@ ATAQUES = [
     ("Psicóloga confirma su propia inasistencia", F, f"update citas set confirmada_por='{F}' where id='{C72}' returning confirmada_por", "rechazado"),
     ("Psicóloga marca y se confirma sola (queda por confirmar)", F, f"update citas set estado='no_asistio', confirmada_por='{F}' where id='{C71}' returning coalesce(confirmada_por::text,'por confirmar')", "por confirmar"),
     ("Psicóloga cambia una inasistencia ya confirmada", F, f"update citas set estado='programada' where id='{C73}' returning estado", "rechazado"),
+    ("Psicóloga marca revisado su propio cierre", F, f"insert into cierres(psicologa_id,revisado_por) values('{F}','{F}'); reset role; select count(*)::text from cierres where revisado_por is not null", "0"),
+    ("Psicóloga borra el detalle de un cierre", F, f"update cierres set detalle='[]' returning 1", "rechazado"),
+    ("Dirección cambia lo que dejó pendiente la psicóloga", D, f"update cierres set notas_pendientes=0 returning 1", "rechazado"),
     ("Psicóloga marca 'no asistió' en una cita que aún no llega", F, f"update citas set estado='no_asistio' where id='{C75}' returning estado", "rechazado"),
 ]
 NORMAL = [
@@ -79,6 +82,7 @@ NORMAL = [
     ("Psicóloga pide una factura", F, f"insert into facturas(paciente_id,monto,estado,solicitada_por) values('{P1}',600,'solicitada','{F}') returning estado", "solicitada"),
     ("Psicóloga corrige su factura solicitada", F, f"update facturas set monto=700, paciente_id='{P1}' where id='{F1}' returning monto", "700"),
     ("Psicóloga borra su factura solicitada", F, f"delete from facturas where id='{F1}' returning 'borrada'", "borrada"),
+    ("Dirección marca revisado un cierre", D, f"update cierres set revisado_por='{D}' where psicologa_id='{F}' returning (revisado_por='{D}' and revisado_en is not null)::text", "true"),
     ("Psicóloga registra su cierre", F, f"insert into cierres(psicologa_id,notas_pendientes,cobros_pendientes) values('{F}',1,0); select 'registrado'", "registrado"),
     ("Dirección agenda una cita", D, f"insert into citas(fecha,hora,psicologa_id,paciente_id) values(current_date,'15:00','{F}','{P1}') returning 'agendada'", "agendada"),
     ("Dirección valida un cobro", D, f"update pagos set validado=true where id='{G1}' returning validado", "t"),
@@ -118,7 +122,7 @@ for archivo in ("pruebas/base/supabase-minimo.sql", "sql/esquema.sql", "pruebas/
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): sys.exit(f"{archivo} no cargó:\n{r}")
 fallas = correr("Con sql/esquema.sql")
-for archivo in ("sql/seguridad.sql", "sql/ajustes.sql", "sql/citas-estado.sql"):
+for archivo in ("sql/seguridad.sql", "sql/ajustes.sql", "sql/citas-estado.sql", "sql/pago-psicologa.sql", "sql/cierres-detalle.sql"):
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): print(f"\n✗ {archivo} no se puede volver a correr:\n{r}"); fallas += 1
 fallas += correr("Después de volver a correr los archivos de sql/")

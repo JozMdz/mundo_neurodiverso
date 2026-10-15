@@ -426,6 +426,36 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     'una cita de 30 min muestra nombre y hora en un renglón, sin cortarse');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
+  console.log('Salir con pendientes y cierres');
+  page = await abrir(browser, 's1');
+  await page.evaluate(async () => {
+    const c = (id, pac) => ({ id, fecha: hoyISO(), hora: '00:00:00', duracion: 1, psicologa_id: 's1', paciente_id: pac, estado: 'programada', confirmada_por: null });
+    __DB.citas = __DB.citas.filter(x => !(x.psicologa_id === 's1' && x.fecha === hoyISO())); __DB.citas.push(c('fin1', 'p1'), c('fin2', 'p2'));
+    __DB.notas.push({ id: 'nf1', paciente_id: 'p1', psicologa_id: 's1', texto: 'Nota hecha', revisada: false, vista_psic: true, creado_en: new Date().toISOString() });
+    __DB.pagos = __DB.pagos.filter(g => !(g.psicologa_id === 's1' && (g.paciente_id === 'p1' || g.paciente_id === 'p2'))); await refrescar(); });
+  await page.click('header .icono-btn'); await page.waitForTimeout(250);
+  const filasCierre = await page.$$eval('#cierreLista .conf-fila', f => f.map(x => x.innerText.replace(/\s+/g, ' ')));
+  ok(filasCierre.length === 2 && filasCierre.some(x => x.includes('Mateo') && x.includes('falta cobro') && !x.includes('Nota')) && filasCierre.some(x => x.includes('Valentina') && x.includes('falta nota y cobro')),
+    'al salir dice qué paciente quedó sin nota o sin cobro');
+  await page.tap('#cierreLista .conf-fila:has-text("Mateo") .btn'); await page.waitForTimeout(300);
+  ok(await visible(page, '#modalPago.abierto') && await page.inputValue('#pPaciente') === 'p1', 'si ya hizo la nota, el botón la lleva directo al cobro de ese paciente');
+  await page.evaluate(() => cerrar('modalPago'));
+  await page.click('header .icono-btn'); await page.waitForTimeout(250);
+  await page.click('#modalCierre .pie .fantasma'); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => { const x = __DB.cierres.at(-1); return x && x.notas_pendientes === 1 && x.cobros_pendientes === 2 && x.detalle.length === 2 && x.detalle.some(d => d.pac === 'p1' && !d.nota && d.cobro); }),
+    'el cierre guarda qué pacientes quedaron pendientes');
+  page = await abrir(browser, 'd1');
+  await page.evaluate(async () => { __DB.cierres.push({ id: 'ci1', psicologa_id: 's1', notas_pendientes: 1, cobros_pendientes: 1, fecha: hoyISO(), hora: '20:30', creado_en: new Date().toISOString(),
+    detalle: [{ cita: null, pac: 'p2', nota: true, cobro: false }, { cita: null, pac: 'p1', nota: false, cobro: true }] });
+    __DB.pagos.push({ id: 'pz', paciente_id: 'p1', psicologa_id: 's1', monto: 600, metodo: 'efectivo', validado: false, creado_en: new Date().toISOString() });
+    __DB.notas = __DB.notas.filter(n => !(n.paciente_id === 'p2' && n.creado_en >= new Date(hoyISO() + 'T00:00').toISOString())); await refrescar(); irA('equipo'); });
+  const cierreTxt = await page.textContent('#controlCard');
+  ok(cierreTxt.includes('Valentina') && cierreTxt.includes('falta nota') && cierreTxt.includes('ya registró ✓'), 'Dirección ve por paciente qué faltó y si ya lo registró después');
+  await page.tap('#controlCard .rev-btn'); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => __DB.cierres.find(x => x.id === 'ci1').revisado_por === 'd1') && !(await page.textContent('#controlCard')).includes('Valentina'), '"✓ Revisado" lo quita de la lista');
+  ok(await ancho(page) <= 414, 'sin scroll horizontal en Equipo');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
   console.log('Modo pruebas');
   page = await abrir(browser, 'd1');
   await page.goto(page.url().replace('?como=', '?pruebas=1&como=')); await page.waitForTimeout(600);
