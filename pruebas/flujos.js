@@ -126,14 +126,139 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(await ancho(page) <= 414, 'sin scroll horizontal en el expediente');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
+  console.log('Horario de la agenda');
+  page = await abrir(browser, 'd1');
+  ok(await page.evaluate(() => estado.vistaAgenda) === 'dia', 'en el celular la agenda empieza en el día (también Dirección)');
+  const horas = () => page.evaluate(() => [...document.querySelectorAll('#agenda .etq')].map(e => e.textContent));
+  // Un día de la próxima semana (sin citas de prueba): 0 = domingo … 6 = sábado
+  const ir = (dow, vista = 'dia') => page.evaluate(([dow, vista]) => {
+    const d = new Date(); d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7) + 7);
+    estado.fechaAgenda = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    setVistaAgenda(vista); return estado.fechaAgenda;
+  }, [dow, vista]);
+  const diaSem = () => page.evaluate(() => new Date(estado.fechaAgenda + 'T12:00:00').getDay());
+  const miercoles = await ir(3);
+  let h = await horas();
+  ok(h[0] === '14:00' && h[h.length - 1] === '21:00', `entre semana muestra de 14:00 a 21:00 (${h[0]}–${h[h.length - 1]})`);
+  ok(await page.evaluate(() => { const r = document.querySelector('#agenda .etq').getBoundingClientRect(), c = document.querySelector('#agenda .cal').getBoundingClientRect(); return r.top >= c.top; }), 'la primera hora se lee completa (no queda cortada arriba)');
+  await page.click('#btnAgendar'); await page.waitForTimeout(250);
+  ok((await page.inputValue('#cHora')) === '14:00', '"+ Agendar cita" propone las 14:00 entre semana');
+  await page.evaluate(() => cerrar('modalCita'));
+  await ir(6); h = await horas();
+  ok(h[0] === '08:00' && h[h.length - 1] === '18:00', `el sábado muestra de 08:00 a 18:00 (${h[0]}–${h[h.length - 1]})`);
+  await page.click('.barra-dia button.nav >> nth=1'); await page.waitForTimeout(150);
+  ok(await diaSem() === 1, 'del sábado, "›" brinca el domingo y llega al lunes');
+  await page.click('.barra-dia button.nav >> nth=0'); await page.waitForTimeout(150);
+  ok(await diaSem() === 6, 'del lunes, "‹" regresa al sábado');
+  await ir(0);
+  ok(!!(await page.$('#agenda .agenda-cerrado')), 'el domingo sin citas dice "Sin horario de consulta"');
+  // Citas fuera de horario: la agenda se amplía para mostrarlas
+  await page.evaluate(async f => {
+    __DB.citas.push({ id: 'fuera1', fecha: f, hora: '11:00:00', duracion: 60, psicologa_id: 's1', paciente_id: 'p1' });
+    __DB.citas.push({ id: 'noche1', fecha: f, hora: '20:00:00', duracion: 60, psicologa_id: 's1', paciente_id: 'p2' });
+    await refrescar();
+  }, miercoles);
+  await ir(3); h = await horas();
+  ok(h[0] === '11:00' && h[h.length - 1] === '21:00', `una cita a las 11:00 amplía el día para mostrarla (${h[0]}–${h[h.length - 1]})`);
+  ok(await page.evaluate(() => document.querySelectorAll('#agenda .fuera').length) === 1, 'las horas antes de las 14:00 se ven sombreadas');
+  ok(await page.evaluate(() => { const c = document.querySelector('#agenda .cal').getBoundingClientRect();
+    return [...document.querySelectorAll('#agenda .ev')].length === 2 && [...document.querySelectorAll('#agenda .ev')].every(e => e.getBoundingClientRect().bottom <= c.bottom); }), 'la cita de 8 a 9 pm se ve completa');
+  ok(await page.evaluate(() => [...document.querySelectorAll('#agenda .mas')].every(m => { const t = m.title.slice(-5); return t >= '14:00' && t < '21:00'; })), 'el "+" para agendar solo aparece dentro del horario');
+  await ir(3, 'semana'); h = await horas();
+  ok(h[0] === '08:00' && h[h.length - 1] === '21:00', `la semana va de 08:00 a 21:00 para que quepa el sábado (${h[0]}–${h[h.length - 1]})`);
+  ok(await page.evaluate(() => { const c = [...document.querySelectorAll('.sem-col')];
+    return c.length === 6 && c.slice(0, 5).every(x => x.querySelector('.fuera[style^="top:0"]')) && !!c[5].querySelector('.fuera[style*="bottom:0"]'); }),
+    'en la semana se sombrean las mañanas de lunes a viernes y la tarde del sábado');
+  ok(await page.evaluate(() => document.querySelectorAll('.sem-col .mas').length) === 5 * 14 + 20, '"+" solo dentro del horario de cada día');
+  ok(await ancho(page) <= 414, 'sin scroll horizontal en la agenda');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
+  console.log('Agendar por voz: lo que entiende (base: miércoles 14 de octubre de 2026)');
+  const FRASES = [
+    ['Cita con Valentina el jueves a las 5', { fechas: ['2026-10-15'], hora: '17:00' }],
+    ['Agenda a Mateo Hernández mañana a las 4 con Andrea', { fechas: ['2026-10-15'], hora: '16:00' }],
+    ['Regina el sábado a las 10 de la mañana, de hora y media', { fechas: ['2026-10-17'], hora: '10:00', dur: 90 }],
+    ['Mateo el 20 de octubre a las 7 de la noche', { fechas: ['2026-10-20'], hora: '19:00' }],
+    ['Valentina todos los martes y jueves a las 6 por un mes', { fechas: [], dias: [2, 4], hora: '18:00', semanas: 4 }],
+    ['Diego el próximo miércoles a las 3 y media', { fechas: ['2026-10-21'], hora: '15:30' }],
+    ['Camila pasado mañana a las cinco', { fechas: ['2026-10-16'], hora: '17:00' }],
+    ['Sebastián en 3 días a la una', { fechas: ['2026-10-17'], hora: '13:00' }],
+    ['Leonardo el sábado a las 8', { fechas: ['2026-10-17'], hora: '08:00' }],
+    ['Emiliano el viernes a las 8', { fechas: ['2026-10-16'], hora: '20:00' }],
+    ['Ximena hoy a las 7, de 45 minutos', { fechas: ['2026-10-14'], hora: '19:00', dur: 45 }],
+    ['Natalia el lunes a las 5 p. m.', { fechas: ['2026-10-19'], hora: '17:00' }],
+    ['Valentina a las 6', { fechas: [], hora: '18:00' }],
+    ['Regina el viernes en la mañana', { fechas: ['2026-10-16'], hora: null }],
+    ['Mateo el 3 a las 4', { fechas: ['2026-11-03'], hora: '16:00' }],
+    ['Cada sábado a las 9 durante 8 semanas', { fechas: [], dias: [6], hora: '09:00', semanas: 8 }],
+  ];
+  for (const [frase, esperado] of FRASES) {
+    const r = await page.evaluate(f => entenderCita(f, '2026-10-14'), frase);
+    const bien = Object.entries(esperado).every(([k, v]) => JSON.stringify(r[k]) === JSON.stringify(v));
+    ok(bien, `«${frase}» → ${r.fechas.join(',') || (r.dias.length ? 'días ' + r.dias : 'sin fecha')} ${r.hora || 'sin hora'}${r.dur ? ' ' + r.dur + ' min' : ''}${r.semanas ? ' ×' + r.semanas + ' sem' : ''}`);
+  }
+
+  console.log('Agendar por voz: de la frase a la hoja');
+  page = await abrir(browser, 'd1');
+  await page.evaluate(() => {
+    window.__frase = '';
+    window.SpeechRecognition = window.webkitSpeechRecognition = class {   // micrófono simulado: "dicta" window.__frase
+      start() { setTimeout(() => { this.onresult({ results: [[{ transcript: window.__frase }]] }); setTimeout(() => this.onend(), 30); }, 30); }
+      abort() {} stop() {}
+    };
+    renderAgenda();
+  });
+  ok(await visible(page, '#btnVoz'), 'Dirección ve el micrófono junto a "+ Agendar cita"');
+  const dictar = async frase => { await page.evaluate(f => { window.__frase = f; }, frase); await page.click('#btnVoz'); await page.waitForTimeout(350); };
+  const hoja = () => page.evaluate(() => ({ abierta: document.getElementById('modalCita').classList.contains('abierto'),
+    pac: document.getElementById('cPaciente').value, psic: document.getElementById('cPsic').value, hora: document.getElementById('cHora').value,
+    dia: new Date(estado.fechaAgenda + 'T12:00:00').getDay(), dur: document.getElementById('cDur').value,
+    chips: [...document.querySelectorAll('#cDias .dia-chip.on')].map(b => b.textContent), semanas: document.getElementById('cSemanas').value,
+    voz: document.getElementById('cVoz').textContent }));
+  await dictar('Cita con Valentina el jueves a las 5');
+  let hj = await hoja();
+  ok(hj.abierta && hj.pac === 'p2' && hj.psic === 's1' && hj.hora === '17:00' && hj.dia === 4,
+    'se abre la hoja con Valentina, su psicóloga, el jueves a las 17:00');
+  ok(hj.voz.includes('Valentina el jueves a las 5'), 'la hoja muestra lo que se escuchó');
+  const antesCitas = await page.evaluate(() => __DB.citas.length);
+  await page.click('#cGuardar'); await page.waitForTimeout(300);
+  ok(await page.evaluate(n => __DB.citas.length === n + 1 && __DB.citas.at(-1).paciente_id === 'p2', antesCitas), 'al confirmar se agenda la cita');
+  await dictar('Mateo Hernández mañana a las 4 con Andrea');
+  hj = await hoja();
+  ok(hj.pac === 'p1' && hj.psic === 's2' && hj.hora === '16:00', 'si dices "con Andrea", la cita queda con Andrea');
+  await page.evaluate(() => cerrar('modalCita'));
+  await dictar('Valentina todos los martes y jueves a las 6 por un mes');
+  hj = await hoja();
+  ok(hj.chips.join() === 'Mar,Jue' && hj.semanas === '4' && hj.hora === '18:00', 'repetición: martes y jueves a las 18:00 durante 4 semanas');
+  const n0 = await page.evaluate(() => __DB.citas.length);
+  await page.click('#cGuardar'); await page.waitForTimeout(300);
+  ok(await page.evaluate(n => { const nuevas = __DB.citas.slice(n);
+    return nuevas.length >= 5 && nuevas.every(c => c.paciente_id === 'p2' && c.hora.startsWith('18:00') && [2, 4].includes(new Date(c.fecha + 'T12:00:00').getDay())); }, n0),
+    'se agendan las citas de martes y jueves');
+  await dictar('Cita con Pedro el jueves a las 5');
+  hj = await hoja();
+  ok(hj.pac === '' && hj.voz.includes('No reconocí al paciente'), 'si no reconoce al paciente, pide elegirlo');
+  const n1 = await page.evaluate(() => __DB.citas.length);
+  await page.click('#cGuardar'); await page.waitForTimeout(250);
+  ok(await page.evaluate(n => __DB.citas.length === n, n1) && (await page.textContent('#toast')).includes('Elige el paciente'), 'sin paciente no se agenda nada');
+  await page.evaluate(() => cerrar('modalCita'));
+  await page.evaluate(() => { window.__frase = 'algo'; });
+  await page.click('#btnVoz'); await page.click('#vozX'); await page.waitForTimeout(250);
+  ok(!(await visible(page, '#voz.ver')) && !(await visible(page, '#modalCita.abierto')), '"Cancelar" cierra sin abrir la hoja');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+  page = await abrir(browser, 's1');
+  await page.evaluate(() => { window.SpeechRecognition = window.webkitSpeechRecognition = class {}; renderAgenda(); });
+  ok(!(await visible(page, '#btnVoz')), 'las psicólogas no ven el micrófono (solo Dirección agenda)');
+
   console.log('Dirección en computadora');
   page = await abrir(browser, 'd1', { viewport: { width: 1280, height: 800 } });
+  ok(await page.evaluate(() => estado.vistaAgenda) === 'semana', 'en computadora Dirección empieza en la semana');
   await page.click('nav.tabs button[data-vista=expediente]');
   ok(await visible(page, '.px-col-lista') && await visible(page, '.px-col-detalle'), 'lista y expediente lado a lado');
   ok(!(await visible(page, '.px-barra')), 'sin barra "‹ Pacientes" en computadora');
-  const h = await page.evaluate(() => history.length);
+  const pasos = await page.evaluate(() => history.length);
   await page.click('#listaPx .px-lista:last-child .px-fila >> nth=3'); await page.waitForTimeout(150);
-  ok(await page.evaluate(() => history.length) === h, 'elegir paciente no agrega pasos al historial');
+  ok(await page.evaluate(() => history.length) === pasos, 'elegir paciente no agrega pasos al historial');
   await page.screenshot({ path: require('os').tmpdir() + '/expediente-escritorio.png' });
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 

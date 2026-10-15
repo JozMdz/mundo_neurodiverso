@@ -125,6 +125,25 @@
   .cal .media .hint{position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--gris-claro); font-weight:700; opacity:0;}
   .cal .media.b:hover .hint{opacity:1;}
   .cal .lane{position:absolute; left:54px; right:48px; top:0; bottom:0; pointer-events:none;}
+  .cal .cal-in{position:absolute; left:0; right:0;}
+  .cal .fuera{position:absolute; left:54px; right:0; pointer-events:none; background:repeating-linear-gradient(135deg, #F7F4FA 0 7px, #EFEAF5 7px 14px);}
+  .cal .sem-col .fuera{left:0;}
+  .agenda-cerrado{text-align:center; padding:44px 20px; color:var(--gris);}
+  .agenda-cerrado .em{font-size:34px; margin-bottom:6px;}
+  .agenda-cerrado b{display:block; color:var(--tinta); font-size:16px; margin-bottom:2px;}
+  .mic-btn{display:inline-flex; align-items:center; justify-content:center; width:44px; padding:0;}
+  .voz{position:fixed; inset:0; z-index:110; display:none; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+    padding:32px 24px calc(32px + env(safe-area-inset-bottom)); text-align:center; background:rgba(246,243,251,.97); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);}
+  .voz.ver{display:flex;}
+  .voz-orb{width:96px; height:96px; border-radius:50%; background:conic-gradient(var(--morado), var(--rosa), var(--naranja), var(--amarillo), var(--verde), var(--cian), var(--morado));
+    box-shadow:0 0 50px rgba(139,61,158,.35); animation:pulso 1.4s ease-in-out infinite;}
+  @keyframes pulso{0%,100%{transform:scale(1); opacity:.85;} 50%{transform:scale(1.12); opacity:1;}}
+  .voz-h{font-size:12px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:var(--gris);}
+  .voz-tx{font-family:"Fredoka"; font-size:22px; line-height:1.35; max-width:460px; min-height:60px; color:var(--tinta);}
+  .voz-tx.pista{font-family:"Nunito"; font-size:16px; font-weight:700; color:var(--gris-claro);}
+  .voz-entendi{display:none; background:#F3EAF8; border-radius:12px; padding:10px 12px; font-size:14px; font-weight:600; color:var(--tinta);}
+  .voz-entendi.ver{display:block;}
+  .voz-entendi .aviso{display:block; margin-top:4px; color:var(--alerta); font-weight:800;}
   .cal .mas{position:absolute; right:0; width:44px; display:flex; align-items:center; justify-content:center;
     color:var(--morado); font-weight:800; font-size:16px; cursor:pointer; opacity:.32; border-left:1px dashed var(--linea);}
   .cal .mas:hover,.cal .mas:active{opacity:1; background:#F7F1FB;}
@@ -484,7 +503,10 @@
       <button class="nav" onclick="moverDia(1)">›</button>
       <button class="btn fantasma" style="padding:9px 14px;" onclick="hoy()">Hoy</button>
       <span class="sw-vista"><button id="swDia" onclick="setVistaAgenda('dia')">Día</button><button id="swSem" onclick="setVistaAgenda('semana')">Semana</button></span>
-      <button class="btn" id="btnAgendar" style="margin-left:auto;" onclick="abrirCita('09:00')">+ Agendar cita</button>
+      <span style="margin-left:auto; display:flex; gap:8px;">
+        <button class="btn fantasma mic-btn" id="btnVoz" onclick="dictarCita()" aria-label="Agendar cita por voz" title="Agendar cita por voz"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <button class="btn" id="btnAgendar" onclick="abrirCita(horaInicial())">+ Agendar cita</button>
+      </span>
     </div>
     <div class="leyenda" id="leyenda" style="margin:0 2px 12px;"></div>
     <div class="sem-cab" id="semCab" style="display:none"></div>
@@ -535,6 +557,7 @@
 <div class="fondo-modal" id="modalCita"><div class="modal">
   <div class="cab"><h3 id="cTitulo">Agendar cita</h3><div class="cab-sub" id="cFecha"></div></div>
   <div class="cuerpo">
+    <div class="voz-entendi" id="cVoz"></div>
     <div class="aviso-conflicto" id="conflicto">⚠ <span id="txtConflicto"></span></div>
     <div class="campo"><label>Psicóloga</label><select id="cPsic" onchange="renderPacientesCita()"></select></div>
     <div class="campo"><label>Paciente</label><select id="cPaciente"></select></div>
@@ -631,6 +654,13 @@
   <div class="pie"><button class="btn fantasma" onclick="salirDeTodasFormas()">Salir de todas formas</button>
     <button class="btn" onclick="registrarAhora()">Registrar ahora</button></div>
 </div></div>
+
+<div class="voz" id="voz" role="dialog" aria-live="polite">
+  <div class="voz-orb"></div>
+  <div class="voz-h">Escuchando</div>
+  <div class="voz-tx pista" id="vozTx"></div>
+  <button class="btn fantasma" id="vozX" style="min-width:160px">Cancelar</button>
+</div>
 
 <div class="fondo-modal" id="modalAcciones"><div class="modal">
   <div class="cab"><h3 id="accTitulo">Opciones</h3><div class="cab-sub" id="accSub"></div></div>
@@ -731,7 +761,8 @@ async function entrar(){
   if(!user){ mostrarLogin(); return; }
   estado.quien=user.id;
   await cargarTodo();
-  if(viewer() && viewer().admin) estado.vistaAgenda="semana";
+  // Dirección empieza en la semana en computadora; en el celular todas empiezan en el día
+  if(viewer() && viewer().admin && !MOVIL.matches) estado.vistaAgenda="semana";
   if(!viewer()){ toast("Tu usuaria no tiene perfil creado. Avisa a Dirección.","err"); await sb.auth.signOut(); estado.quien=null; mostrarLogin(); return; }
   document.getElementById("login").classList.add("oculto");
   irA("agenda"); render(); suscribir();
@@ -836,7 +867,32 @@ function renderResumen(){
 }
 
 /* ---- Agenda proporcional ---- */
-const START=8, END=20, H=64;
+/* Horario de consulta por día de la semana (0 = domingo): lunes a viernes de 2 a 9 pm y sábado de 8 am a 6 pm.
+   La agenda muestra solo esas horas. Si una cita cae fuera, se amplía para que nunca quede escondida. */
+const HORARIO={1:[14,21], 2:[14,21], 3:[14,21], 4:[14,21], 5:[14,21], 6:[8,18]};
+const H=64, PAD=12;
+function horarioDe(f){ return HORARIO[new Date(f+"T12:00:00").getDay()]||null; }
+function horaInicial(){ const h=horarioDe(estado.fechaAgenda); return String(h?h[0]:9).padStart(2,"0")+":00"; }
+// Horas que cubre la agenda para esos días: su horario más cualquier cita que caiga fuera de él
+function rangoAgenda(fechas){
+  let ini=24, fin=0;
+  fechas.forEach(f=>{ const h=horarioDe(f); if(h){ ini=Math.min(ini,h[0]); fin=Math.max(fin,h[1]); } });
+  citasVisibles().filter(c=>fechas.includes(c.fecha)).forEach(c=>{ const s=minutos(c.hora);
+    ini=Math.min(ini,Math.floor(s/60)); fin=Math.max(fin,Math.ceil((s+(c.dur||60))/60)); });
+  return ini<fin? {ini, n:fin-ini} : null;
+}
+// Sombrea lo que queda fuera del horario de ese día y pone "+" solo dentro de él
+function fueraYHuecos(f, R, alAgendar, estilo){
+  const h=horarioDe(f)||[R.ini,R.ini];
+  let html="";
+  if(h[0]>R.ini) html+=`<div class="fuera" style="top:0; height:${(h[0]-R.ini)*H}px"></div>`;
+  if(h[1]<R.ini+R.n) html+=`<div class="fuera" style="top:${(h[1]-R.ini)*H}px; bottom:0"></div>`;
+  if(alAgendar) for(let hh=h[0]; hh<h[1]; hh++) for(const mm of ["00","30"]){
+    const t=String(hh).padStart(2,"0")+":"+mm, top=(hh-R.ini)*H+(mm==="30"?H/2:0);
+    html+=`<div class="mas" style="top:${top}px; height:${H/2}px${estilo}" title="Agendar ${t}" onclick="${alAgendar(t)}">+</div>`;
+  }
+  return html;
+}
 function setVistaAgenda(v){ estado.vistaAgenda=v; renderAgenda(); }
 function layoutDia(evs){
   evs.forEach(e=>{ e._s=minutos(e.hora); e._e=e._s+e.dur; });
@@ -862,22 +918,21 @@ function renderAgenda(){
     : fechaLarga(estado.fechaAgenda);
   document.getElementById("leyenda").innerHTML=(esAdmin()?atienden():[viewer()])
     .map(p=>`<span><i style="background:${p.color}"></i>${esc(corto(p.nombre))}</span>`).join("");
-  const N=END-START;
-  let lineas="";
-  for(let i=0;i<=N;i++){ lineas+=`<div class="banda" style="top:${i*H}px"><div class="etq">${String(START+i).padStart(2,"0")}:00</div></div>`; }
-  let medias="";
   const _puedeAgendar=esAdmin();
   const _btnAg=document.getElementById("btnAgendar"); if(_btnAg) _btnAg.style.display=_puedeAgendar?"":"none";
-  for(let i=0;i<N && _puedeAgendar;i++){ const hh=String(START+i).padStart(2,"0");
-    medias+=`<div class="mas" style="top:${i*H}px; height:${H/2}px" title="Agendar ${hh}:00" onclick="abrirCita('${hh}:00')">+</div>`;
-    medias+=`<div class="mas" style="top:${i*H+H/2}px; height:${H/2}px" title="Agendar ${hh}:30" onclick="abrirCita('${hh}:30')">+</div>`;
-  }
+  const _btnVoz=document.getElementById("btnVoz"); if(_btnVoz) _btnVoz.style.display=(_puedeAgendar && vozSoportada())?"":"none";
   document.getElementById("semCab").style.display = semanal? "flex" : "none";
-  if(semanal){ renderAgendaSemana(lunS, lineas, N); return; }
+  const dias = semanal? [0,1,2,3,4,5].map(i=>addDaysISO(lunS,i)) : [estado.fechaAgenda];
+  const R=rangoAgenda(dias);
+  if(!R){ document.getElementById("agenda").innerHTML=`<div class="cal agenda-cerrado"><div class="em">🌙</div><b>${fechaLarga(estado.fechaAgenda)}</b>Sin horario de consulta.</div>`; return; }
+  let lineas="";
+  for(let i=0;i<=R.n;i++){ lineas+=`<div class="banda" style="top:${i*H}px"><div class="etq">${String(R.ini+i).padStart(2,"0")}:00</div></div>`; }
+  const marco=interior=>`<div class="cal" style="height:${R.n*H+PAD*2}px"><div class="cal-in" style="top:${PAD}px; height:${R.n*H}px">${lineas}${interior}</div></div>`;
+  if(semanal){ renderAgendaSemana(dias, R, marco); return; }
   const evs=layoutDia(citasVisibles().filter(c=>c.fecha===estado.fechaAgenda).slice());
   const _adm=esAdmin();
   const eventos=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
-    const top=Math.max(0,(e._s-START*60)/60*H), hgt=Math.max(24,e.dur/60*H-4);
+    const top=Math.max(0,(e._s-R.ini*60)/60*H), hgt=Math.max(24,e.dur/60*H-4);
     const left=e._col/e._cols*100, w=100/e._cols;
     const sub=(pa.motivo&&pa.motivo!=="—")?esc(pa.motivo):"";
     return `<div class="ev" style="top:${top}px; height:${hgt}px; left:${left}%; width:calc(${w}% - 5px); background:${p.color}; ${_adm?'cursor:pointer':''}" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)}${_adm?' — toca para editar':''}" ${_adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
@@ -885,34 +940,177 @@ function renderAgenda(){
       <div class="r">${e.hora}–${hhmm(e._e)}${hgt>=42&&e._cols<3&&sub?` · ${sub}`:""}</div>
       ${hgt>=56&&e._cols<3?`<div class="q">${esc(corto(p.nombre))}</div>`:""}</div>`;
   }).join("");
-  document.getElementById("agenda").innerHTML=`<div class="cal" style="height:${N*H+1}px">${lineas}${medias}<div class="lane">${eventos}</div></div>`;
+  const huecos=fueraYHuecos(estado.fechaAgenda, R, _puedeAgendar? t=>`abrirCita('${t}')` : null, "");
+  document.getElementById("agenda").innerHTML=marco(`${huecos}<div class="lane">${eventos}</div>`);
 }
-function renderAgendaSemana(lun, lineas, N){
+function renderAgendaSemana(dias, R, marco){
   const adm=esAdmin(), hoyI=hoyISO();
-  const dias=[0,1,2,3,4,5].map(i=>addDaysISO(lun,i));
   const nom=["Lun","Mar","Mié","Jue","Vie","Sáb"];
   document.getElementById("semCab").innerHTML=dias.map((f,i)=>
     `<div class="${f===hoyI?'hoy':''}">${nom[i]}<b>${f.slice(8,10)}</b></div>`).join("");
   const cols=dias.map(f=>{
     const evs=layoutDia(citasVisibles().filter(c=>c.fecha===f).slice());
-    const slots = adm? [...Array(N).keys()].map(i=>{ const hh=String(START+i).padStart(2,"0");
-      return `<div class="mas" style="width:18px;top:${i*H}px;height:${H/2}px;font-size:12px" onclick="abrirCitaEn('${f}','${hh}:00')">+</div>`
-           + `<div class="mas" style="width:18px;top:${i*H+H/2}px;height:${H/2}px;font-size:12px" onclick="abrirCitaEn('${f}','${hh}:30')">+</div>`;
-    }).join("") : "";
+    const huecos=fueraYHuecos(f, R, adm? t=>`abrirCitaEn('${f}','${t}')` : null, "; width:18px; font-size:12px");
     const items=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
-      const top=Math.max(0,(e._s-START*60)/60*H), hgt=Math.max(20,e.dur/60*H-3);
+      const top=Math.max(0,(e._s-R.ini*60)/60*H), hgt=Math.max(20,e.dur/60*H-3);
       const left=e._col/e._cols*100, w=100/e._cols;
       return `<div class="ev" style="top:${top}px; height:${hgt}px; left:calc(${left}% * 0.88); width:calc(${w}% * 0.88 - 3px); background:${p.color}; ${adm?'cursor:pointer':''}" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)} · ${esc(corto(p.nombre))}" ${adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
         <div class="p">${esc(pa.nombre)}</div>${hgt>=34?`<div class="r">${e.hora}</div>`:""}</div>`;
     }).join("");
-    return `<div class="sem-col">${slots}${items}</div>`;
+    return `<div class="sem-col">${huecos}${items}</div>`;
   }).join("");
-  document.getElementById("agenda").innerHTML=`<div class="cal" style="height:${N*H+1}px">${lineas}<div class="sem-lanes">${cols}</div></div>`;
+  document.getElementById("agenda").innerHTML=marco(`<div class="sem-lanes">${cols}</div>`);
 }
 function abrirCitaEn(fecha,h){ estado.fechaAgenda=fecha; abrirCita(h); }
 function moverDia(d){ const paso = estado.vistaAgenda==="semana"? d*7 : d;
-  const dt=new Date(estado.fechaAgenda+"T12:00:00"); dt.setDate(dt.getDate()+paso); estado.fechaAgenda=dt.toISOString().slice(0,10); renderAgenda(); }
+  let f=addDaysISO(estado.fechaAgenda, paso);
+  // En la vista de día se brinca el domingo si no tiene citas: ese día no hay consulta
+  if(estado.vistaAgenda!=="semana" && !horarioDe(f) && !citasVisibles().some(c=>c.fecha===f)) f=addDaysISO(f, d);
+  estado.fechaAgenda=f; renderAgenda(); }
 function hoy(){ estado.fechaAgenda=hoyISO(); renderAgenda(); }
+
+/* ---- Agendar por voz ----
+   Adaptado del dictado de AgendaApp: entiende paciente, psicóloga, día, hora, duración y repetición,
+   y abre la hoja de "Agendar cita" ya llena. Nunca guarda sin que la confirmes. */
+const VOZ_DIAS={domingo:0, domingos:0, lunes:1, martes:2, miercoles:3, jueves:4, viernes:5, sabado:6, sabados:6};
+const VOZ_RE_DIA="lunes|martes|miercoles|jueves|viernes|sabados?|domingos?";
+const VOZ_MESES={enero:0, febrero:1, marzo:2, abril:3, mayo:4, junio:5, julio:6, agosto:7, septiembre:8, setiembre:8, octubre:9, noviembre:10, diciembre:11};
+const VOZ_NUMEROS={"treinta y uno":31, "cuarenta y cinco":45, una:1, uno:1, un:1, dos:2, tres:3, cuatro:4, cinco:5, seis:6, siete:7, ocho:8,
+  nueve:9, diez:10, once:11, doce:12, trece:13, catorce:14, quince:15, dieciseis:16, diecisiete:17, dieciocho:18, diecinueve:19, veinte:20,
+  veintiuno:21, veintiun:21, veintiuna:21, veintidos:22, veintitres:23, veinticuatro:24, veinticinco:25, veintiseis:26, veintisiete:27,
+  veintiocho:28, veintinueve:29, treinta:30, noventa:90};
+const VOZ_IGNORAR=new Set(["psic","mtra","mtro","dra","lic","del","las","los","con","para","cita"]);
+
+// Lo que se entendió de la frase. base = hoy (YYYY-MM-DD); se recibe para poder probarlo.
+// Regresa {fechas[], hora, dur, dias[], semanas, resto}; "resto" es la frase sin lo ya entendido.
+function entenderCita(crudo, base){
+  let t=" "+plegar(crudo).replace(/\b([ap])\.\s?m\.?/g," $1m ").replace(/[.,;!¡¿?"«»]/g," ")+" ";
+  Object.keys(VOZ_NUMEROS).sort((a,b)=>b.length-a.length)
+    .forEach(w=>{ t=t.replace(new RegExp("\\b"+w+"\\b","g"), String(VOZ_NUMEROS[w])); });
+  const r={fechas:[], hora:null, dur:null, dias:[], semanas:null, resto:""};
+  const p2=n=>String(n).padStart(2,"0");
+  const b0=new Date(base+"T12:00:00");
+  const iso=d=>`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+  const mas=n=>{ const d=new Date(b0); d.setDate(d.getDate()+n); return iso(d); };
+  // Cada patrón consume lo que entiende, para que el siguiente no lo vuelva a leer
+  const cazar=(re, fn)=>{ t=t.replace(new RegExp(re,"g"), (...m)=> fn(m)===false? m[0] : " ".repeat(m[0].length)); };
+
+  cazar(`\\b(?:todos\\s+los|cada|los)\\s+((?:(?:${VOZ_RE_DIA})\\b(?:\\s*,\\s*|\\s+y\\s+|\\s+)?)+)`, m=>{
+    m[1].match(new RegExp(VOZ_RE_DIA,"g")).forEach(d=>{ const n=VOZ_DIAS[d]; if(n>=1 && !r.dias.includes(n)) r.dias.push(n); }); });
+  cazar("\\b(?:por|durante)\\s+(\\d{1,2})\\s+semanas?\\b", m=>{ r.semanas=+m[1]; });
+  cazar("\\b(?:por|durante)\\s+(\\d{1,2})\\s+mes(?:es)?\\b", m=>{ r.semanas=4*m[1]; });
+  cazar("\\b(?:de|por|durante)\\s+(?:(?:1\\s+)?hora\\s+y\\s+media|media\\s+hora|(\\d{1,3})\\s*(?:minutos|min)|([12])\\s+horas?)\\b", m=>{
+    r.dur = m[1]? +m[1] : m[2]? 60*m[2] : /media\s+hora/.test(m[0])? 30 : 90; });
+  let hh=null, mm=0, suf="";
+  cazar("\\ba\\s+las?\\s+(\\d{1,2})(?::(\\d{2}))?(\\s+y\\s+media|\\s+y\\s+cuarto|\\s+menos\\s+cuarto)?\\s*(de\\s+la\\s+(?:manana|tarde|noche)|am|pm|hrs?|horas)?\\b", m=>{
+    hh=+m[1]; mm=m[2]? +m[2] : 0;
+    if(/media/.test(m[3]||"")) mm=30; else if(/menos/.test(m[3]||"")){ hh-=1; mm=45; } else if(/cuarto/.test(m[3]||"")) mm=15;
+    suf=/tarde|noche|pm/.test(m[4]||"")? "pm" : /manana|am/.test(m[4]||"")? "am" : "";
+    if(hh>23 || mm>59) return false; });
+  cazar("\\bhoy\\b", ()=>{ r.fechas.push(mas(0)); });
+  cazar("\\bpasado\\s+manana\\b", ()=>{ r.fechas.push(mas(2)); });
+  cazar("(?<!(?:de|en|por)\\s+la\\s+)\\bmanana\\b", ()=>{ r.fechas.push(mas(1)); });
+  cazar("\\b(?:la\\s+)?(?:proxima|siguiente)\\s+semana\\b", ()=>{ r.fechas.push(mas(7)); });
+  cazar("\\ben\\s+(\\d{1,2})\\s+dias?\\b", m=>{ r.fechas.push(mas(+m[1])); });
+  cazar(`\\b(?:el\\s+|este\\s+)?(proximo|siguiente)?\\s*(${VOZ_RE_DIA})\\b`, m=>{
+    const obj=VOZ_DIAS[m[2]];
+    let delta=(obj-b0.getDay()+7)%7; if(delta===0) delta=7;
+    const cand=new Date(b0); cand.setDate(cand.getDate()+delta);
+    // "el próximo martes" salta a la semana siguiente si el martes que viene cae en esta misma semana
+    const finSemana=new Date(b0); finSemana.setDate(finSemana.getDate()+((7-((b0.getDay()+6)%7))%7 || 7));
+    if(m[1] && cand<finSemana) cand.setDate(cand.getDate()+7);
+    r.fechas.push(iso(cand)); });
+  cazar(`\\bel\\s+(\\d{1,2})\\s+de\\s+(${Object.keys(VOZ_MESES).join("|")})\\b`, m=>{
+    const d=new Date(b0.getFullYear(), VOZ_MESES[m[2]], +m[1], 12);
+    if(iso(d)<base) d.setFullYear(d.getFullYear()+1);
+    r.fechas.push(iso(d)); });
+  cazar("\\bel\\s+(\\d{1,2})\\b(?!\\s*(?::|de\\s|hrs|horas))", m=>{
+    const dia=+m[1]; if(dia<1 || dia>31) return false;
+    const d=new Date(b0.getFullYear(), b0.getMonth(), dia, 12);
+    if(iso(d)<base) d.setMonth(d.getMonth()+1);
+    r.fechas.push(iso(d)); });
+  r.fechas=[...new Set(r.fechas)].sort();
+
+  if(hh!==null){
+    if(suf==="pm" && hh<12) hh+=12;
+    else if(suf==="am" && hh===12) hh=0;
+    else if(!suf && hh<12){
+      // Sin "de la tarde": se elige la hora que cae dentro del horario de ese día (a las 8 = 20:00 entre semana, 8:00 el sábado)
+      const dia = r.fechas[0] || (r.dias.length? (()=>{ for(let i=0;i<7;i++){ const f=mas(i); if(r.dias.includes(new Date(f+"T12:00:00").getDay())) return f; } })() : base);
+      const h=horarioDe(dia);
+      const dentro=h? [hh, hh+12].find(x=>x>=h[0] && x<h[1]) : undefined;
+      hh = dentro ?? (hh>=1 && hh<=7? hh+12 : hh);
+    }
+    r.hora=p2(hh)+":"+p2(mm);
+  }
+  r.resto=t.replace(/\s+/g," ").trim();
+  return r;
+}
+function vozTokens(nombre){ return plegar(nombre).replace(/\(.*?\)/g," ").split(/[^a-z0-9]+/).filter(w=>w.length>=3 && !VOZ_IGNORAR.has(w)); }
+// Quién de la lista se nombró: gana quien tenga más palabras de su nombre en la frase. Empate = no se sabe.
+function vozBuscar(lista, palabras){
+  let mejor=0, quienes=[];
+  lista.forEach(x=>{ const n=vozTokens(x.nombre).filter(w=>palabras.has(w)).length; if(!n) return;
+    if(n>mejor){ mejor=n; quienes=[x]; } else if(n===mejor) quienes.push(x); });
+  return quienes;
+}
+function vozSoportada(){ return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+
+function citaDesdeVoz(texto){
+  const base=hoyISO(), e=entenderCita(texto, base);
+  // Varias fechas de la misma semana ("el martes y el jueves") se agendan como días de esa semana
+  let dias=e.dias.slice();
+  if(!dias.length && e.fechas.length>1 && e.fechas.every(f=>mondayISO(f)===mondayISO(e.fechas[0])))
+    dias=e.fechas.map(f=>new Date(f+"T12:00:00").getDay()).filter(d=>d>=1 && d<=6);
+  estado.fechaAgenda = e.fechas[0] || (dias.length? base : estado.fechaAgenda);
+  abrirCita(e.hora || horaInicial());
+
+  const palabras=new Set(e.resto.split(" ").filter(Boolean));
+  const pacs=vozBuscar(pacActivos(estado.pacientes), palabras);
+  const pa=pacs.length===1? pacs[0] : null;
+  if(pa) vozTokens(pa.nombre).forEach(w=>palabras.delete(w));
+  const pss=vozBuscar(atienden(), palabras);
+  const ps = pss.length===1? pss[0] : (pa && atienden().find(x=>x.id===pa.asignada)) || null;
+  const selPs=document.getElementById("cPsic");
+  if(ps && !selPs.disabled){ selPs.value=ps.id; renderPacientesCita(); }
+  const sel=document.getElementById("cPaciente");
+  if(pa) sel.value=pa.id;
+  else { sel.insertAdjacentHTML("afterbegin", `<option value="">— Elige paciente —</option>`); sel.value=""; }
+  if(e.dur){ const op=[30,45,60,90]; document.getElementById("cDur").value=String(op.reduce((a,b)=>Math.abs(b-e.dur)<Math.abs(a-e.dur)? b : a)); }
+  if(dias.length){
+    const h=document.getElementById("cHora").value;
+    dias.forEach(d=>{ diasSel[d]=h; }); renderDiasChips();
+    const sem=e.semanas || (e.dias.length? 4 : 1);
+    document.getElementById("cSemanas").value=String([1,2,4,8,12].reduce((a,b)=>Math.abs(b-sem)<Math.abs(a-sem)? b : a));
+  }
+  const avisos=[];
+  if(!pa) avisos.push(pacs.length>1? `Hay ${pacs.length} pacientes que coinciden (${pacs.map(x=>esc(x.nombre)).join(", ")}): elige en la lista.` : "No reconocí al paciente: elígelo en la lista.");
+  if(!e.hora) avisos.push("No escuché la hora: revisa la hora de inicio.");
+  if(e.fechas.length>1 && !dias.length) avisos.push(`Entendí varias fechas (${e.fechas.map(f=>fechaCorta(f,true)).join(", ")}): agendo la primera; agenda las otras aparte.`);
+  const caja=document.getElementById("cVoz");
+  caja.innerHTML=`🎤 «${esc(texto.trim())}»`+avisos.map(a=>`<span class="aviso">${a}</span>`).join("");
+  caja.className="voz-entendi ver";
+}
+
+function dictarCita(){
+  const SR=window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ toast("Este navegador no reconoce voz. En iPhone usa Safari; en Android, Chrome.","err"); return; }
+  const r=new SR();
+  r.lang="es-MX"; r.interimResults=true; r.continuous=false; r.maxAlternatives=1;
+  let texto="", terminado=false;
+  const capa=document.getElementById("voz"), tx=document.getElementById("vozTx");
+  tx.textContent="Di paciente, día y hora. Por ejemplo: «Valentina el jueves a las 5»"; tx.className="voz-tx pista";
+  capa.classList.add("ver");
+  const fin=()=>{ terminado=true; capa.classList.remove("ver"); };
+  document.getElementById("vozX").onclick=()=>{ fin(); try{ r.abort(); }catch(_){} };
+  r.onresult=e=>{ texto=Array.from(e.results).map(x=>x[0].transcript).join(" "); tx.textContent=texto; tx.className="voz-tx"; };
+  r.onerror=e=>{ if(terminado) return; fin();
+    toast(e.error==="not-allowed" || e.error==="service-not-allowed"? "Da permiso al micrófono para dictar"
+        : e.error==="no-speech"? "No se escuchó nada. Intenta otra vez." : "No se pudo usar el micrófono","err"); };
+  r.onend=()=>{ if(terminado) return; fin();
+    if(texto.trim()) citaDesdeVoz(texto); else toast("No se escuchó nada. Intenta otra vez.","err"); };
+  try{ r.start(); }catch(_){ fin(); toast("No se pudo usar el micrófono","err"); }
+}
 
 /* ---- Expediente ---- */
 // En el celular funciona como en iOS: lista de pacientes → expediente a pantalla completa,
@@ -1323,6 +1521,7 @@ function abrirCita(h){
   document.getElementById("cTitulo").textContent="Agendar cita";
   document.getElementById("cGuardar").textContent="Agendar cita";
   document.getElementById("cEliminar").style.display="none";
+  document.getElementById("cVoz").className="voz-entendi";
   fijarPsic("cPsic");
   renderPacientesCita();
   document.getElementById("cFecha").textContent=fechaCitaTxt()+" · "+h;
@@ -1337,6 +1536,7 @@ function abrirEditarCita(id){
   document.getElementById("cTitulo").textContent="Editar cita";
   document.getElementById("cGuardar").textContent="Guardar cambios";
   document.getElementById("cEliminar").style.display="";
+  document.getElementById("cVoz").className="voz-entendi";
   const s=document.getElementById("cPsic"); s.disabled=false;
   const listaC = atienden().some(x=>x.id===c.psic)? atienden() : [psic(c.psic)].concat(atienden());
   s.innerHTML=opciones(listaC,"id","nombre");
@@ -1354,6 +1554,7 @@ function abrirEditarCita(id){
 async function guardarCita(){
   const psicId=document.getElementById("cPsic").value, hora=document.getElementById("cHora").value, dur=+document.getElementById("cDur").value;
   const pacId=document.getElementById("cPaciente").value, ini=minutos(hora), fin=ini+dur;
+  if(!pacId){ toast("Elige el paciente","err"); return; }
   const choque=estado.citas.find(c=>{ if(c.id===citaEditId) return false; if(c.fecha!==estado.fechaAgenda||c.psic!==psicId) return false;
     const ci=minutos(c.hora), cf=ci+c.dur; return ini<cf && ci<fin; });
   if(choque){ const p=psic(psicId);
