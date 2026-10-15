@@ -56,6 +56,10 @@ Lo que le toca a cada psicóloga sale de cada paciente (`pago_psicologa`, se cap
 la tarifa, `sql/pago-psicologa.sql`). El corte (`pagoPsicologa`) suma sus sesiones por paciente, le resta el efectivo
 que ella ya tiene y dice cuánto le paga Dirección o cuánto entrega ella.
 
+Al salir, si una psicóloga tiene sesiones de hoy sin nota o sin cobro (`pendientesHoy`), la hoja "Antes de salir" las
+lista por paciente con su botón (nota o cobro). Si sale así, el cierre guarda el detalle (`sql/cierres-detalle.sql`);
+en Equipo, Dirección ve qué faltó, si ya se registró después, y lo marca "✓ Revisado" para quitarlo de la lista.
+
 Modo pruebas: abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos los días solo en ese dispositivo
 (`?pruebas=0` o el botón "Quitar" lo apaga). Los datos siguen siendo los reales.
 

@@ -385,6 +385,9 @@
   .equipo-card .miembro b{font-size:15px;}
   .equipo-card .miembro .datos{font-size:12.5px; color:var(--gris); font-weight:600; margin-top:2px;}
   .equipo-card .miembro .tag{font-size:10.5px; color:var(--gris); font-weight:800; text-transform:uppercase; letter-spacing:.4px; margin-left:auto; align-self:flex-start; background:var(--fondo); padding:4px 9px; border-radius:999px;}
+  .equipo-card .cierre-lista{margin-top:8px; display:flex; flex-direction:column; gap:6px;}
+  .equipo-card .cierre-px{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13.5px; font-weight:700;}
+  .equipo-card .cierre-px span:first-child{min-width:0; overflow-wrap:anywhere;}
   .equipo-card .add{padding:15px 18px; border-top:1px solid var(--linea); color:var(--morado); font-weight:800; cursor:pointer;}
   .equipo-card .add:hover{background:#FBF9FE;}
 
@@ -698,10 +701,11 @@
   <div class="cab"><h3>Antes de salir</h3></div>
   <div class="cuerpo">
     <div id="cierreResumen" style="font-size:14px; color:#4b4653;"></div>
-    <div style="font-size:12.5px; color:var(--gris); font-weight:600;">Puedes registrarlos ahora. Si sales así, quedará anotado para Dirección.</div>
+    <div class="acc-lista" id="cierreLista"></div>
+    <div style="font-size:12.5px; color:var(--gris); font-weight:600;">Toca lo que falta para registrarlo ahora. Si sales así, quedará anotado para Dirección.</div>
   </div>
   <div class="pie"><button class="btn fantasma" onclick="salirDeTodasFormas()">Salir de todas formas</button>
-    <button class="btn" onclick="registrarAhora()">Registrar ahora</button></div>
+    <button class="btn" onclick="cerrar('modalCierre')">Regresar</button></div>
 </div></div>
 
 <div class="voz" id="voz" role="dialog" aria-live="polite">
@@ -796,7 +800,8 @@ async function cargarTodo(){
     comentarios:(r.comentarios||[]).slice().sort((a,b)=>(a.creado_en||"").localeCompare(b.creado_en||"")).map(c=>{ const cd=c.creado_en?new Date(c.creado_en):null; return {id:c.id,autor:c.autor_id,fecha:cd?(cd.getFullYear()+"-"+String(cd.getMonth()+1).padStart(2,"0")+"-"+String(cd.getDate()).padStart(2,"0")):"",hora:cd?cd.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false}):"",texto:c.texto,editado:c.editado}; })}; });
   estado.pagos=(pgs.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,fecha:_t.f,hora:_t.h,pac:r.paciente_id,psic:r.psicologa_id,monto:Number(r.monto)||0,metodo:r.metodo,validado:r.validado}; });
   estado.facturas=(fac.data||[]).map(r=>({id:r.id,pac:r.paciente_id,monto:Number(r.monto)||0,estado:r.estado,solicitadaPor:r.solicitada_por,solicitada:r.fecha_solicitada,emitida:r.fecha_emitida,entregada:r.fecha_entregada}));
-  estado.cierres=(cie.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {psic:r.psicologa_id,fecha:_t.f,hora:_t.h,notas:r.notas_pendientes,cobros:r.cobros_pendientes}; });
+  estado.cierres=(cie.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,notas:r.notas_pendientes,cobros:r.cobros_pendientes,
+    detalle:Array.isArray(r.detalle)? r.detalle : [],revisado:!!r.revisado_por}; });
 }
 async function refrescar(){ await cargarTodo(); render(); }
 let _suscrito=false;
@@ -841,20 +846,29 @@ function estadoCita(c){
 }
 function citasTerminadasHoy(quien){
   return estado.citas.filter(c=>c.fecha===hoyISO() && (!quien||c.psic===quien) && c.estado==="programada" && citaTermino(c)); }
-function pendientesHoy(){ const cit=citasTerminadasHoy(estado.quien).length;
-  const nt=estado.notas.filter(n=>n.fecha===hoyISO()&&n.psic===estado.quien).length;
-  const co=estado.pagos.filter(g=>g.fecha===hoyISO()&&g.psic===estado.quien).length;
-  return {citas:cit, notas:Math.max(0,cit-nt), cobros:Math.max(0,cit-co)}; }
+// Sesiones de hoy que ya terminaron y a las que les falta nota o cobro, una por una
+function pendientesHoy(){ const hoy=hoyISO(), cits=citasTerminadasHoy(estado.quien);
+  const items=cits.map(c=>({c, nota:!estado.notas.some(n=>n.pac===c.pac && n.psic===c.psic && n.fecha===hoy),
+    cobro:!estado.pagos.some(g=>g.pac===c.pac && g.psic===c.psic && g.fecha===hoy)})).filter(x=>x.nota||x.cobro);
+  return {citas:cits.length, items, notas:items.filter(x=>x.nota).length, cobros:items.filter(x=>x.cobro).length}; }
+function faltaTxt(nota, cobro){ return "falta "+[nota?"nota":"", cobro?"cobro":""].filter(Boolean).join(" y "); }
 function logout(){
   if(estado.quien && !esAdmin()){ const p=pendientesHoy();
-    if(p.notas>0||p.cobros>0){
-      document.getElementById("cierreResumen").innerHTML=`De tus <b>${p.citas}</b> sesiones de hoy te falta registrar:<br>• <b>${p.notas}</b> nota${p.notas===1?"":"s"} de sesión<br>• <b>${p.cobros}</b> cobro${p.cobros===1?"":"s"}`;
+    if(p.items.length){
+      document.getElementById("cierreResumen").innerHTML=`De tus <b>${p.citas}</b> sesiones de hoy te falta registrar:`;
+      document.getElementById("cierreLista").innerHTML=p.items.map(({c,nota,cobro})=>`<div class="conf-fila"><b>${esc((pac(c.pac)||{}).nombre||"—")}</b>
+        <span class="cuando">${c.hora} · ${faltaTxt(nota,cobro)}</span><div class="conf-acc">
+        ${nota?`<button class="btn" onclick="cerrar('modalCierre'); notaDesdeCita('${c.id}')">📝 Nota</button>`:""}
+        ${cobro?`<button class="btn verde" onclick="cerrar('modalCierre'); cobroDesdeCita('${c.id}')">💵 Cobro</button>`:""}</div></div>`).join("");
       abrir("modalCierre"); return; } }
   cerrarSesion();
 }
-function registrarAhora(){ cerrar("modalCierre"); irA("expediente"); }
 async function salirDeTodasFormas(){ const p=pendientesHoy();
-  if(p.notas>0||p.cobros>0){ await sb.from("cierres").insert({psicologa_id:estado.quien, notas_pendientes:p.notas, cobros_pendientes:p.cobros, fecha:hoyISO(), hora:ahoraHM()}); }
+  if(p.items.length){
+    const cierre={psicologa_id:estado.quien, notas_pendientes:p.notas, cobros_pendientes:p.cobros, fecha:hoyISO(), hora:ahoraHM()};
+    const {error}=await sb.from("cierres").insert({...cierre, detalle:p.items.map(x=>({cita:x.c.id, pac:x.c.pac, nota:x.nota, cobro:x.cobro}))});
+    if(error) await sb.from("cierres").insert(cierre);   // por si la base aún no tiene el detalle (sql/cierres-detalle.sql)
+  }
   cerrar("modalCierre"); cerrarSesion();
 }
 
@@ -1592,14 +1606,27 @@ function renderEquipo(){
         <div class="datos">📞 ${esc(p.tel||"—")}${p.admin?"":` · céd. ${esc(p.cedula||"—")}`}</div></div>
       <span class="tag">${p.admin?(p.atiende===false?"Soporte":"Dirección"):"Psicóloga"}</span></div>`).join("");
   const cc=document.getElementById("controlCard"); if(!cc) return;
-  const cierres=estado.cierres||[];
-  cc.innerHTML=`<div class="miembro" style="background:#FAF7FD"><b>Cierres con pendientes (control)</b><span class="tag">quién deja cosas sin registrar</span></div>`
+  // Cierres por revisar: qué paciente dejó sin nota o sin cobro y si ya lo registró después
+  const cierres=(estado.cierres||[]).filter(x=>!x.revisado);
+  const yaTiene=(lista,d,x,f)=>lista.some(n=>n.pac===d.pac && n.psic===x.psic && n.fecha>=f);
+  cc.innerHTML=`<div class="miembro" style="background:#FAF7FD"><b>Cierres con pendientes</b><span class="tag">${cierres.length? cierres.length+" por revisar" : "control"}</span></div>`
     + (cierres.length? cierres.map(x=>{ const pp=psic(x.psic)||{nombre:"—",color:"#999"};
-        return `<div class="miembro"><span class="av" style="background:${pp.color}">${esc(iniciales(pp.nombre))}</span>
-          <div style="flex:1"><b>${esc(corto(pp.nombre))}</b>
-            <div class="datos">${fmtDia(x.fecha)} ${x.hora} · salió con ${x.notas} nota(s) y ${x.cobros} cobro(s) sin registrar</div></div></div>`; }).join("")
-      : `<div class="miembro"><div class="datos" style="color:var(--gris)">Sin pendientes registrados — todas al día 👏</div></div>`);
+        const filas=x.detalle.map(d=>{ const c=estado.citas.find(k=>k.id===d.cita), f=c? c.fecha : x.fecha;
+          const nota=d.nota && !yaTiene(estado.notas,d,x,f), cobro=d.cobro && !yaTiene(estado.pagos,d,x,f);
+          return `<div class="cierre-px"><span>${esc((pac(d.pac)||{}).nombre||"—")}${c?` · ${c.hora}`:""}</span>
+            ${nota||cobro? `<span class="px-tag falta">${faltaTxt(nota,cobro)}</span>` : `<span class="px-tag ok">ya registró ✓</span>`}</div>`; }).join("");
+        return `<div class="miembro" style="align-items:flex-start"><span class="av" style="background:${pp.color}">${esc(iniciales(pp.nombre))}</span>
+          <div style="flex:1; min-width:0"><b>${esc(corto(pp.nombre))}</b>
+            <div class="datos">${fechaCorta(x.fecha,true)} ${x.hora} · salió con ${x.notas} nota(s) y ${x.cobros} cobro(s) sin registrar</div>
+            ${filas? `<div class="cierre-lista">${filas}</div>` : ""}</div>
+          <button class="rev-btn" style="min-height:44px; flex:none" onclick="revisarCierre('${x.id}')">✓ Revisado</button></div>`; }).join("")
+      : `<div class="miembro"><div class="datos" style="color:var(--gris)">Nada por revisar — todas al día 👏</div></div>`);
 }
+
+async function revisarCierre(id){ if(!esAdmin()) return;
+  const {error}=await sb.from("cierres").update({revisado_por:estado.quien}).eq("id",id);
+  if(error){ toast("No se pudo: "+error.message,"err"); return; }
+  await refrescar(); toast("Cierre revisado ✓","ok"); }
 
 /* ---- Modales ---- */
 function opciones(arr,val,txt){ return arr.map(o=>`<option value="${o[val]}">${esc(o[txt])}</option>`).join(""); }
