@@ -98,6 +98,19 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     await page.tap(`nav.tabs button[data-vista=${v}]`); await page.waitForTimeout(150);
     ok(await ancho(page) <= 414, `sin scroll horizontal en ${v}`);
   }
+  // Texto con HTML (nombre, motivo, método de pago): se muestra como texto y no se ejecuta
+  await page.evaluate(async () => {
+    const trampa = '<img src=x onerror="window.__xss=1">';
+    __DB.pacientes.forEach(p => { p.nombre += ' ' + trampa; p.motivo = trampa; p.tutor = trampa; });
+    __DB.psicologas.forEach(p => { p.nombre += ' ' + trampa; p.cedula = trampa; });
+    __DB.pagos.forEach(g => { g.metodo = 'efectivo"><img src=x onerror="window.__xss=1">'; });
+    await refrescar();
+    for (const v of ['agenda', 'expediente', 'cobros', 'facturas', 'equipo']) { irA(v); await new Promise(r => setTimeout(r, 120)); }
+    setVistaAgenda('dia'); seleccionarPx(__DB.pacientes[0].id);
+    abrirCita('10:00'); cerrar('modalCita'); abrirPago(); cerrar('modalPago'); abrirFactura(); cerrar('modalFactura');
+    await new Promise(r => setTimeout(r, 300));
+  });
+  ok(!(await page.evaluate(() => window.__xss)) && !(await page.$('img[src="x"]')), 'texto con HTML se muestra como texto en todas las pantallas y ventanas');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
   console.log('Psicóloga en iPhone 11');

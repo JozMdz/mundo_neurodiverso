@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
 <style>
   :root{
     --morado:#8B3D9E; --verde:#6DB33F; --cian:#1BADE0; --rosa:#E31C79; --naranja:#F07E1E; --amarillo:#F5C518;
@@ -803,8 +803,8 @@ function render(){ renderRol(); renderResumen(); renderAgenda(); renderExpedient
 
 function renderRol(){
   const v=viewer();
-  document.getElementById("identidad").innerHTML=`<span class="av" style="background:${v.color}">${iniciales(v.nombre)}</span>
-    <span><span class="nm">${corto(v.nombre)}</span><br><span class="rl">${esAdmin()?"Dirección":"Psicóloga"}</span></span>`;
+  document.getElementById("identidad").innerHTML=`<span class="av" style="background:${v.color}">${esc(iniciales(v.nombre))}</span>
+    <span><span class="nm">${esc(corto(v.nombre))}</span><br><span class="rl">${esAdmin()?"Dirección":"Psicóloga"}</span></span>`;
   document.getElementById("tabEquipo").style.display=esAdmin()?"":"none";
   if(!esAdmin() && document.querySelector('button[data-vista="equipo"]').classList.contains("activa")) irA("agenda");
   const b=document.getElementById("rolBanner"); if(b) b.className="";
@@ -861,7 +861,7 @@ function renderAgenda(){
     ? `${fmtDia(lunS)} – ${fmtDia(addDaysISO(lunS,5))}`
     : fechaLarga(estado.fechaAgenda);
   document.getElementById("leyenda").innerHTML=(esAdmin()?atienden():[viewer()])
-    .map(p=>`<span><i style="background:${p.color}"></i>${corto(p.nombre)}</span>`).join("");
+    .map(p=>`<span><i style="background:${p.color}"></i>${esc(corto(p.nombre))}</span>`).join("");
   const N=END-START;
   let lineas="";
   for(let i=0;i<=N;i++){ lineas+=`<div class="banda" style="top:${i*H}px"><div class="etq">${String(START+i).padStart(2,"0")}:00</div></div>`; }
@@ -879,11 +879,11 @@ function renderAgenda(){
   const eventos=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
     const top=Math.max(0,(e._s-START*60)/60*H), hgt=Math.max(24,e.dur/60*H-4);
     const left=e._col/e._cols*100, w=100/e._cols;
-    const sub=(pa.motivo&&pa.motivo!=="—")?pa.motivo:"";
-    return `<div class="ev" style="top:${top}px; height:${hgt}px; left:${left}%; width:calc(${w}% - 5px); background:${p.color}; ${_adm?'cursor:pointer':''}" title="${pa.nombre} · ${e.hora}–${hhmm(e._e)}${_adm?' — toca para editar':''}" ${_adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
-      <div class="p">${pa.nombre}</div>
+    const sub=(pa.motivo&&pa.motivo!=="—")?esc(pa.motivo):"";
+    return `<div class="ev" style="top:${top}px; height:${hgt}px; left:${left}%; width:calc(${w}% - 5px); background:${p.color}; ${_adm?'cursor:pointer':''}" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)}${_adm?' — toca para editar':''}" ${_adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
+      <div class="p">${esc(pa.nombre)}</div>
       <div class="r">${e.hora}–${hhmm(e._e)}${hgt>=42&&e._cols<3&&sub?` · ${sub}`:""}</div>
-      ${hgt>=56&&e._cols<3?`<div class="q">${corto(p.nombre)}</div>`:""}</div>`;
+      ${hgt>=56&&e._cols<3?`<div class="q">${esc(corto(p.nombre))}</div>`:""}</div>`;
   }).join("");
   document.getElementById("agenda").innerHTML=`<div class="cal" style="height:${N*H+1}px">${lineas}${medias}<div class="lane">${eventos}</div></div>`;
 }
@@ -902,8 +902,8 @@ function renderAgendaSemana(lun, lineas, N){
     const items=evs.map(e=>{ const p=psic(e.psic), pa=pac(e.pac);
       const top=Math.max(0,(e._s-START*60)/60*H), hgt=Math.max(20,e.dur/60*H-3);
       const left=e._col/e._cols*100, w=100/e._cols;
-      return `<div class="ev" style="top:${top}px; height:${hgt}px; left:calc(${left}% * 0.88); width:calc(${w}% * 0.88 - 3px); background:${p.color}; ${adm?'cursor:pointer':''}" title="${pa.nombre} · ${e.hora}–${hhmm(e._e)} · ${corto(p.nombre)}" ${adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
-        <div class="p">${pa.nombre}</div>${hgt>=34?`<div class="r">${e.hora}</div>`:""}</div>`;
+      return `<div class="ev" style="top:${top}px; height:${hgt}px; left:calc(${left}% * 0.88); width:calc(${w}% * 0.88 - 3px); background:${p.color}; ${adm?'cursor:pointer':''}" title="${esc(pa.nombre)} · ${e.hora}–${hhmm(e._e)} · ${esc(corto(p.nombre))}" ${adm?`onclick="abrirEditarCita('${e.id}')"`:""}>
+        <div class="p">${esc(pa.nombre)}</div>${hgt>=34?`<div class="r">${e.hora}</div>`:""}</div>`;
     }).join("");
     return `<div class="sem-col">${slots}${items}</div>`;
   }).join("");
@@ -1177,10 +1177,10 @@ function renderCobros(){
     const val = g.validado
       ? `<span class="val ok"${admin?` onclick="validarPago('${g.id}')" title="Toca para desmarcar"`:""}>validado ✓</span>`
       : (admin? `<span class="val por" onclick="validarPago('${g.id}')" title="Toca para validar">por validar</span>` : `<span class="val por">por validar</span>`);
-    const puede = admin || g.psic===estado.quien;
+    const puede = admin || (g.psic===estado.quien && !g.validado);
     const acc = puede? `<button class="nota-mini" title="Editar cobro" onclick="abrirEditarPago('${g.id}')">✎</button><button class="nota-mini" title="Eliminar cobro" onclick="eliminarPago('${g.id}')">🗑</button>` : "";
-    return `<tr><td>${pac(g.pac).nombre}</td><td><span class="mini-color" style="background:${p.color}"></span>${corto(p.nombre)}</td>
-      <td><span class="metodo ${g.metodo}">${g.metodo}</span></td><td class="monto">${montoTxt}</td><td>${val}</td><td class="fila-acc">${acc}</td></tr>`;
+    return `<tr><td>${esc(pac(g.pac).nombre)}</td><td><span class="mini-color" style="background:${p.color}"></span>${esc(corto(p.nombre))}</td>
+      <td><span class="metodo ${esc(g.metodo)}">${esc(g.metodo)}</span></td><td class="monto">${montoTxt}</td><td>${val}</td><td class="fila-acc">${acc}</td></tr>`;
   }).join("") || `<tr><td colspan="6"><div class="vacio"><b>Sin cobros en este periodo</b></div></td></tr>`;
 
   const sub={efectivo:{n:0,m:0}, transferencia:{n:0,m:0}, tarjeta:{n:0,m:0}};
@@ -1201,8 +1201,8 @@ function renderCobros(){
       porPsic[k]=porPsic[k]||{total:0,ef:0,cuenta:0,items:[]}; porPsic[k].total+=g.monto; porPsic[k][g.metodo==="efectivo"?"ef":"cuenta"]+=g.monto; porPsic[k].items.push(g); });
     let totalAPagar=0;
     const bloques=Object.keys(porPsic).map(k=>{ const p=psic(k), d=porPsic[k], parte=Math.round(d.total/2); totalAPagar+=parte;
-      const lista=d.items.map(g=>`<div class="ses"><span>${pac(g.pac).nombre} <span class="met ${g.metodo}" title="${g.metodo}">${metodoCorto(g.metodo)}</span></span><span class="num">${mxn(g.monto)}</span></div>`).join("");
-      return `<div class="psic"><div class="nom"><span class="mini-color" style="background:${p.color}"></span>${p.nombre}<span class="cuenta-ses">${d.items.length} ${d.items.length===1?"sesión":"sesiones"}</span></div>
+      const lista=d.items.map(g=>`<div class="ses"><span>${esc(pac(g.pac).nombre)} <span class="met ${esc(g.metodo)}" title="${esc(g.metodo)}">${esc(metodoCorto(g.metodo))}</span></span><span class="num">${mxn(g.monto)}</span></div>`).join("");
+      return `<div class="psic"><div class="nom"><span class="mini-color" style="background:${p.color}"></span>${esc(p.nombre)}<span class="cuenta-ses">${d.items.length} ${d.items.length===1?"sesión":"sesiones"}</span></div>
         <div class="lista-ses">${lista}</div>
         <div class="reng"><span>Atendido</span><span class="num">${mxn(d.total)}</span></div>
         <div class="reng"><span>Consultorio (50%)</span><span class="num">${mxn(d.total-parte)}</span></div>
@@ -1210,8 +1210,8 @@ function renderCobros(){
         <div class="desglose"><div class="d ef">Efectivo (ella tiene)<br>${mxn(d.ef)}</div><div class="d tr">A cuenta (a ti)<br>${mxn(d.cuenta)}</div></div></div>`;
     }).join("");
     const pDir=viewer();
-    const bloqueMio = mio.items.length? `<div class="psic"><div class="nom"><span class="mini-color" style="background:${pDir.color}"></span>${pDir.nombre} <span class="rev-chip ok">tus sesiones</span><span class="cuenta-ses">${mio.items.length} ${mio.items.length===1?"sesión":"sesiones"}</span></div>
-        <div class="lista-ses">${mio.items.map(g=>`<div class="ses"><span>${pac(g.pac).nombre} <span class="met ${g.metodo}">${metodoCorto(g.metodo)}</span></span><span class="num">${mxn(g.monto)}</span></div>`).join("")}</div>
+    const bloqueMio = mio.items.length? `<div class="psic"><div class="nom"><span class="mini-color" style="background:${pDir.color}"></span>${esc(pDir.nombre)} <span class="rev-chip ok">tus sesiones</span><span class="cuenta-ses">${mio.items.length} ${mio.items.length===1?"sesión":"sesiones"}</span></div>
+        <div class="lista-ses">${mio.items.map(g=>`<div class="ses"><span>${esc(pac(g.pac).nombre)} <span class="met ${esc(g.metodo)}">${esc(metodoCorto(g.metodo))}</span></span><span class="num">${mxn(g.monto)}</span></div>`).join("")}</div>
         <div class="reng total"><span>Íntegro para ti (sin reparto)</span><span class="num">${mxn(mio.total)}</span></div>
         <div class="desglose"><div class="d ef">Efectivo en tu poder<br>${mxn(mio.ef)}</div><div class="d tr">A tu cuenta<br>${mxn(mio.cuenta)}</div></div></div>` : "";
     corte.innerHTML=`<div class="cab"><h3>Corte del periodo</h3><span>${fmtDia(r.desde)} – ${fmtDia(r.hasta)} · reparto 50/50</span></div>
@@ -1240,10 +1240,10 @@ function renderFacturas(){
     const clickable = admin && f.estado!=="entregada";
     const etiqueta = admin ? f.estado : (f.estado==="solicitada"?"en espera":f.estado);
     return `<div class="f">
-      <div><b>${pac(f.pac).nombre}</b> <span style="color:var(--gris); font-weight:600;">· ${mxn(f.monto)}</span>
+      <div><b>${esc(pac(f.pac).nombre)}</b> <span style="color:var(--gris); font-weight:600;">· ${mxn(f.monto)}</span>
         <div class="fechas">${fechas}</div></div>
-      <span class="pidio">${admin?"pidió: "+corto(psic(f.solicitadaPor).nombre):""}</span>
-      <span class="estado-wrap">${(admin && f.estado!=="solicitada")?`<button class="undo-btn" title="Regresar estado" onclick="retrocederFactura('${f.id}')">↶</button>`:""}<span class="estado ${f.estado} ${clickable?'click':''}" ${clickable?`onclick="avanzarFactura('${f.id}')"`:""}>${etiqueta}</span>${(admin||f.solicitadaPor===estado.quien)?`<button class="nota-mini" title="Editar" onclick="abrirEditarFactura('${f.id}')">✎</button><button class="nota-mini" title="Eliminar" onclick="eliminarFactura('${f.id}')">🗑</button>`:""}</span></div>`;
+      <span class="pidio">${admin?"pidió: "+esc(corto(psic(f.solicitadaPor).nombre)):""}</span>
+      <span class="estado-wrap">${(admin && f.estado!=="solicitada")?`<button class="undo-btn" title="Regresar estado" onclick="retrocederFactura('${f.id}')">↶</button>`:""}<span class="estado ${f.estado} ${clickable?'click':''}" ${clickable?`onclick="avanzarFactura('${f.id}')"`:""}>${etiqueta}</span>${(admin||(f.solicitadaPor===estado.quien && f.estado==="solicitada"))?`<button class="nota-mini" title="Editar" onclick="abrirEditarFactura('${f.id}')">✎</button><button class="nota-mini" title="Eliminar" onclick="eliminarFactura('${f.id}')">🗑</button>`:""}</span></div>`;
   }).join("") : `<div class="vacio" style="padding:34px;"><b>${admin?"No hay facturas":"No has avisado de ninguna factura"}</b>${admin?"":"Usa el botón cuando un papá te pida factura y Dirección la verá."}</div>`;
 }
 async function avanzarFactura(id){
@@ -1268,22 +1268,22 @@ async function retrocederFactura(id){
 /* ---- Equipo ---- */
 function renderEquipo(){
   document.getElementById("equipoCard").innerHTML=estado.psicologas.map(p=>`
-    <div class="miembro"><span class="av" style="background:${p.color}">${iniciales(p.nombre)}</span>
-      <div style="flex:1"><b>${p.nombre}</b>
-        <div class="datos">📞 ${p.tel||"—"} · ✉ ${p.email||"—"}${p.admin?"":` · céd. ${p.cedula||"—"}`}</div></div>
+    <div class="miembro"><span class="av" style="background:${p.color}">${esc(iniciales(p.nombre))}</span>
+      <div style="flex:1"><b>${esc(p.nombre)}</b>
+        <div class="datos">📞 ${esc(p.tel||"—")} · ✉ ${esc(p.email||"—")}${p.admin?"":` · céd. ${esc(p.cedula||"—")}`}</div></div>
       <span class="tag">${p.admin?(p.atiende===false?"Soporte":"Dirección"):"Psicóloga"}</span></div>`).join("");
   const cc=document.getElementById("controlCard"); if(!cc) return;
   const cierres=estado.cierres||[];
   cc.innerHTML=`<div class="miembro" style="background:#FAF7FD"><b>Cierres con pendientes (control)</b><span class="tag">quién deja cosas sin registrar</span></div>`
     + (cierres.length? cierres.map(x=>{ const pp=psic(x.psic)||{nombre:"—",color:"#999"};
-        return `<div class="miembro"><span class="av" style="background:${pp.color}">${iniciales(pp.nombre)}</span>
-          <div style="flex:1"><b>${corto(pp.nombre)}</b>
+        return `<div class="miembro"><span class="av" style="background:${pp.color}">${esc(iniciales(pp.nombre))}</span>
+          <div style="flex:1"><b>${esc(corto(pp.nombre))}</b>
             <div class="datos">${fmtDia(x.fecha)} ${x.hora} · salió con ${x.notas} nota(s) y ${x.cobros} cobro(s) sin registrar</div></div></div>`; }).join("")
       : `<div class="miembro"><div class="datos" style="color:var(--gris)">Sin pendientes registrados — todas al día 👏</div></div>`);
 }
 
 /* ---- Modales ---- */
-function opciones(arr,val,txt){ return arr.map(o=>`<option value="${o[val]}">${o[txt]}</option>`).join(""); }
+function opciones(arr,val,txt){ return arr.map(o=>`<option value="${o[val]}">${esc(o[txt])}</option>`).join(""); }
 function abrir(id){ document.getElementById(id).classList.add("abierto"); }
 function cerrar(id){ document.getElementById(id).classList.remove("abierto"); }
 function fijarPsic(sel, incluirDireccion){ const s=document.getElementById(sel);
@@ -1311,9 +1311,9 @@ function renderPacientesCita(){
   const base=pacActivos(esAdmin()?estado.pacientes:pacientesVisibles());
   const suyos=base.filter(p=>p.asignada===psicId);
   const otros=base.filter(p=>p.asignada!==psicId);
-  const op=a=>a.map(p=>`<option value="${p.id}">${p.nombre}</option>`).join("");
+  const op=a=>a.map(p=>`<option value="${p.id}">${esc(p.nombre)}</option>`).join("");
   const nom=(psic(psicId)||{}).nombre||"";
-  sel.innerHTML = (suyos.length? `<optgroup label="Pacientes de ${corto(nom)}">${op(suyos)}</optgroup>`:"")
+  sel.innerHTML = (suyos.length? `<optgroup label="Pacientes de ${esc(corto(nom))}">${op(suyos)}</optgroup>`:"")
                 + (otros.length? `<optgroup label="Otros pacientes (cubriendo)">${op(otros)}</optgroup>`:"");
   if(prev && base.some(p=>p.id===prev)) sel.value=prev;
 }
@@ -1343,7 +1343,7 @@ function abrirEditarCita(id){
   s.value=c.psic;
   renderPacientesCita();
   if(!Array.from(document.getElementById("cPaciente").options).some(o=>o.value===c.pac)){
-    document.getElementById("cPaciente").innerHTML+=`<option value="${c.pac}">${pac(c.pac).nombre}</option>`;
+    document.getElementById("cPaciente").innerHTML+=`<option value="${c.pac}">${esc(pac(c.pac).nombre)}</option>`;
   }
   document.getElementById("cPaciente").value=c.pac;
   document.getElementById("cFecha").textContent=fechaLarga(c.fecha)+" · "+c.hora;
@@ -1411,6 +1411,7 @@ async function guardarNota(){ const texto=document.getElementById("nTexto").valu
 function abrirEditarPago(id){
   const g=estado.pagos.find(x=>x.id===id); if(!g) return;
   if(!(esAdmin()||g.psic===estado.quien)){ toast("Solo puedes editar tus cobros","err"); return; }
+  if(g.validado && !esAdmin()){ toast("Ese cobro ya fue validado por Dirección","err"); return; }
   pagoEditId=id;
   document.getElementById("pTitulo").textContent="Editar cobro";
   document.getElementById("pGuardar").textContent="Guardar cambios";
@@ -1530,6 +1531,7 @@ function abrirFactura(){
 function abrirEditarFactura(id){
   const f=estado.facturas.find(x=>x.id===id); if(!f) return;
   if(!(esAdmin()||f.solicitadaPor===estado.quien)){ toast("Solo puedes editar las tuyas","err"); return; }
+  if(f.estado!=="solicitada" && !esAdmin()){ toast("Dirección ya emitió esta factura: pide el cambio a Dirección","err"); return; }
   facturaEditId=id;
   document.getElementById("facTitulo").textContent="Editar factura";
   document.getElementById("fPaciente").innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre");
@@ -1540,6 +1542,7 @@ function abrirEditarFactura(id){
 async function eliminarFactura(id){
   const f=estado.facturas.find(x=>x.id===id); if(!f) return;
   if(!(esAdmin()||f.solicitadaPor===estado.quien)){ toast("Solo puedes eliminar las tuyas","err"); return; }
+  if(f.estado!=="solicitada" && !esAdmin()){ toast("Dirección ya emitió esta factura: pide el cambio a Dirección","err"); return; }
   if(!confirm("¿Eliminar esta factura de "+pac(f.pac).nombre+"?")) return;
   const {error}=await sb.from("facturas").delete().eq("id",id);
   if(error){ toast("No se pudo eliminar: "+error.message,"err"); return; }
