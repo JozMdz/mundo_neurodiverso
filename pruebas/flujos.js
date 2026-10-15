@@ -266,6 +266,32 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(pr.psic === 's2', 'si quien agenda no atiende, propone a la psicóloga con más pacientes');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
+  console.log('Hoja de cita: al cambiar de psicóloga');
+  page = await abrir(browser, 'd1');
+  const hojaCita = () => page.evaluate(() => { const s = document.getElementById('cPaciente'), o = s.selectedOptions[0];
+    return { psic: document.getElementById('cPsic').value, pac: s.value, grupo: o && o.parentElement.tagName === 'OPTGROUP' ? o.parentElement.label : '' }; });
+  await page.evaluate(() => abrirCita('15:00'));   // en los datos de prueba, Dirección atiende pero no tiene pacientes
+  let hc = await hojaCita();
+  ok(hc.psic === 'd1' && hc.pac === '', 'si la psicóloga no tiene pacientes, pide elegir en vez de poner uno cualquiera');
+  await page.selectOption('#cPsic', 's2'); hc = await hojaCita();
+  const primeroDe = id => page.evaluate(id => estado.pacientes.filter(p => p.asignada === id && p.activo !== false).map(p => p.id)
+    .sort((a, b) => pac(a).nombre.localeCompare(pac(b).nombre, 'es'))[0], id);
+  ok(hc.grupo === 'Pacientes de Andrea Torres' && hc.pac === await primeroDe('s2'), 'al cambiar a Andrea, la lista muestra sus pacientes y elige al primero');
+  await page.selectOption('#cPsic', 's1'); hc = await hojaCita();
+  ok(hc.grupo === 'Pacientes de Fernanda Ruiz' && hc.pac === await primeroDe('s1'), 'al cambiar otra vez, se mueve a los pacientes de Fernanda');
+  await page.selectOption('#cPaciente', 'p5');   // Emiliano, paciente de Sofía: Fernanda va a cubrir
+  await page.selectOption('#cPsic', 's2'); hc = await hojaCita();
+  ok(hc.pac === 'p5' && hc.grupo === 'Otros pacientes (cubriendo)', 'si ya elegiste paciente (para cubrir), se respeta al cambiar de psicóloga');
+  await page.evaluate(() => cerrar('modalCita'));
+  const citaId = await page.evaluate(() => { const c = estado.citas.find(x => x.psic === 's1'); abrirEditarCita(c.id); return c.id; });
+  const pacCita = await page.evaluate(id => estado.citas.find(x => x.id === id).pac, citaId);
+  await page.selectOption('#cPsic', 's3'); hc = await hojaCita();
+  ok(hc.pac === pacCita, 'al editar una cita, cambiar la psicóloga no cambia al paciente');
+  await page.evaluate(() => { cerrar('modalCita'); citaDesdeVoz('Cita con Pedro el jueves a las 5'); });
+  await page.selectOption('#cPsic', 's2'); hc = await hojaCita();
+  ok(hc.pac === '', 'si la voz no reconoció al paciente, sigue pidiendo elegirlo aunque cambies de psicóloga');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
   console.log('Dirección en computadora');
   page = await abrir(browser, 'd1', { viewport: { width: 1280, height: 800 } });
   ok(await page.evaluate(() => estado.vistaAgenda) === 'semana', 'en computadora Dirección empieza en la semana');

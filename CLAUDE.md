@@ -52,7 +52,15 @@ para confirmar: nunca guarda sola. Las frases de prueba están en `pruebas/flujo
   puede saltárselo desde el navegador.
 - Si agregas una escritura nueva en la app, revisa que la base la permita y que una psicóloga no pueda
   usarla para hacer más de lo que la pantalla le muestra.
-- `sql/revisar.sql` muestra la configuración actual de la base (sin datos de pacientes).
+- `sql/esquema.sql` es la estructura completa y fiel de la base (tablas, funciones, triggers, políticas,
+  permisos, tiempo real). Si cambias la base, cámbialo también; sirve para reconstruirla.
+- `sql/revisar.sql` muestra la configuración de seguridad (RLS, políticas, triggers y funciones) y
+  `sql/inventario.sql` la estructura completa (columnas, restricciones, índices, permisos, tiempo real,
+  conteos y resumen de psicólogas). Ninguna muestra datos de pacientes.
+- `pruebas/permisos.py` carga `sql/esquema.sql` con datos inventados en un Postgres local desechable y
+  prueba lo que una psicóloga no debe poder hacer y lo que sí. Las instrucciones están al inicio del archivo.
+- Cuentas: hay dos de Dirección. Una es de soporte y no atiende (`atiende = false`); la otra es la
+  directora, que sí atiende. Solo Dirección agenda citas.
 - `supabase-js` está fijo en una versión exacta. Súbela a propósito y prueba antes.
 
 ## App instalable (iPhone y Android)
