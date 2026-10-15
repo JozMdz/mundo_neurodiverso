@@ -560,7 +560,7 @@
     <div class="voz-entendi" id="cVoz"></div>
     <div class="aviso-conflicto" id="conflicto">⚠ <span id="txtConflicto"></span></div>
     <div class="campo"><label>Psicóloga</label><select id="cPsic" onchange="renderPacientesCita()"></select></div>
-    <div class="campo"><label>Paciente</label><select id="cPaciente"></select></div>
+    <div class="campo"><label>Paciente</label><select id="cPaciente" onchange="pacienteElegido=true; pedirPaciente=false;"></select></div>
     <div class="fila2">
       <div class="campo"><label>Hora inicio</label><input type="time" id="cHora" step="900" value="09:00"></div>
       <div class="campo"><label>Duración</label><select id="cDur"><option value="60">60 min</option><option value="45">45 min</option><option value="90">90 min</option><option value="30">30 min</option></select></div>
@@ -1074,8 +1074,8 @@ function citaDesdeVoz(texto){
   const selPs=document.getElementById("cPsic");
   if(ps && !selPs.disabled){ selPs.value=ps.id; renderPacientesCita(); }
   const sel=document.getElementById("cPaciente");
-  if(pa) sel.value=pa.id;
-  else { sel.insertAdjacentHTML("afterbegin", `<option value="">— Elige paciente —</option>`); sel.value=""; }
+  if(pa){ sel.value=pa.id; pacienteElegido=true; }
+  else { pedirPaciente=true; renderPacientesCita(); }
   if(e.dur){ const op=[30,45,60,90]; document.getElementById("cDur").value=String(op.reduce((a,b)=>Math.abs(b-e.dur)<Math.abs(a-e.dur)? b : a)); }
   if(dias.length){
     const h=document.getElementById("cHora").value;
@@ -1501,6 +1501,8 @@ function fijarPsic(sel, incluirDireccion){ const s=document.getElementById(sel);
   else { s.disabled=false; s.value = incluirDireccion? estado.quien : psicPorDefecto(); } }
 
 let citaEditId=null; let pagoEditId=null; let facturaEditId=null;
+// Hoja de cita: ¿el paciente lo eligió alguien (tú, la voz o la cita que editas)? ¿hay que pedir que lo elijan?
+let pacienteElegido=false, pedirPaciente=false;
 const DIAS=[{i:1,n:"Lun"},{i:2,n:"Mar"},{i:3,n:"Mié"},{i:4,n:"Jue"},{i:5,n:"Vie"},{i:6,n:"Sáb"}];
 let diasSel={};
 function renderDiasChips(){
@@ -1522,11 +1524,14 @@ function renderPacientesCita(){
   const nom=(psic(psicId)||{}).nombre||"";
   sel.innerHTML = (suyos.length? `<optgroup label="Pacientes de ${esc(corto(nom))}">${op(suyos)}</optgroup>`:"")
                 + (otros.length? `<optgroup label="Otros pacientes (cubriendo)">${op(otros)}</optgroup>`:"");
-  if(prev && base.some(p=>p.id===prev)) sel.value=prev;
+  // Al cambiar de psicóloga se propone a su primer paciente; si ya se eligió a alguien (por ejemplo, para cubrir), se respeta.
+  // Si la psicóloga no tiene pacientes, o la voz no reconoció a nadie, se pide elegir en vez de poner uno cualquiera.
+  if(pacienteElegido && prev && base.some(p=>p.id===prev)) sel.value=prev;
+  else if(pedirPaciente || !suyos.length){ sel.insertAdjacentHTML("afterbegin", `<option value="">— Elige paciente —</option>`); sel.value=""; }
 }
 function fechaCitaTxt(){ return fechaLarga(estado.fechaAgenda); }
 function abrirCita(h){
-  citaEditId=null;
+  citaEditId=null; pacienteElegido=false; pedirPaciente=false;
   document.getElementById("cTitulo").textContent="Agendar cita";
   document.getElementById("cGuardar").textContent="Agendar cita";
   document.getElementById("cEliminar").style.display="none";
@@ -1541,7 +1546,7 @@ function abrirCita(h){
 function abrirEditarCita(id){
   if(!esAdmin()) return;
   const c=estado.citas.find(x=>x.id===id); if(!c) return;
-  citaEditId=id;
+  citaEditId=id; pacienteElegido=true; pedirPaciente=false;
   document.getElementById("cTitulo").textContent="Editar cita";
   document.getElementById("cGuardar").textContent="Guardar cambios";
   document.getElementById("cEliminar").style.display="";

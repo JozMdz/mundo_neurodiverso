@@ -52,7 +52,9 @@ para confirmar: nunca guarda sola. Las frases de prueba están en `pruebas/flujo
   puede saltárselo desde el navegador.
 - Si agregas una escritura nueva en la app, revisa que la base la permita y que una psicóloga no pueda
   usarla para hacer más de lo que la pantalla le muestra.
-- `sql/revisar.sql` muestra la configuración actual de la base (sin datos de pacientes).
+- `sql/revisar.sql` muestra la configuración de seguridad (RLS, políticas, triggers y funciones) y
+  `sql/inventario.sql` la estructura completa (columnas, restricciones, índices, permisos, tiempo real,
+  conteos y resumen de psicólogas). Ninguna muestra datos de pacientes.
 - `supabase-js` está fijo en una versión exacta. Súbela a propósito y prueba antes.
 
 ## App instalable (iPhone y Android)
