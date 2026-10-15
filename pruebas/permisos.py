@@ -19,6 +19,8 @@ ID = lambda x: "00000000-0000-0000-0000-0000000000" + x
 D, J, F, A = ID("d1"), ID("d2"), ID("a1"), ID("a2")              # Dirección, soporte, Fernanda, Andrea
 P1, N1, N2, N3, N4 = ID("b1"), ID("e1"), ID("e2"), ID("e3"), ID("e4")
 G1, G2, F1, F2 = ID("f1"), ID("f2"), ID("c1"), ID("c2")
+# Citas: 71 programada, 72 no asistió por confirmar, 73 confirmada, 74 de Andrea, 75 de Fernanda en dos días
+C71, C72, C73, C74, C75 = (ID(x) for x in ("71", "72", "73", "74", "75"))
 
 def psql(sql=None, archivo=None, bd=BD):
     cmd = ["psql", "-h", H, "-p", P, "-U", "postgres", "-d", bd, "-X", "-q", "-t", "-A", "-v", "ON_ERROR_STOP=1"]
@@ -53,6 +55,14 @@ ATAQUES = [
     ("Psicóloga ve notas de otra psicóloga", F, f"select count(*) from notas where id='{N4}'", "0"),
     ("Psicóloga ve cobros de otra psicóloga", A, "select count(*) from pagos", "0"),
     ("Sin sesión no se ve nada", None, "set local role anon; select count(*) from pacientes", "rechazado"),
+    ("Psicóloga marca 'no asistió' en la cita de otra", F, f"update citas set estado='no_asistio' where id='{C74}' returning estado", "rechazado"),
+    ("Psicóloga cancela su cita", F, f"update citas set estado='cancelada' where id='{C71}' returning estado", "rechazado"),
+    ("Psicóloga cambia de día su cita", F, f"update citas set fecha=current_date+1 where id='{C71}' returning fecha", "rechazado"),
+    ("Psicóloga se pasa la cita a otra psicóloga", F, f"update citas set psicologa_id='{A}' where id='{C71}' returning 1", "rechazado"),
+    ("Psicóloga confirma su propia inasistencia", F, f"update citas set confirmada_por='{F}' where id='{C72}' returning confirmada_por", "rechazado"),
+    ("Psicóloga marca y se confirma sola (queda por confirmar)", F, f"update citas set estado='no_asistio', confirmada_por='{F}' where id='{C71}' returning coalesce(confirmada_por::text,'por confirmar')", "por confirmar"),
+    ("Psicóloga cambia una inasistencia ya confirmada", F, f"update citas set estado='programada' where id='{C73}' returning estado", "rechazado"),
+    ("Psicóloga marca 'no asistió' en una cita que aún no llega", F, f"update citas set estado='no_asistio' where id='{C75}' returning estado", "rechazado"),
 ]
 NORMAL = [
     ("Psicóloga escribe una nota", F, f"insert into notas(paciente_id,psicologa_id,texto,revisada) values('{P1}','{F}','nueva',false) returning revisada", "f"),
@@ -78,6 +88,14 @@ NORMAL = [
     ("Dirección marca una nota como revisada", D, f"update notas set revisada=true where id='{N1}' returning revisada", "t"),
     ("Dirección cambia si alguien atiende", D, f"update psicologas set atiende=false where id='{A}' returning atiende", "f"),
     ("SQL Editor de Supabase corrige un cobro validado", "", f"update pagos set monto=1 where id='{G2}' returning monto", "1"),
+    ("Psicóloga marca 'no asistió' (queda por confirmar)", F, f"update citas set estado='no_asistio' where id='{C71}' returning coalesce(confirmada_por::text,'por confirmar') || ' ' || (marcada_por='{F}')::text", "por confirmar true"),
+    ("Psicóloga corrige: sí asistió", F, f"update citas set estado='programada' where id='{C72}' returning estado", "programada"),
+    ("Dirección confirma la inasistencia", D, f"update citas set confirmada_por='{D}' where id='{C72}' returning (confirmada_por='{D}')::text", "true"),
+    ("Soporte confirma la inasistencia", J, f"update citas set confirmada_por='{J}' where id='{C72}' returning (confirmada_por='{J}')::text", "true"),
+    ("Dirección marca 'no asistió' (queda confirmada)", D, f"update citas set estado='no_asistio' where id='{C74}' returning (confirmada_por='{D}')::text", "true"),
+    ("Dirección cancela una cita", D, f"update citas set estado='cancelada' where id='{C71}' returning estado", "cancelada"),
+    ("Dirección cambia de día una cita", D, f"update citas set fecha=current_date+3 where id='{C71}' returning (fecha=current_date+3)::text", "true"),
+    ("Dirección regresa una inasistencia confirmada", D, f"update citas set estado='programada' where id='{C73}' returning coalesce(confirmada_por::text,'sin confirmar')", "sin confirmar"),
 ]
 
 def correr(titulo):
@@ -100,10 +118,10 @@ for archivo in ("pruebas/base/supabase-minimo.sql", "sql/esquema.sql", "pruebas/
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): sys.exit(f"{archivo} no cargó:\n{r}")
 fallas = correr("Con sql/esquema.sql")
-for archivo in ("sql/seguridad.sql", "sql/ajustes.sql"):
+for archivo in ("sql/seguridad.sql", "sql/ajustes.sql", "sql/citas-estado.sql"):
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): print(f"\n✗ {archivo} no se puede volver a correr:\n{r}"); fallas += 1
-fallas += correr("Después de volver a correr sql/seguridad.sql y sql/ajustes.sql")
+fallas += correr("Después de volver a correr los archivos de sql/")
 psql(f"drop database if exists {BD}", bd="postgres")
 print(f"\n{fallas} FALLAS" if fallas else "\nTodo bien")
 sys.exit(1 if fallas else 0)
