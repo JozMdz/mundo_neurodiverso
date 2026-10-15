@@ -877,7 +877,9 @@ function renderRol(){
     <span><span class="nm">${esc(corto(v.nombre))}</span><br><span class="rl">${esAdmin()?"Dirección":"Psicóloga"}</span></span>`;
   document.getElementById("tabEquipo").style.display=esAdmin()?"":"none";
   if(!esAdmin() && document.querySelector('button[data-vista="equipo"]').classList.contains("activa")) irA("agenda");
-  const b=document.getElementById("rolBanner"); if(b) b.className="";
+  const b=document.getElementById("rolBanner");
+  if(b){ b.className=MODO_PRUEBAS? "ver" : ""; b.style.cssText=MODO_PRUEBAS? "background:var(--amb-suave); color:var(--amb);" : "";
+    b.innerHTML=MODO_PRUEBAS? `🧪 Modo pruebas: horario de 7 a 22 h en este teléfono · <button class="rev-btn" style="min-height:44px; background:#fff" onclick="quitarModoPruebas()">Quitar</button>` : ""; }
 }
 
 function renderResumen(){
@@ -910,7 +912,13 @@ function renderResumen(){
    La agenda muestra solo esas horas. Si una cita cae fuera, se amplía para que nunca quede escondida. */
 const HORARIO={1:[14,21], 2:[14,21], 3:[14,21], 4:[14,21], 5:[14,21], 6:[8,18]};
 const H=64, PAD=12;
-function horarioDe(f){ return HORARIO[new Date(f+"T12:00:00").getDay()]||null; }
+/* Modo pruebas, solo en este dispositivo: abre la app con ?pruebas=1 para ampliar la agenda de 7 a 22 h todos los
+   días (incluido domingo) y con ?pruebas=0 para quitarlo. Los datos son los reales: lo que se guarde, se guarda. */
+const MODO_PRUEBAS=(()=>{ try{ const q=new URLSearchParams(location.search).get("pruebas");
+  if(q==="1") localStorage.setItem("modoPruebas","1"); else if(q==="0") localStorage.removeItem("modoPruebas");
+  return localStorage.getItem("modoPruebas")==="1"; }catch(_){ return false; } })();
+function quitarModoPruebas(){ try{ localStorage.removeItem("modoPruebas"); }catch(_){} location.replace(location.pathname); }
+function horarioDe(f){ if(MODO_PRUEBAS) return [7,22]; return HORARIO[new Date(f+"T12:00:00").getDay()]||null; }
 function horaInicial(){ const h=horarioDe(estado.fechaAgenda); return String(h?h[0]:9).padStart(2,"0")+":00"; }
 // Horas que cubre la agenda para esos días: su horario más cualquier cita que caiga fuera de él
 function rangoAgenda(fechas){
