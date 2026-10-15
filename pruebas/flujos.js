@@ -399,6 +399,19 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     'las sesiones de la directora salen con su nombre, no con el de quien mira');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
+  console.log('Modo pruebas');
+  page = await abrir(browser, 'd1');
+  await page.goto(page.url().replace('?como=', '?pruebas=1&como=')); await page.waitForTimeout(600);
+  await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + ((7 - d.getDay()) % 7) + 7);
+    estado.fechaAgenda = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); setVistaAgenda('dia'); });
+  let hp = await page.evaluate(() => [...document.querySelectorAll('#agenda .etq')].map(e => e.textContent));
+  ok(hp[0] === '07:00' && hp.at(-1) === '22:00' && await visible(page, '#rolBanner.ver'), `con ?pruebas=1 la agenda va de 7 a 22 h, también en domingo (${hp[0]}–${hp.at(-1)})`);
+  await page.goto(page.url().replace('?pruebas=1&', '?')); await page.waitForTimeout(600);
+  ok(await visible(page, '#rolBanner.ver'), 'el modo pruebas se queda en ese teléfono');
+  await page.click('#rolBanner button'); await page.waitForTimeout(600);
+  ok(!(await visible(page, '#rolBanner.ver')), '"Quitar" lo apaga');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
   console.log('Dirección en computadora');
   page = await abrir(browser, 'd1', { viewport: { width: 1280, height: 800 } });
   ok(await page.evaluate(() => estado.vistaAgenda) === 'semana', 'en computadora Dirección empieza en la semana');
