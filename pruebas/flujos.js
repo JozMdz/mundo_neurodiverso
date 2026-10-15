@@ -399,6 +399,33 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     'las sesiones de la directora salen con su nombre, no con el de quien mira');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
+  console.log('Lo que le toca a la psicóloga');
+  page = await abrir(browser, 'd1');
+  await page.tap('nav.tabs button[data-vista=expediente]'); await page.tap('#btnNuevoPx'); await page.waitForTimeout(250);
+  await page.fill('#paNombre', 'PRUEBA Haniel'); await page.fill('#paTarifa', '290'); await page.fill('#paPagoPsic', '150');
+  await page.selectOption('#paAsignada', 's1'); await page.tap('#paGuardar'); await page.waitForTimeout(400);
+  const nuevoPx = await page.evaluate(() => __DB.pacientes.find(p => p.nombre === 'PRUEBA Haniel'));
+  ok(nuevoPx && nuevoPx.tarifa === 290 && nuevoPx.pago_psicologa === 150, 'al dar de alta se guarda cuánto se cobra y cuánto le toca a la psicóloga');
+  // Semana sola de Fernanda: 2 sesiones de Haniel (le tocan 150 c/u) y 1 de Mateo sin monto capturado (mitad de 600)
+  const corteDe = await page.evaluate(async id => {
+    __DB.citas = __DB.citas.filter(c => c.psicologa_id !== 's1'); __DB.pagos = __DB.pagos.filter(g => g.psicologa_id !== 's1');
+    __DB.pacientes.find(p => p.id === 'p1').pago_psicologa = null;
+    const f = addDaysISO(hoyISO(), -1), c = (i, pac, h) => ({ id: i, fecha: f, hora: h, duracion: 30, psicologa_id: 's1', paciente_id: pac, estado: 'programada', confirmada_por: null });
+    __DB.citas.push(c('t1', id, '10:00:00'), c('t2', id, '11:00:00'), c('t3', 'p1', '12:00:00'));
+    const g = (i, pac, m, met) => ({ id: i, paciente_id: pac, psicologa_id: 's1', monto: m, metodo: met, validado: true, creado_en: new Date(f + 'T13:00:00').toISOString() });
+    __DB.pagos.push(g('q1', id, 290, 'efectivo'), g('q2', id, 290, 'transferencia'), g('q3', 'p1', 600, 'efectivo'));
+    estado.cobrosPeriodo = { tipo: 'rango', desde: f, hasta: f }; await refrescar(); irA('cobros');
+    return [...document.querySelectorAll('#corte .psic')].find(b => b.textContent.includes('Fernanda')).innerText;
+  }, nuevoPx.id);
+  ok(/Le toca \(3 sesiones\)\s*\$600/.test(corteDe), 'le toca 150 + 150 + 300 (mitad de la tarifa de quien no tiene monto) = $600');
+  ok(/Ella te entrega\s*\$290/.test(corteDe), 'si ella tiene $890 en efectivo y le tocan $600, ella entrega $290');
+  ok(corteDe.includes('mitad de su tarifa'), 'avisa cuando un paciente no tiene capturado lo que le toca');
+  ok(await page.evaluate(() => { const t = document.querySelector('table.pagos'); return t.scrollWidth <= t.parentElement.clientWidth + 1; }) && await ancho(page) <= 414, 'los cobros se ven como tarjetas, sin desbordarse');
+  await page.evaluate(() => { estado.fechaAgenda = addDaysISO(hoyISO(), -1); irA('agenda'); setVistaAgenda('dia'); });
+  ok(await page.$eval('.ev[data-cita="t1"]', e => e.classList.contains('corta') && e.querySelector('.r').getBoundingClientRect().bottom <= e.getBoundingClientRect().bottom + 1),
+    'una cita de 30 min muestra nombre y hora en un renglón, sin cortarse');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
   console.log('Modo pruebas');
   page = await abrir(browser, 'd1');
   await page.goto(page.url().replace('?como=', '?pruebas=1&como=')); await page.waitForTimeout(600);

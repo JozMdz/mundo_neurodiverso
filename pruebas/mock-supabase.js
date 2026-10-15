@@ -25,7 +25,7 @@
     ["Sebastián Castillo Paz",9,"mamá: Mónica Paz","Ansiedad escolar","s2"],
     ["Natalia Vargas Rey",8,"mamá: Sandra Rey","Seguimiento TEA","s1", false],
   ];
-  const pacientes = nombres.map((x,i)=>({id:"p"+(i+1), nombre:x[0], edad:x[1], tutor:x[2], telefono:"833-5"+String(10+i)+"-"+String(1000+i*37), motivo:x[3], tarifa:[600,650,700][i%3], asignada_a:x[4], activo:x[5]!==false}));
+  const pacientes = nombres.map((x,i)=>({id:"p"+(i+1), nombre:x[0], edad:x[1], tutor:x[2], telefono:"833-5"+String(10+i)+"-"+String(1000+i*37), motivo:x[3], tarifa:[600,650,700][i%3], pago_psicologa:i%4===3? null : [300,350,280][i%3], asignada_a:x[4], activo:x[5]!==false}));
   const citas=[]; let k=1;
   // Horario del consultorio: lunes a viernes de 2 a 9 pm, sábado de 8 am a 6 pm, domingo cerrado
   const horasLV=["14:00","15:00","16:00","17:00","18:00","19:00","20:00"], horasSab=["08:00","09:00","10:00","11:00","12:00","15:00","16:00"];

@@ -1,7 +1,7 @@
 -- Mundo Neurodiverso · Estructura completa de la base en Supabase (sin datos).
 --
 -- Reconstruida el 15 oct 2026 con sql/inventario.sql y sql/revisar.sql; ya incluye sql/seguridad.sql,
--- sql/ajustes.sql y sql/citas-estado.sql. Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
+-- sql/ajustes.sql, sql/citas-estado.sql y sql/pago-psicologa.sql. Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
 -- (SQL Editor → pega todo → Run). Si cambias la base, actualiza este archivo para que siga siendo fiel.
 
 begin;
@@ -25,6 +25,7 @@ create table public.pacientes (
   telefono text,
   motivo text,
   tarifa numeric not null default 0,
+  pago_psicologa numeric check (pago_psicologa >= 0),                -- lo que le toca a la psicóloga por sesión; null = mitad de la tarifa
   asignada_a uuid references public.psicologas(id),
   creado_en timestamptz not null default now(),
   activo boolean not null default true                               -- false: archivado
