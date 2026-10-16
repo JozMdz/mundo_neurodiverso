@@ -15,7 +15,6 @@ Omitido por decisión de José: que los comentarios de soporte le avisen a la di
 - "Agregar psicóloga" desde la app (necesita una función en el servidor).
 - "Olvidé mi contraseña".
 - Fecha de nacimiento en vez de edad fija.
-- La semana de la agenda pensada para el celular.
 - Botón para respaldar los datos.
 - Editar datos de las psicólogas, reporte semanal, vista de mes.
 - Revisar el plan de respaldos de Supabase, aviso de privacidad y verificación en dos pasos.

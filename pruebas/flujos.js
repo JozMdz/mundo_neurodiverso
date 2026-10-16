@@ -170,13 +170,31 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(await page.evaluate(() => { const c = document.querySelector('#agenda .cal').getBoundingClientRect();
     return [...document.querySelectorAll('#agenda .ev')].length === 2 && [...document.querySelectorAll('#agenda .ev')].every(e => e.getBoundingClientRect().bottom <= c.bottom); }), 'la cita de 8 a 9 pm se ve completa');
   ok(await page.evaluate(() => [...document.querySelectorAll('#agenda .mas')].every(m => { const t = m.title.slice(-5); return t >= '14:00' && t < '21:00'; })), 'el "+" para agendar solo aparece dentro del horario');
+  // En el celular la semana es una lista por día
+  await ir(3, 'semana');
+  const semCel = await page.evaluate(() => ({ dias: [...document.querySelectorAll('.sem-dia')].map(d => d.querySelector('.sem-dia-ir b').textContent),
+    filas: document.querySelectorAll('.sem-fila').length, cuadricula: !!document.querySelector('.sem-col') }));
+  ok(!semCel.cuadricula && semCel.dias.length === 6 && semCel.dias[0].startsWith('Lun') && semCel.dias[5].startsWith('Sáb') && semCel.filas === 2,
+    `en el celular la semana es una lista de lunes a sábado con sus citas (${semCel.dias.join(', ')} · ${semCel.filas} citas)`);
+  ok(await page.evaluate(() => [...document.querySelectorAll('.sem-fila b')].every(b => b.scrollWidth <= b.clientWidth + 1 || getComputedStyle(b).textOverflow === 'ellipsis'))
+    && await ancho(page) <= 414, 'los nombres caben en su renglón y no hay scroll horizontal');
+  await page.tap('.sem-dia[data-dia="' + miercoles + '"] .sem-dia-ir'); await page.waitForTimeout(200);
+  ok(await page.evaluate(() => estado.vistaAgenda) === 'dia' && await page.evaluate(() => estado.fechaAgenda) === miercoles, 'al tocar un día se abre ese día');
+  await ir(3, 'semana');
+  await page.tap('.sem-fila[data-cita="noche1"]'); await page.waitForTimeout(200);
+  ok(await visible(page, '#modalAcciones.abierto'), 'al tocar una cita se abren sus opciones');
+  await page.evaluate(() => cerrar('modalAcciones'));
+  await page.tap('.sem-dia[data-dia="' + miercoles + '"] .sem-dia-mas'); await page.waitForTimeout(200);
+  ok(await visible(page, '#modalCita.abierto') && await page.inputValue('#cFechaIn') === miercoles && await page.inputValue('#cHora') === '14:00', '"+" de un día agenda en ese día a la hora de apertura');
+  await page.evaluate(() => cerrar('modalCita'));
+  // La cuadrícula de la semana, en computadora
+  await page.setViewportSize({ width: 1280, height: 800 }); await page.waitForTimeout(200);
   await ir(3, 'semana'); h = await horas();
   ok(h[0] === '08:00' && h[h.length - 1] === '21:00', `la semana va de 08:00 a 21:00 para que quepa el sábado (${h[0]}–${h[h.length - 1]})`);
   ok(await page.evaluate(() => { const c = [...document.querySelectorAll('.sem-col')];
     return c.length === 6 && c.slice(0, 5).every(x => x.querySelector('.fuera[style^="top:0"]')) && !!c[5].querySelector('.fuera[style*="bottom:0"]'); }),
     'en la semana se sombrean las mañanas de lunes a viernes y la tarde del sábado');
   ok(await page.evaluate(() => document.querySelectorAll('.sem-col .mas').length) === 5 * 14 + 20, '"+" solo dentro del horario de cada día');
-  ok(await ancho(page) <= 414, 'sin scroll horizontal en la agenda');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
   console.log('Agendar por voz: lo que entiende (base: miércoles 14 de octubre de 2026)');
