@@ -33,6 +33,10 @@ Reglas:
 Identidad visual: los colores de `:root` (morado, verde, cian, rosa, naranja, amarillo) y las
 tipografías Fredoka (títulos) y Nunito (texto).
 
+Modo oscuro: sigue al teléfono (`prefers-color-scheme`). Los colores van siempre como variables de `:root`
+(`--tarjeta`, `--suave`, `--texto2`…) y el bloque oscuro las redefine; no escribas colores claros fijos
+(`#fff`, `#F6F3FB`…) en CSS ni en el HTML que arma el JS. Revisa las capturas con `OSCURO=1` en `captura.js`.
+
 ## Agenda
 
 El horario de consulta está en la constante `HORARIO` de `index.html` (por día de la semana, 0 = domingo):
@@ -71,6 +75,16 @@ Las llaves y la instalación están en `supabase/functions/avisar/LEEME.md`. `no
 Expediente: Dirección ve a los pacientes agrupados por psicóloga (`gruposPx`, cada grupo se abre y se cierra); al buscar
 o filtrar, la lista es directa. Facturas: la psicóloga solo avisa que un paciente la pidió (monto 0 = por definir);
 Dirección pone el monto antes de emitirla.
+
+Notas de sesión: se escriben en apartados (`APARTADOS_NOTA`: Qué se trabajó, Conducta y respuesta, Plan para la
+próxima sesión, Dudas o pendientes). Se guardan en el mismo `notas.texto`, cada apartado con un encabezado "▸ "
+(`textoNota`), y se muestran con `notaFormato`. Solo "Qué se trabajó" es obligatorio. Cada apartado se puede dictar
+con 🎤 (`dictarApartado`, es-MX) donde el navegador lo permite.
+La ficha del paciente muestra su próxima cita, asistencia (sesiones y faltas; avisa si falta seguido) y cuántas notas
+tiene. Dirección ve el teléfono con enlace a WhatsApp y, en una cita que no ha empezado, "📲 Recordar por WhatsApp"
+(`recordarWhats`) abre WhatsApp con el recordatorio escrito: nunca lo manda sola.
+"¿Dónde cabe?" (hoja de cita, solo Dirección): `huecosLibres` lista los horarios libres de la psicóloga elegida en los
+próximos días, dentro del `HORARIO` y con la duración de la cita; al tocar uno se llenan día y hora.
 
 Cobro de la sesión (`sql/cobro-cita.sql`): al tocar una cita ya empezada, "✅ Asistió · registrar cobro" abre el cobro con la
 tarifa del paciente y lo liga a la cita (`pagos.cita_id`, uno por cita). Nada queda validado solo, ni lo de la directora:
@@ -124,6 +138,7 @@ export NODE_PATH=$(npm root -g)                  # Playwright instalado de forma
 node pruebas/flujos.js "$PWD/index.html"          # recorre el expediente en iPhone 11 y en computadora
 node pruebas/instalable.js "$PWD"                 # manifest, íconos, service worker y modo sin señal
 node pruebas/captura.js "$PWD/index.html" /tmp/cap d1 "js=irA('expediente')" "shot=lista"
+OSCURO=1 node pruebas/captura.js "$PWD/index.html" /tmp/cap d1 "shot=agenda"   # modo oscuro
 ```
 
 `d1` entra como Dirección y `s1` como psicóloga. Antes de subir un cambio visual, revisa las capturas

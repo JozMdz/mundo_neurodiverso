@@ -80,9 +80,12 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   // nueva nota
   await page.tap('.px-notas-cab .btn'); await page.waitForTimeout(300);
   ok((await page.textContent('#nPara')).includes(nombre), 'la hoja de nueva nota dice para qué paciente es');
-  await page.fill('#nTexto', 'Nota nueva desde el celular');
+  ok(await page.$$eval('#nApartados textarea', a => a.length) === 4, 'la nota trae los 4 apartados');
+  await page.fill('#nTexto', 'Nota nueva desde el celular'); await page.fill('#nPlan', 'Seguir con <b>rutinas</b>');
   await page.tap('#modalNota .pie .btn:not(.fantasma)'); await page.waitForTimeout(300);
-  ok((await page.textContent('.nota .nota-texto')) === 'Nota nueva desde el celular', 'la nota nueva aparece hasta arriba');
+  ok((await page.textContent('.nota .nota-texto')) === 'Qué se trabajó\nNota nueva desde el celular\n\nPlan para la próxima sesión\nSeguir con <b>rutinas</b>'
+    && await page.$$eval('.nota:first-of-type .nota-ap', b => b.map(x => x.textContent).join()) === 'Qué se trabajó,Plan para la próxima sesión',
+    'la nota nueva aparece hasta arriba, con sus apartados resaltados y solo los que se llenaron');
   await page.tap('.px-notas-cab .btn'); await page.waitForTimeout(300);
   await page.fill('#nTexto', 'Nota a medio escribir');
   await page.goBack(); await page.waitForTimeout(250);
@@ -587,6 +590,73 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.selectOption('#paAsignada', 'd1'); await page.fill('#paNombre', 'PRUEBA Directora');
   await page.tap('#paGuardar'); await page.waitForTimeout(400);
   ok(await page.evaluate(() => { const p = __DB.pacientes.find(x => x.nombre === 'PRUEBA Directora'); return p && p.asignada_a === 'd1' && p.pago_psicologa === null; }), 'se guarda sin monto para la psicóloga');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
+  console.log('Nota dictada, WhatsApp, historial y horarios libres');
+  page = await abrir(browser, 'd1');
+  await page.evaluate(() => {
+    window.__dictado = 'Trabajamos la rutina de la mañana';
+    window.SpeechRecognition = window.webkitSpeechRecognition = class {   // micrófono simulado
+      start() { setTimeout(() => this.onresult({ results: [[{ transcript: window.__dictado }]] }), 30); }
+      stop() { setTimeout(() => this.onend && this.onend(), 10); } abort() { this.stop(); }
+    };
+    irA('expediente'); seleccionarPx('p1'); abrirNota(); });
+  await page.waitForTimeout(150);
+  await page.fill('#nTexto', 'Llegó contento.');
+  await page.tap('#mic-nTexto'); await page.waitForTimeout(150);
+  ok((await page.inputValue('#nTexto')) === 'Llegó contento. Trabajamos la rutina de la mañana' && (await page.textContent('#mic-nTexto')) === '⏹',
+    'el 🎤 de un apartado dicta y se agrega a lo que ya estaba escrito');
+  await page.tap('#mic-nTexto'); await page.waitForTimeout(100);
+  ok((await page.textContent('#mic-nTexto')) === '🎤', 'tocarlo otra vez deja de escuchar');
+  await page.fill('#nTexto', ''); await page.fill('#nDudas', 'Solo una duda');
+  await page.tap('#modalNota .pie .btn:not(.fantasma)'); await page.waitForTimeout(250);
+  ok((await page.textContent('#toast')).includes('qué se trabajó') && await visible(page, '#modalNota.abierto'), 'sin "Qué se trabajó" no se guarda');
+  await page.evaluate(() => { pararVozNota(); cerrar('modalNota'); });
+  // WhatsApp
+  const wa = await page.evaluate(async () => {
+    const f = addDaysISO(hoyISO(), 1);
+    __DB.pacientes.find(p => p.id === 'p1').telefono = '833 123 4567';
+    __DB.citas.push({ id: 'wa1', fecha: f, hora: '17:30:00', duracion: 60, psicologa_id: 's1', paciente_id: 'p1', estado: 'programada', confirmada_por: null });
+    __DB.citas.push({ id: 'wa2', fecha: f, hora: '18:30:00', duracion: 60, psicologa_id: 's1', paciente_id: 'p3', estado: 'programada', confirmada_por: null });
+    __DB.pacientes.find(p => p.id === 'p3').telefono = '';
+    await refrescar(); let abierto = null; window.open = u => { abierto = u; };
+    menuCita('wa2'); const sinTel = [...document.querySelectorAll('#accBotones .acc-btn')].some(b => b.textContent.includes('WhatsApp'));
+    menuCita('wa1'); const conTel = [...document.querySelectorAll('#accBotones .acc-btn')].find(b => b.textContent.includes('WhatsApp'));
+    conTel.click(); return { sinTel, abierto };
+  });
+  ok(!wa.sinTel && wa.abierto && wa.abierto.startsWith('https://wa.me/528331234567?text=')
+    && decodeURIComponent(wa.abierto.split('text=')[1]) === 'Hola, le recordamos la cita de Mateo mañana a las 5:30 pm en Mundo Neurodiverso. ¿Nos confirma su asistencia? ¡Gracias!',
+    `"Recordar por WhatsApp" abre WhatsApp al teléfono del paciente con el mensaje listo (${wa.abierto && decodeURIComponent(wa.abierto.split('text=')[1])})`);
+  // Historial en la ficha
+  const hist = await page.evaluate(async () => {
+    const c = (id, n, est) => ({ id, fecha: addDaysISO(hoyISO(), n), hora: '15:00:00', duracion: 60, psicologa_id: 's1', paciente_id: 'p1', estado: est, confirmada_por: null });
+    __DB.citas = __DB.citas.filter(x => x.paciente_id !== 'p1' || x.id === 'wa1');
+    __DB.citas.push(c('h1', -7, 'programada'), c('h2', -14, 'no_asistio'), c('h3', -21, 'no_asistio'), c('h4', -28, 'programada'), c('h5', -35, 'cancelada'));
+    await refrescar(); irA('expediente'); seleccionarPx('p1');
+    return [...document.querySelectorAll('.px-dato')].map(d => d.innerText.replace(/\s+/g, ' ').trim());
+  });
+  ok(hist.some(x => x.startsWith('PRÓXIMA CITA') && x.includes('17:30')) || hist.some(x => /pr[oó]xima cita/i.test(x) && x.includes('17:30')), `la ficha dice la próxima cita (${hist.find(x => /cita/i.test(x))})`);
+  ok(hist.some(x => /asistencia/i.test(x) && x.includes('2 sesiones · 2 faltas · falta seguido')) && !!(await page.$('.px-dato dd.falta-seguido')), 'y cuántas sesiones y faltas lleva, marcando si falta seguido');
+  ok(await page.$eval('.px-dato a.wa', a => a.href) === 'https://wa.me/528331234567', 'junto al teléfono hay un enlace a su WhatsApp');
+  // ¿Dónde cabe?
+  const lib = await page.evaluate(async () => {
+    const d = new Date(); d.setDate(d.getDate() + ((3 - d.getDay() + 7) % 7) + 7);   // miércoles de la próxima semana
+    const f = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    __DB.citas = __DB.citas.filter(x => !(x.psicologa_id === 's2' && x.fecha === f));
+    __DB.citas.push({ id: 'o1', fecha: f, hora: '15:00:00', duracion: 60, psicologa_id: 's2', paciente_id: 'p3', estado: 'programada' },
+                    { id: 'o2', fecha: f, hora: '17:00:00', duracion: 90, psicologa_id: 's2', paciente_id: 'p4', estado: 'programada' },
+                    { id: 'o3', fecha: f, hora: '19:00:00', duracion: 60, psicologa_id: 's2', paciente_id: 'p8', estado: 'cancelada' });
+    await refrescar(); irA('agenda'); abrirCita('14:00', f); const s = document.getElementById('cPsic'); s.value = 's2'; s.dispatchEvent(new Event('change'));
+    const primero = document.querySelector('#cLibres .libre-dia');
+    return { f, quien: document.getElementById('cLibresQuien').textContent, dia: primero && [...primero.querySelectorAll('.libre')].map(b => b.textContent) };
+  });
+  ok(lib.quien === 'Andrea Torres' && JSON.stringify(lib.dia) === JSON.stringify(['14:00–15:00', '16:00–17:00', '18:30–21:00']),
+    `"¿Dónde cabe?" muestra los huecos libres de la psicóloga ese día; las canceladas no ocupan (${(lib.dia || []).join(', ')})`);
+  await page.selectOption('#cDur', '90'); await page.waitForTimeout(100);
+  ok(JSON.stringify(await page.$$eval('#cLibres .libre-dia:first-child .libre', b => b.map(x => x.textContent))) === JSON.stringify(['18:30–21:00']), 'con 90 min solo deja los huecos donde cabe');
+  await page.tap('#cLibres .libre-dia:first-child .libre'); await page.waitForTimeout(100);
+  ok(await page.inputValue('#cHora') === '18:30' && await page.inputValue('#cFechaIn') === lib.f, 'tocar un hueco pone ese día y esa hora en la hoja');
+  ok(await ancho(page) <= 414, 'sin scroll horizontal');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
   console.log('Modo pruebas');
