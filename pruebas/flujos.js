@@ -595,11 +595,11 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   console.log('Nota dictada, WhatsApp, historial y horarios libres');
   page = await abrir(browser, 'd1');
   await page.evaluate(() => {
-    window.__dictado = 'Trabajamos la rutina de la mañana'; window.__final = null; window.__mics = 0;
+    window.__dictado = 'Trabajamos la rutina de la mañana'; window.__final = null; window.__mics = 0; window.__espera = 40;
     // Micrófono simulado: stop() todavía entrega el resultado final antes de terminar; abort() termina sin más resultados
     window.SpeechRecognition = window.webkitSpeechRecognition = class {
       start() { window.__mics++; this.vivo = true; setTimeout(() => this.onresult && this.onresult({ results: [[{ transcript: window.__dictado }]] }), 30); }
-      stop() { setTimeout(() => { if (window.__final && this.onresult) this.onresult({ results: [[{ transcript: window.__final }]] }); this.fin(); }, 40); }
+      stop() { setTimeout(() => { if (window.__final && this.onresult) this.onresult({ results: [[{ transcript: window.__final }]] }); this.fin(); }, window.__espera); }
       abort() { setTimeout(() => this.fin(), 10); }
       fin() { if (this.vivo) { this.vivo = false; window.__mics--; } if (this.onend) this.onend(); }
     };
@@ -632,6 +632,15 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.tap('#nGuardar'); await page.waitForTimeout(400);
   ok(await page.evaluate(() => __DB.notas.at(-1).texto) === '▸ Qué se trabajó\nTrabajamos la rutina completa' && await page.evaluate(() => window.__mics) === 0,
     'guardar mientras dicta espera las últimas palabras');
+  await nuevaNota(); await page.evaluate(() => { window.__final = 'Trabajó turnos con calma'; window.__espera = 400; window.__nNotas = __DB.notas.length; });
+  await page.tap('#mic-nTexto'); await page.waitForTimeout(80);
+  await page.evaluate(() => { document.getElementById('nGuardar').click(); document.getElementById('nGuardar').click(); });
+  await page.waitForTimeout(100);
+  const esperando = await page.evaluate(() => { const b = document.getElementById('nGuardar'); return b.disabled && b.textContent === 'Guardando…'; });
+  await page.touchscreen.tap(200, 20); await page.keyboard.press('Escape'); await page.waitForTimeout(700);
+  ok(esperando && await page.evaluate(() => __DB.notas.length - window.__nNotas) === 1 && await page.evaluate(() => __DB.notas.at(-1).texto) === '▸ Qué se trabajó\nTrabajó turnos con calma'
+    && (await page.textContent('#toast')).includes('Nota guardada'), 'mientras guarda dice "Guardando…", cerrar la hoja no lo cancela y dos toques guardan una sola nota');
+  await page.evaluate(() => { window.__espera = 40; });
   // WhatsApp
   const wa = await page.evaluate(async () => {
     const f = addDaysISO(hoyISO(), 1);
@@ -660,6 +669,10 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(await page.$eval('.px-dato a.wa', a => a.href) === 'https://wa.me/528331234567', 'junto al teléfono hay un enlace a su WhatsApp');
   const tels = await page.$$eval('.px-dato dd.tels a', l => l.map(a => a.getBoundingClientRect().height));
   ok(tels.length === 2 && tels.every(h => h >= 44), 'llamar y WhatsApp son botones de 44 px');
+  const telLargo = await page.evaluate(async () => { __DB.pacientes.find(p => p.id === 'p1').telefono = '833 123 4567 (mamá) / 833 765 4321 (papá)'; await refrescar(); seleccionarPx('p1');
+    const a = document.querySelector('.px-dato dd.tels a'); return { ancho: a.closest('.px-dato').classList.contains('ancho'), wa: !!document.querySelector('.px-dato a.wa'), alto: a.getBoundingClientRect().height }; });
+  ok(telLargo.ancho && !telLargo.wa && telLargo.alto <= 70, `un teléfono largo sin WhatsApp usa todo el ancho (${telLargo.alto} px de alto)`);
+  await page.evaluate(async () => { __DB.pacientes.find(p => p.id === 'p1').telefono = '833 123 4567'; await refrescar(); });
   // ¿Dónde cabe?
   const lib = await page.evaluate(async () => {
     const d = new Date(); d.setDate(d.getDate() + ((3 - d.getDay() + 7) % 7) + 7);   // miércoles de la próxima semana
@@ -684,6 +697,14 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   page = await abrir(browser, 's1');
   const dts = await page.evaluate(() => { irA('expediente'); seleccionarPx('p1'); return [...document.querySelectorAll('.px-dato dt')].map(d => d.textContent); });
   ok(dts.includes('Tu próxima cita') && dts.includes('Tus sesiones') && !dts.includes('Teléfono'), `la psicóloga ve que esos datos son de sus propias citas (${dts.join(', ')})`);
+  const cubre = await page.evaluate(async () => {
+    const otro = __DB.pacientes.find(p => p.asignada_a && p.asignada_a !== 's1' && p.activo !== false);
+    __DB.citas.push({ id: 'cb1', fecha: addDaysISO(hoyISO(), 3), hora: '15:00:00', duracion: 60, psicologa_id: 's1', paciente_id: otro.id, estado: 'programada', confirmada_por: null });
+    await refrescar(); irA('expediente'); seleccionarPx(otro.id);
+    const d = [...document.querySelectorAll('.px-dato')].find(x => x.querySelector('dt').textContent === 'Tu próxima cita');
+    return d && d.querySelector('dd').textContent;
+  });
+  ok(cubre && cubre.includes('15:00') && !cubre.includes('Fernanda'), `si cubre a un paciente de otra, su próxima cita no repite su nombre (${cubre})`);
 
   console.log('Modo pruebas');
   page = await abrir(browser, 'd1');

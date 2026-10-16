@@ -127,6 +127,7 @@
   .btn,.px-filtros button{transition:filter .12s, transform .09s ease;}
   .btn:active,.px-filtros button:active{transform:scale(.97);}
   .btn.verde{background:var(--verde);} .btn.cian{background:var(--cian);} .btn.naranja{background:var(--naranja);}
+  .btn:disabled{opacity:.6; cursor:default;}
   .btn.fantasma{background:var(--tarjeta); color:var(--morado-tx); border:1px solid var(--linea-fuerte); box-shadow:none;}
 
   .barra-dia{display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
@@ -300,7 +301,7 @@
   .nota-ap{color:var(--morado-tx); font-weight:800; font-size:13px;}
   .px-dato dd.falta-seguido{color:var(--alerta);}
   .px-dato dd.tels{display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;}
-  .px-dato dd.tels a{display:inline-flex; align-items:center; min-height:44px; padding:0 14px; border:1px solid var(--linea-fuerte); border-radius:999px; background:var(--tarjeta);}
+  .px-dato dd.tels a{display:inline-flex; align-items:center; min-height:44px; padding:6px 14px; border:1px solid var(--linea-fuerte); border-radius:22px; background:var(--tarjeta);}
   .px-dato dd.tels a.wa{color:var(--ok);}
   .libre-dia{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:6px;}
   .libre-nom{flex:none; width:68px; font-size:13px; font-weight:800; color:var(--gris);}
@@ -328,7 +329,7 @@
   .hint-dias{font-size:12.5px; color:var(--gris); font-weight:600; margin-top:4px;}
   .buscador{margin-bottom:10px;}
   .buscador input{width:100%; border:1px solid var(--linea-fuerte); border-radius:999px; padding:11px 16px; font-size:15px; background:var(--tarjeta); -webkit-appearance:none; appearance:none;}
-  .buscador input:focus{outline:none; border-color:var(--morado); box-shadow:0 0 0 3px rgba(139,61,158,.13);}
+  .buscador input:focus{outline:none; border-color:var(--morado-tx); box-shadow:0 0 0 3px rgba(139,61,158,.13);}
   .subtotales{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
   .sub-b{flex:1; min-width:104px; background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px; padding:9px 12px;}
   .sub-b .l{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.4px;}
@@ -360,7 +361,7 @@
   .com-txt{font-size:14px; color:var(--texto2); margin-top:3px; white-space:pre-wrap; overflow-wrap:anywhere;}
   .com-add{display:flex; gap:8px; margin-top:10px; position:relative;}
   .com-add input{flex:1; min-width:0; border:1px solid var(--linea-fuerte); border-radius:9px; padding:9px 11px; outline:none; font-size:14px;}
-  .com-add input:focus{border-color:var(--morado);}
+  .com-add input:focus{border-color:var(--morado-tx);}
   .com-add button{padding:9px 14px; font-size:14px;}
 
   .grid-cobros{display:grid; grid-template-columns:1fr 336px; gap:16px; align-items:start;}
@@ -461,7 +462,7 @@
   .modal .cuerpo{padding:18px 22px; display:flex; flex-direction:column; gap:13px;}
   .campo label{display:block; font-size:12.5px; font-weight:800; color:var(--gris); margin-bottom:5px; text-transform:uppercase; letter-spacing:.4px;}
   .campo input,.campo select,.campo textarea{width:100%; border:1px solid var(--linea-fuerte); border-radius:10px; padding:11px 12px; background:var(--tarjeta); outline:none;}
-  .campo input:focus,.campo select:focus,.campo textarea:focus{border-color:var(--morado); box-shadow:0 0 0 3px rgba(139,61,158,.13);}
+  .campo input:focus,.campo select:focus,.campo textarea:focus{border-color:var(--morado-tx); box-shadow:0 0 0 3px rgba(139,61,158,.13);}
   .campo textarea{resize:vertical; min-height:72px;}
   .fila2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;}
   .campo input[type=date], .campo input[type=time]{min-width:0; min-height:46px;}
@@ -1471,14 +1472,14 @@ function renderExpediente(){
   const prox=cs.filter(c=>c.estado==="programada" && !citaEmpezo(c)).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora))[0];
   const dadas=cs.filter(c=>c.estado==="programada" && citaTermino(c)).length, faltas=cs.filter(c=>c.estado==="no_asistio").length;
   const faltaSeguido=faltas>=2 && faltas/(dadas+faltas)>=0.25, wa=admin && telWhats(tel);
-  const proxPs=prox && prox.psic!==p.asignada? psic(prox.psic) : null;
+  const proxPs=admin && prox && prox.psic!==p.asignada? psic(prox.psic) : null;
   const datos=[
     `<div class="px-dato ancho"><dt>Motivo de consulta</dt><dd>${dato(p.motivo)? esc(p.motivo) : "—"}</dd></div>`,
     ps? `<div class="px-dato"><dt>Psicóloga</dt><dd><span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))}</dd></div>` : "",
     `<div class="px-dato"><dt>${admin? "Próxima cita" : "Tu próxima cita"}</dt><dd>${prox? fechaCorta(prox.fecha,true)+" · "+prox.hora+(proxPs? " · "+esc(corto(proxPs.nombre)) : "") : "Sin agendar"}</dd></div>`,
     `<div class="px-dato"><dt>${admin? "Asistencia" : "Tus sesiones"}</dt><dd${faltaSeguido?' class="falta-seguido"':''}>${dadas} ${dadas===1?"sesión":"sesiones"} · ${faltas} ${faltas===1?"falta":"faltas"}${faltaSeguido?" · falta seguido":""}</dd></div>`,
     `<div class="px-dato"><dt>Notas</dt><dd>${notas.length}</dd></div>`,
-    admin&&tel? `<div class="px-dato${wa?" ancho":""}"><dt>Teléfono</dt><dd class="tels"><a href="tel:${esc(String(tel).replace(/[^\d+]/g,""))}">📞 ${esc(tel)}</a>${wa? `<a class="wa" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ""}</dd></div>` : "",
+    admin&&tel? `<div class="px-dato ancho"><dt>Teléfono</dt><dd class="tels"><a href="tel:${esc(String(tel).replace(/[^\d+]/g,""))}">📞 ${esc(tel)}</a>${wa? `<a class="wa" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ""}</dd></div>` : "",
   ].join("");
   const acciones = admin? `<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`
     + (arch? `<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>` : `<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`) : "";
@@ -1817,7 +1818,8 @@ async function revisarCierre(id){ if(!esAdmin()) return;
 /* ---- Modales ---- */
 function opciones(arr,val,txt){ return arr.map(o=>`<option value="${o[val]}">${esc(o[txt])}</option>`).join(""); }
 function abrir(id){ document.getElementById(id).classList.add("abierto"); }
-function cerrar(id){ if(id==="modalNota") pararVozNota(true); document.getElementById(id).classList.remove("abierto"); }
+function cerrar(id){ if(id==="modalNota"){ if(guardandoNota) return; pararVozNota(true); }   // mientras se guarda, la hoja se queda
+  document.getElementById(id).classList.remove("abierto"); }
 // Psicóloga que proponen las hojas de cita y cobro: tú, si atiendes; si no, quien tiene más pacientes activos
 function psicPorDefecto(){
   const lista=atienden();
@@ -2147,15 +2149,18 @@ let vozNota=null;
 function pararVozNota(descartar){
   const v=vozNota; if(!v) return Promise.resolve();
   if(descartar){ v.r.onresult=null; try{ v.r.abort(); }catch(_){} v.fin(); return Promise.resolve(); }
-  if(!v.parando) v.parando=new Promise(ok=>{ v.alTerminar=ok; setTimeout(v.fin,1500); try{ v.r.stop(); }catch(_){ v.fin(); } });
+  if(!v.parando) v.parando=new Promise(ok=>{ v.alTerminar=ok;
+    setTimeout(()=>{ if(!v.hecho){ try{ v.r.abort(); }catch(_){} v.fin(); } },1500); try{ v.r.stop(); }catch(_){ v.fin(); } });
   return v.parando;
 }
 // Si escribe a mano en el apartado que se está dictando, el dictado se detiene y queda lo que se ve
 function tecleoNota(id){ if(vozNota && vozNota.id===id) pararVozNota(true); }
+let vozPedida=null, guardandoNota=false;
 async function dictarApartado(id){
-  const SR=window.SpeechRecognition || window.webkitSpeechRecognition; if(!SR) return;
-  const era=vozNota && vozNota.id;
-  if(era){ await pararVozNota(); if(era===id || vozNota) return; }   // tocar otra vez el mismo 🎤 lo detiene
+  const SR=window.SpeechRecognition || window.webkitSpeechRecognition; if(!SR || guardandoNota) return;
+  const era=vozNota && vozNota.id; vozPedida=id;
+  // tocar otra vez el mismo 🎤 lo detiene; si se toca otro, empieza cuando el anterior termina (el último que se tocó)
+  if(era){ await pararVozNota(); if(era===id || vozPedida!==id || vozNota || guardandoNota) return; }
   const ta=document.getElementById(id), btn=document.getElementById("mic-"+id);
   if(!ta || !btn || !document.getElementById("modalNota").classList.contains("abierto")) return;
   const r=new SR(), base=ta.value.trim();
@@ -2173,13 +2178,18 @@ function abrirNota(){ const p=pac(pacienteSel); if(!p) return; if(p.activo===fal
   pararVozNota(true); document.getElementById("nPara").textContent="Para "+p.nombre;
   fijarPsic("nPsic", true); renderApartadosNota(); abrir("modalNota"); }
 async function guardarNota(){
-  if(vozNota){ const b=document.getElementById("nGuardar"); b.disabled=true; await pararVozNota(); b.disabled=false;   // espera lo último dictado
-    if(!document.getElementById("modalNota").classList.contains("abierto")) return; }
-  const texto=textoNota();
-  if(!document.getElementById("nTexto").value.trim()){ toast("Escribe qué se trabajó en la sesión","err"); return; }
-  const {error}=await sb.from("notas").insert({paciente_id:pacienteSel, psicologa_id:document.getElementById("nPsic").value, texto, revisada:esAdmin(), fecha:hoyISO(), hora:ahoraHM()});
-  if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
-  cerrar("modalNota"); await refrescar(); toast("Nota guardada ✓","ok"); seguirCierre(); }
+  if(guardandoNota) return;
+  const b=document.getElementById("nGuardar"), ap=document.getElementById("nApartados");
+  guardandoNota=true; b.disabled=true; b.textContent="Guardando…"; ap.inert=true;
+  try{
+    await pararVozNota();   // espera lo último dictado
+    const texto=textoNota();
+    if(!document.getElementById("nTexto").value.trim()){ toast("Escribe qué se trabajó en la sesión","err"); return; }
+    const {error}=await sb.from("notas").insert({paciente_id:pacienteSel, psicologa_id:document.getElementById("nPsic").value, texto, revisada:esAdmin(), fecha:hoyISO(), hora:ahoraHM()});
+    if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
+  } finally { guardandoNota=false; b.disabled=false; b.textContent="Guardar nota"; ap.inert=false; }
+  cerrar("modalNota"); await refrescar(); toast("Nota guardada ✓","ok"); seguirCierre();
+}
 
 function abrirEditarPago(id){
   const g=estado.pagos.find(x=>x.id===id); if(!g) return;
