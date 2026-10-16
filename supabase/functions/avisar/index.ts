@@ -49,14 +49,20 @@ export function avisosPendientes(d: Datos): Aviso[] {
 
   for (const c of citasHoy) {
     const ini = minutos(c.hora), fin = ini + (c.duracion || 60), falta = ini - ahora;
-    // A quien atiende: media hora antes de su cita
-    if (falta > 0 && falta <= ANTES)
+    // Dirección recibe también los avisos de las demás, con el nombre de quien atiende (para saber quién ocupa los consultorios)
+    const p = psic(c.psicologa_id), quien = p ? corto(p.nombre) + " · " : "", otros = direccion.filter(id => id !== c.psicologa_id);
+    // A quien atiende (y a Dirección): media hora antes de la cita
+    if (falta > 0 && falta <= ANTES) {
       avisos.push({ para: [c.psicologa_id], clave: "antes:" + c.id, title: `Cita a las ${hhmm(ini)}`, body: `${pac(c.paciente_id)} · en ${falta} min` });
-    // A la psicóloga: 10 minutos después de terminar, si le falta la nota o el cobro (hasta 3 h después)
+      avisos.push({ para: otros, clave: "antes-dir:" + c.id, title: `Cita a las ${hhmm(ini)}`, body: `${quien}${pac(c.paciente_id)} · en ${falta} min` });
+    }
+    // 10 minutos después de terminar, si falta la nota o el cobro (hasta 3 h después)
     if (ahora >= fin + 10 && ahora <= fin + 180) {
-      const n = !tiene(d.notas, c), g = !tiene(d.pagos, c);
-      if (n || g) avisos.push({ para: [c.psicologa_id], clave: "falta:" + c.id, title: "Falta registrar",
-        body: `${hhmm(ini)} ${pac(c.paciente_id)}: ${[n ? "nota" : "", g ? "cobro" : ""].filter(Boolean).join(" y ")}` });
+      const n = !tiene(d.notas, c), g = !tiene(d.pagos, c), que = [n ? "nota" : "", g ? "cobro" : ""].filter(Boolean).join(" y ");
+      if (n || g) {
+        avisos.push({ para: [c.psicologa_id], clave: "falta:" + c.id, title: "Falta registrar", body: `${hhmm(ini)} ${pac(c.paciente_id)}: ${que}` });
+        avisos.push({ para: otros, clave: "falta-dir:" + c.id, title: "Falta registrar", body: `${quien}${hhmm(ini)} ${pac(c.paciente_id)}: ${que}` });
+      }
     }
   }
   // A Dirección: inasistencias marcadas que esperan confirmación (de la última semana)

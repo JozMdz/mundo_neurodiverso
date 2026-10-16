@@ -61,8 +61,8 @@ lista por paciente con su botón (nota o cobro). Si sale así, el cierre guarda 
 en Equipo, Dirección ve qué faltó, si ya se registró después, y lo marca "✓ Revisado" para quitarlo de la lista.
 
 Avisos al teléfono (push): la función `supabase/functions/avisar/index.ts` corre cada 5 min (`sql/avisos-programar.sql`)
-y manda, cifrados y con iniciales del paciente, recordatorios de cita, nota o cobro pendientes a cada psicóloga, y a
-Dirección inasistencias, cierres y un resumen al cerrar. Cada quien los activa con 🔔 en su teléfono (`tocarAvisos`).
+y manda, cifrados y con iniciales del paciente, recordatorios de cita, nota o cobro pendientes a cada psicóloga (y a
+Dirección los de todas, con el nombre de quien atiende), y a Dirección inasistencias, cierres y un resumen al cerrar. Cada quien los activa con 🔔 en su teléfono (`tocarAvisos`).
 Las llaves y la instalación están en `supabase/functions/avisar/LEEME.md`. `node pruebas/avisos.js` prueba reglas y cifrado.
 
 Expediente: Dirección ve a los pacientes agrupados por psicóloga (`gruposPx`, cada grupo se abre y se cierra); al buscar
