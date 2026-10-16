@@ -193,6 +193,14 @@
   .px-filtros button.on b{color:#fff;}
   .px-grupo{font-size:11.5px; font-weight:800; color:var(--gris); text-transform:uppercase; letter-spacing:.5px; margin:16px 4px 7px;}
   .px-grupo:first-child{margin-top:0;}
+  .px-grupo-btn{display:flex; align-items:center; gap:10px; width:100%; min-height:52px; margin-top:8px; padding:0 14px; background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra); color:var(--tinta); text-align:left;}
+  .px-grupo-btn b{flex:1; min-width:0; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .px-grupo-btn .pt{width:10px; height:10px; margin:0;}
+  .px-grupo-btn .cuantos{font-size:13px; font-weight:800; color:var(--gris); font-variant-numeric:tabular-nums;}
+  .px-grupo-btn .flecha{font-size:22px; color:var(--gris-claro); line-height:1; transition:transform .15s;}
+  .px-grupo-btn.abierto{border-radius:var(--r) var(--r) 0 0; box-shadow:none; border-bottom-color:transparent;}
+  .px-grupo-btn.abierto .flecha{transform:rotate(90deg);}
+  .px-grupo-btn.abierto + .px-lista{border-top-left-radius:0; border-top-right-radius:0;}
   .px-lista{background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra); overflow:hidden;}
   .px-fila{display:flex; align-items:center; gap:11px; width:100%; min-height:62px; padding:10px 12px 10px 14px; background:none; border:none; border-top:1px solid var(--linea); text-align:left; color:inherit;}
   .px-fila:first-child{border-top:none;}
@@ -694,10 +702,11 @@
   <div class="cab"><h3 id="facTitulo">Marcar factura pedida</h3></div>
   <div class="cuerpo">
     <div class="campo"><label>Paciente que pidió factura</label><select id="fPaciente"></select></div>
-    <div class="campo"><label>Monto a facturar (MXN)</label><input type="number" id="fMonto" value="600" min="0" step="50"></div>
+    <div class="campo" id="campoFMonto"><label>Monto a facturar (MXN)</label><input type="number" id="fMonto" value="600" min="0" step="50" inputmode="numeric"></div>
+    <div class="hint-dias" id="fAvisoPsic">Solo es el aviso: Dirección pone el monto y la emite.</div>
   </div>
   <div class="pie"><button class="btn fantasma" onclick="cerrar('modalFactura')">Cancelar</button>
-    <button class="btn naranja" onclick="guardarFactura()">Guardar</button></div>
+    <button class="btn naranja" id="fGuardar" onclick="guardarFactura()">Guardar</button></div>
 </div></div>
 
 <div class="fondo-modal" id="modalCierre"><div class="modal">
@@ -1263,6 +1272,8 @@ function fechaCorta(iso, conDia){
   return conDia? s.charAt(0).toUpperCase()+s.slice(1) : s;
 }
 function filtrarPx(f){ estado.filtroPx=f; renderExpediente(); }
+const gruposPx=new Set(); let gruposPxListo=false;
+function toggleGrupoPx(id){ if(gruposPx.has(id)) gruposPx.delete(id); else gruposPx.add(id); renderExpediente(); }
 
 function renderExpediente(){
   const admin=esAdmin();
@@ -1308,20 +1319,37 @@ function renderExpediente(){
     }
   }
   const ultima={}; estado.notas.forEach(n=>{ if(!ultima[n.pac] || n.fecha>ultima[n.pac]) ultima[n.pac]=n.fecha; });
-  const titulo = nq? `Resultados · ${lista.length}` : f==="avisos"? (admin?"Con notas por revisar":"Con mensajes nuevos") : f==="archivados"? "Archivados" : html? "Todos" : "";
-  if(titulo) html+=`<div class="px-grupo">${titulo}</div>`;
-  html+=`<div class="px-lista">`+(lista.length? lista.map(p=>{
+  const filaPx=p=>{
       const ps=psic(p.asignada), av=p.activo!==false? (avisosPx[p.id]||0) : 0;
       const sub=[ p.edad? p.edad+" años" : null,
-                  admin&&ps? `<span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))}` : (dato(p.tutor)? esc(p.tutor) : null)
+                  admin&&ps&&!porPsic? `<span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))}` : (dato(p.tutor)? esc(p.tutor) : null)
                 ].filter(Boolean).join(" · ") || "sin datos";
       return `<button class="px-fila ${p.id===pacienteSel?"sel":""} ${p.activo===false?"archivado":""}" onclick="seleccionarPx('${p.id}')">
         <span class="avatar" style="background:${colorPac(p)}">${esc(iniciales(p.nombre))}</span>
         <span class="px-info"><b>${esc(p.nombre)}</b><span class="px-sub">${sub}</span></span>
         <span class="px-lado"><span class="px-fecha">${ultima[p.id]? fechaCorta(ultima[p.id]) : "sin notas"}</span>${av?`<span class="px-badge">${av}</span>`:""}</span>
-        <span class="px-chev">›</span></button>`;
-    }).join("")
-    : `<div class="px-vacio">${nq? `Sin coincidencias para “${esc(q)}”` : f==="avisos"? "Todo al día ✓" : `Aún no hay pacientes en tu lista${admin?'. Agrega uno con "+ Nuevo".':"."}`}</div>`)+`</div>`;
+        <span class="px-chev">›</span></button>`; };
+  // Dirección ve a los pacientes agrupados por psicóloga; cada grupo se abre y se cierra
+  const porPsic = admin && f==="activos" && !nq && lista.length>0;
+  if(porPsic){
+    if(!gruposPxListo){ gruposPxListo=true; gruposPx.add(estado.quien); }
+    const nomG=id=>id? corto((psic(id)||{nombre:"—"}).nombre) : "Sin psicóloga";
+    const ids=[...new Set(lista.map(p=>p.asignada||""))]
+      .sort((a,b)=>(b===estado.quien)-(a===estado.quien) || (a==="")-(b==="") || nomG(a).localeCompare(nomG(b),"es"));
+    html+=`<div class="px-grupo">Por psicóloga</div>`+ids.map(id=>{
+      const ps=psic(id), suyos=lista.filter(p=>(p.asignada||"")===id), abierto=gruposPx.has(id);
+      const av=suyos.reduce((n,p)=>n+(avisosPx[p.id]||0),0);
+      return `<button class="px-grupo-btn${abierto?" abierto":""}" data-grupo="${esc(id)}" aria-expanded="${abierto}" onclick="toggleGrupoPx('${esc(id)}')">
+          <span class="pt" style="background:${ps?ps.color:"#A9A3B6"}"></span><b>${esc(nomG(id))}</b>
+          <span class="cuantos">${suyos.length}</span>${av?`<span class="px-badge">${av}</span>`:""}<span class="flecha">›</span></button>`
+        + (abierto? `<div class="px-lista">${suyos.map(filaPx).join("")}</div>` : "");
+    }).join("");
+  } else {
+    const titulo = nq? `Resultados · ${lista.length}` : f==="avisos"? (admin?"Con notas por revisar":"Con mensajes nuevos") : f==="archivados"? "Archivados" : html? "Todos" : "";
+    if(titulo) html+=`<div class="px-grupo">${titulo}</div>`;
+    html+=`<div class="px-lista">`+(lista.length? lista.map(filaPx).join("")
+      : `<div class="px-vacio">${nq? `Sin coincidencias para “${esc(q)}”` : f==="avisos"? "Todo al día ✓" : `Aún no hay pacientes en tu lista${admin?'. Agrega uno con "+ Nuevo".':"."}`}</div>`)+`</div>`;
+  }
   document.getElementById("listaPx").innerHTML=html;
 
   // Expediente del paciente
@@ -1620,7 +1648,7 @@ function renderFacturas(){
     const clickable = admin && f.estado!=="entregada";
     const etiqueta = admin ? f.estado : (f.estado==="solicitada"?"en espera":f.estado);
     return `<div class="f">
-      <div><b>${esc(pac(f.pac).nombre)}</b> <span style="color:var(--gris); font-weight:600;">· ${mxn(f.monto)}</span>
+      <div><b>${esc(pac(f.pac).nombre)}</b>${admin? (f.monto>0? ` <span style="color:var(--gris); font-weight:600;">· ${mxn(f.monto)}</span>` : ` <span class="rev-chip por">monto por definir</span>`) : ""}
         <div class="fechas">${fechas}</div></div>
       <span class="pidio">${admin?"pidió: "+esc(corto(psic(f.solicitadaPor).nombre)):""}</span>
       <span class="estado-wrap">${(admin && f.estado!=="solicitada")?`<button class="undo-btn" title="Regresar estado" onclick="retrocederFactura('${f.id}')">↶</button>`:""}<span class="estado ${f.estado} ${clickable?'click':''}" ${clickable?`onclick="avanzarFactura('${f.id}')"`:""}>${etiqueta}</span>${(admin||(f.solicitadaPor===estado.quien && f.estado==="solicitada"))?`<button class="nota-mini" title="Editar" onclick="abrirEditarFactura('${f.id}')">✎</button><button class="nota-mini" title="Eliminar" onclick="eliminarFactura('${f.id}')">🗑</button>`:""}</span></div>`;
@@ -1629,6 +1657,7 @@ function renderFacturas(){
 async function avanzarFactura(id){
   if(!esAdmin()){ toast("Solo la Dirección emite facturas","err"); return; }
   const f=estado.facturas.find(x=>x.id===id); let patch=null, msg="";
+  if(f.estado==="solicitada" && !(f.monto>0)){ toast("Primero pon el monto de la factura","err"); abrirEditarFactura(id); return; }
   if(f.estado==="solicitada"){ patch={estado:"emitida", fecha_emitida:hoyISO()}; msg="Factura emitida ✓"; }
   else if(f.estado==="emitida"){ patch={estado:"entregada", fecha_entregada:hoyISO()}; msg="Factura entregada ✓"; }
   if(!patch) return;
@@ -2053,8 +2082,13 @@ function abrirFactura(){
   facturaEditId=null;
   document.getElementById("facTitulo").textContent=esAdmin()?"Nueva factura":"Avisar factura pedida";
   document.getElementById("fPaciente").innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre");
-  document.getElementById("fMonto").value=600; abrir("modalFactura");
+  document.getElementById("fMonto").value=600; camposFactura(); abrir("modalFactura");
 }
+// La psicóloga solo avisa que un paciente pidió factura; el monto lo pone Dirección
+function camposFactura(){ const a=esAdmin();
+  document.getElementById("campoFMonto").style.display=a?"":"none";
+  document.getElementById("fAvisoPsic").style.display=a?"none":"";
+  document.getElementById("fGuardar").textContent=a? "Guardar" : "Avisar"; }
 function abrirEditarFactura(id){
   const f=estado.facturas.find(x=>x.id===id); if(!f) return;
   if(!(esAdmin()||f.solicitadaPor===estado.quien)){ toast("Solo puedes editar las tuyas","err"); return; }
@@ -2063,8 +2097,8 @@ function abrirEditarFactura(id){
   document.getElementById("facTitulo").textContent="Editar factura";
   document.getElementById("fPaciente").innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre");
   document.getElementById("fPaciente").value=f.pac;
-  document.getElementById("fMonto").value=f.monto;
-  abrir("modalFactura");
+  document.getElementById("fMonto").value=f.monto||"";
+  camposFactura(); abrir("modalFactura");
 }
 async function eliminarFactura(id){
   const f=estado.facturas.find(x=>x.id===id); if(!f) return;
@@ -2076,11 +2110,12 @@ async function eliminarFactura(id){
   await refrescar(); toast("Factura eliminada ✓","ok");
 }
 async function guardarFactura(){
-  const monto=+document.getElementById("fMonto").value;
-  if(!monto||monto<=0){ toast("Escribe un monto válido","err"); return; }
+  const admin=esAdmin(), monto=admin? +document.getElementById("fMonto").value : 0;   // 0 = monto por definir
+  if(admin && (!monto||monto<=0)){ toast("Escribe un monto válido","err"); return; }
   const pacId=document.getElementById("fPaciente").value;
+  if(!pacId){ toast("Elige el paciente","err"); return; }
   if(facturaEditId){
-    const {error}=await sb.from("facturas").update({paciente_id:pacId, monto}).eq("id",facturaEditId);
+    const {error}=await sb.from("facturas").update(admin? {paciente_id:pacId, monto} : {paciente_id:pacId}).eq("id",facturaEditId);
     if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
     cerrar("modalFactura"); await refrescar(); toast("Factura actualizada ✓","ok"); return;
   }
