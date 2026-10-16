@@ -71,6 +71,7 @@
   .identidad .av{width:26px; height:26px; border-radius:7px; color:#fff; display:grid; place-items:center; font-family:"Fredoka"; font-weight:600; font-size:12px;}
   .identidad .nm{font-weight:800; font-size:13.5px;} .identidad .rl{font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; opacity:.7;}
   .icono-btn{background:var(--fondo); border:1px solid var(--linea); color:var(--gris); border-radius:999px; padding:8px 13px; font-weight:700; font-size:13px;}
+  #btnAvisos.on{background:#F3EAF8; border-color:#E2CCEE;}
   .icono-btn:hover{background:#fff; border-color:var(--linea-fuerte); color:var(--tinta);}
 
   .aviso{background:linear-gradient(90deg,#FBF3E4,#F7ECFB); border-bottom:1px solid var(--linea); font-size:12.5px; color:var(--gris); text-align:center; padding:7px 16px; font-weight:600;}
@@ -430,6 +431,7 @@
     .identidad > span:not(.av){display:none;}
     .identidad .av{width:30px; height:30px; border-radius:9px;}
     .icono-btn{min-height:38px;}
+    #btnAvisos{min-width:44px; min-height:44px; padding:0; font-size:18px;}
     main{padding:12px max(12px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));}
 
     /* Indicadores: una sola fila compacta en vez de 4 tarjetas grandes */
@@ -526,6 +528,7 @@
   <div class="der">
     <span id="reloj" class="num"></span>
     <div class="identidad" id="identidad"></div>
+    <button class="icono-btn" id="btnAvisos" style="display:none" onclick="tocarAvisos()" aria-label="Avisos">🔕</button>
     <button class="icono-btn" onclick="logout()">Salir</button>
   </div>
 </header>
@@ -820,7 +823,7 @@ async function entrar(){
   if(viewer() && viewer().admin && !MOVIL.matches) estado.vistaAgenda="semana";
   if(!viewer()){ toast("Tu usuaria no tiene perfil creado. Avisa a Dirección.","err"); await sb.auth.signOut(); estado.quien=null; mostrarLogin(); return; }
   document.getElementById("login").classList.add("oculto");
-  irA("agenda"); render(); suscribir();
+  irA("agenda"); render(); suscribir(); prepararAvisos();
 }
 async function loginEmail(){
   if(configPendiente()){ toast("Falta pegar tu Project URL y anon key arriba en el archivo.","err"); return; }
@@ -833,7 +836,51 @@ async function loginEmail(){
   await entrar();
 }
 function mostrarLogin(){ document.getElementById("login").classList.remove("oculto"); document.getElementById("loginEmail").value=""; document.getElementById("loginPass").value=""; }
-async function cerrarSesion(){ await sb.auth.signOut(); estado.quien=null; mostrarLogin(); }
+async function cerrarSesion(){ await soltarAvisos(); await sb.auth.signOut(); estado.quien=null; mostrarLogin(); }
+
+/* ---- Avisos al teléfono ----
+   La función "avisar" de Supabase los manda (citas, pendientes, inasistencias). Aquí cada quien los activa en su
+   teléfono. En iPhone solo funcionan con la app instalada en la pantalla de inicio. */
+let llaveAvisos=null;
+const esIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent);
+const appInstalada=()=>matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
+const puedeAvisar=()=>"serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+async function suscripcionAvisos(){ try{ const r=await navigator.serviceWorker.getRegistration(); return r? await r.pushManager.getSubscription() : null; }catch(_){ return null; } }
+function bytesLlave(s){ const b=atob((s+"=".repeat((4-s.length%4)%4)).replace(/-/g,"+").replace(/_/g,"/")); return Uint8Array.from(b, c=>c.charCodeAt(0)); }
+async function prepararAvisos(){
+  // La llave pública la da la misma función; si aún no está instalada en Supabase, el botón no aparece
+  try{ const r=await fetch(SUPABASE_URL+"/functions/v1/avisar", {headers:{apikey:SUPABASE_ANON_KEY, Authorization:"Bearer "+SUPABASE_ANON_KEY}});
+    llaveAvisos=(await r.json()).publica||null; }catch(_){ llaveAvisos=null; }
+  // Si este teléfono ya tenía avisos, ahora son de la cuenta que entró
+  const sub=puedeAvisar() && Notification.permission==="granted"? await suscripcionAvisos() : null;
+  if(sub && llaveAvisos) await guardarSuscripcion(sub);
+  renderBotonAvisos(!!sub);
+}
+async function guardarSuscripcion(sub){ const j=sub.toJSON();
+  return sb.rpc("guardar_suscripcion", {p_endpoint:j.endpoint, p_p256dh:j.keys.p256dh, p_auth:j.keys.auth}); }
+function renderBotonAvisos(activos){ const b=document.getElementById("btnAvisos"); if(!b) return;
+  b.style.display= llaveAvisos && (puedeAvisar() || esIOS())? "" : "none";
+  b.textContent= activos? "🔔" : "🔕"; b.classList.toggle("on", !!activos);
+  b.title= activos? "Avisos activos en este teléfono" : "Activar avisos en este teléfono"; }
+async function tocarAvisos(){
+  if(esIOS() && !appInstalada()){ toast("En iPhone primero instala la app: Compartir → Agregar a pantalla de inicio, y ábrela desde el ícono.","err"); return; }
+  if(!puedeAvisar()){ toast("Este navegador no recibe avisos. En Android usa Chrome.","err"); return; }
+  let sub=await suscripcionAvisos();
+  const reg=await navigator.serviceWorker.ready;
+  if(sub && Notification.permission==="granted"){
+    reg.showNotification("Avisos activos ✓",{body:"Así te llegarán los avisos del consultorio.", icon:"icon-192.png", tag:"prueba"}); return; }
+  const permiso=await Notification.requestPermission();
+  if(permiso!=="granted"){ toast("Sin permiso no llegan avisos. Actívalo en los ajustes del teléfono → Notificaciones.","err"); renderBotonAvisos(false); return; }
+  try{
+    sub=sub || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:bytesLlave(llaveAvisos)});
+    const {error}=await guardarSuscripcion(sub); if(error) throw error;
+    reg.showNotification("Avisos activos ✓",{body:"Así te llegarán los avisos del consultorio.", icon:"icon-192.png", tag:"prueba"});
+    toast("Avisos activados en este teléfono ✓","ok"); renderBotonAvisos(true);
+  }catch(e){ toast("No se pudieron activar los avisos: "+(e.message||e),"err"); renderBotonAvisos(false); }
+}
+// Al salir, el teléfono deja de recibir los avisos de esta cuenta
+async function soltarAvisos(){ const sub=puedeAvisar()? await suscripcionAvisos() : null;
+  if(sub){ try{ await sb.rpc("borrar_suscripcion", {p_endpoint:sub.endpoint}); }catch(_){} } }
 /* Estado de una cita: "programada" (si ya pasó, cuenta como sesión dada: pide nota y cobro), "no_asistio" o "cancelada".
    La psicóloga marca "no asistió" y queda por confirmar hasta que Dirección lo corrobora (sql/citas-estado.sql). */
 function citaEmpezo(c){ const h=hoyISO(); return c.fecha<h || (c.fecha===h && minutos(c.hora)<=minutos(ahoraHM())); }

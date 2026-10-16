@@ -19,6 +19,5 @@ Lista de cosas por hacer. Se van quitando conforme se terminan.
 - Fecha de nacimiento en vez de edad fija.
 - Facturas y la semana de la agenda pensadas para el celular.
 - Botón para respaldar los datos.
-- Recordatorios y notificaciones.
 - Editar datos de las psicólogas, reporte semanal, vista de mes.
 - Revisar el plan de respaldos de Supabase, aviso de privacidad y verificación en dos pasos.

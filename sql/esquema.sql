@@ -1,8 +1,8 @@
 -- Mundo Neurodiverso · Estructura completa de la base en Supabase (sin datos).
 --
 -- Reconstruida el 15 oct 2026 con sql/inventario.sql y sql/revisar.sql; ya incluye sql/seguridad.sql,
--- sql/ajustes.sql, sql/citas-estado.sql, sql/pago-psicologa.sql
--- y sql/cierres-detalle.sql. Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
+-- sql/ajustes.sql, sql/citas-estado.sql, sql/pago-psicologa.sql,
+-- sql/cierres-detalle.sql y sql/avisos.sql (sql/avisos-programar.sql va aparte: necesita pg_cron). Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
 -- (SQL Editor → pega todo → Run). Si cambias la base, actualiza este archivo para que siga siendo fiel.
 
 begin;
@@ -96,6 +96,19 @@ create table public.cierres (
   detalle jsonb not null default '[]'::jsonb,                        -- [{cita, pac, nota, cobro}] lo que quedó pendiente
   revisado_por uuid references public.psicologas(id),               -- Dirección que lo comprobó; null = por revisar
   revisado_en timestamptz
+);
+
+-- De sql/avisos.sql: teléfonos con avisos y avisos ya mandados (solo los usa la función "avisar")
+create table public.push_subs (
+  endpoint text primary key,
+  psicologa_id uuid not null references public.psicologas(id) on delete cascade,
+  p256dh text not null,
+  auth text not null,
+  creado_en timestamptz not null default now()
+);
+create table public.avisos_enviados (
+  clave text primary key,
+  enviado_en timestamptz not null default now()
 );
 
 -- ================= Índices =================
@@ -298,6 +311,28 @@ begin
   return new;
 end $$;
 
+-- De sql/avisos.sql: la app registra o quita el teléfono de quien tiene la sesión
+-- Solo servicios de avisos conocidos (Apple, Google, Mozilla, Microsoft)
+create function public.guardar_suscripcion(p_endpoint text, p_p256dh text, p_auth text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if not exists (select 1 from psicologas where id = auth.uid()) then
+    raise exception 'Necesitas iniciar sesión.';
+  end if;
+  if p_endpoint !~ '^https://(fcm\.googleapis\.com|web\.push\.apple\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)/'
+     or length(p_endpoint) > 1000 or length(p_p256dh) > 200 or length(p_auth) > 100 then
+    raise exception 'Este teléfono no tiene un servicio de avisos conocido.';
+  end if;
+  insert into push_subs (endpoint, psicologa_id, p256dh, auth) values (p_endpoint, auth.uid(), p_p256dh, p_auth)
+  on conflict (endpoint) do update set psicologa_id = excluded.psicologa_id, p256dh = excluded.p256dh,
+    auth = excluded.auth, creado_en = now();
+end $$;
+
+create function public.borrar_suscripcion(p_endpoint text) returns void
+language sql security definer set search_path = public, pg_temp as $$
+  delete from push_subs where endpoint = p_endpoint and psicologa_id = auth.uid();
+$$;
+
 -- ================= Triggers =================
 -- Los a0_ corren antes que los demás de su tabla (orden alfabético).
 create trigger tr_comentario_revisar after insert on public.comentarios for each row execute function marcar_nota_por_revisar();
@@ -320,6 +355,8 @@ alter table public.comentarios enable row level security;
 alter table public.pagos       enable row level security;
 alter table public.facturas    enable row level security;
 alter table public.cierres     enable row level security;
+alter table public.push_subs   enable row level security;
+alter table public.avisos_enviados enable row level security;
 
 create policy p_psico_select on public.psicologas for select to authenticated using (true);
 create policy p_psico_insert on public.psicologas for insert to authenticated with check (es_direccion());
@@ -365,6 +402,10 @@ create policy p_cie_update on public.cierres for update to authenticated using (
 revoke all on all tables in schema public from anon;
 revoke truncate, trigger, references on all tables in schema public from authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
+-- Los avisos solo los tocan la función "avisar" (service_role) y guardar_suscripcion / borrar_suscripcion
+revoke all on public.push_subs, public.avisos_enviados from anon, authenticated;
+revoke execute on function public.guardar_suscripcion(text, text, text), public.borrar_suscripcion(text) from public, anon;
+grant execute on function public.guardar_suscripcion(text, text, text), public.borrar_suscripcion(text) to authenticated;
 
 -- ================= Tiempo real =================
 alter publication supabase_realtime add table public.psicologas, public.pacientes, public.citas, public.notas,

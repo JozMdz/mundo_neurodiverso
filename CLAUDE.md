@@ -60,6 +60,11 @@ Al salir, si una psicóloga tiene sesiones de hoy sin nota o sin cobro (`pendien
 lista por paciente con su botón (nota o cobro). Si sale así, el cierre guarda el detalle (`sql/cierres-detalle.sql`);
 en Equipo, Dirección ve qué faltó, si ya se registró después, y lo marca "✓ Revisado" para quitarlo de la lista.
 
+Avisos al teléfono (push): la función `supabase/functions/avisar/index.ts` corre cada 5 min (`sql/avisos-programar.sql`)
+y manda, cifrados y con iniciales del paciente, recordatorios de cita, nota o cobro pendientes a cada psicóloga, y a
+Dirección inasistencias, cierres y un resumen al cerrar. Cada quien los activa con 🔔 en su teléfono (`tocarAvisos`).
+Las llaves y la instalación están en `supabase/functions/avisar/LEEME.md`. `node pruebas/avisos.js` prueba reglas y cifrado.
+
 Modo pruebas: abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos los días solo en ese dispositivo
 (`?pruebas=0` o el botón "Quitar" lo apaga). Los datos siguen siendo los reales.
 
@@ -79,6 +84,9 @@ Modo pruebas: abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos 
   prueba lo que una psicóloga no debe poder hacer y lo que sí. Las instrucciones están al inicio del archivo.
 - `sql/citas-estado.sql` agrega el estado de las citas y su trigger (`proteger_citas`): la psicóloga solo marca si
   asistió a sus propias citas, desde el día de la cita, y no cambia lo que Dirección ya confirmó.
+- `sql/avisos.sql`: los teléfonos con avisos (`push_subs`) no los lee nadie desde la app; solo se registran o quitan
+  con `guardar_suscripcion` / `borrar_suscripcion`, y solo servicios de avisos conocidos. La llave privada vive en los
+  Secrets de Supabase, nunca en el repositorio.
 - Cuentas: hay dos de Dirección. Una es de soporte y no atiende (`atiende = false`); la otra es la
   directora, que sí atiende. Solo Dirección agenda citas.
 - `supabase-js` está fijo en una versión exacta. Súbela a propósito y prueba antes.
