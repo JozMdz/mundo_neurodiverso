@@ -8,6 +8,16 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#16141B" media="(prefers-color-scheme: dark)">
+<script>
+// Tema: "auto" sigue al teléfono; "claro" u "oscuro" lo fija en este dispositivo (Mi cuenta → Apariencia).
+// Va aquí arriba para que la página no parpadee con el tema equivocado al abrir.
+function temaGuardado(){ try{ return localStorage.getItem("tema")||"auto"; }catch(_){ return "auto"; } }
+function aplicarTema(){ const t=temaGuardado(), osc= t==="oscuro" || (t==="auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme= osc? "oscuro" : "claro";
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m=>{ m.content= osc? "#16141B" : "#FFFFFF"; }); }
+aplicarTema();
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplicarTema); }catch(_){}
+</script>
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -32,19 +42,18 @@
     --morado-tx:#8B3D9E; --rosa-tx:#E31C79; --velo-modal:rgba(51,48,59,.42);
     color-scheme:light;
   }
-  /* Modo oscuro: sigue el ajuste del teléfono. Los colores de identidad se quedan; cambian fondos, líneas y texto */
-  @media (prefers-color-scheme: dark){
-    :root{
-      --fondo:#16141B; --tarjeta:#221F29; --linea:#332E3C; --linea-fuerte:#48414F;
-      --tinta:#EEEAF4; --gris:#ABA4B8; --gris-claro:#857E91;
-      --morado:#8F42A3; --morado-tx:#C58AD6; --rosa-tx:#FF6FAE; --velo-modal:rgba(0,0,0,.55);
-      --ok:#4FC77F; --ok-suave:#173222; --alerta:#FF8C6B; --alerta-suave:#3B231D; --amb:#E8B93F; --amb-suave:#352A10;
-      --suave:#29252F; --hover:#2B2732; --lila:#3A2B45; --lila-borde:#5E4170; --azul-suave:#16303F; --texto2:#D7D1E0;
-      --gris-suave:#2F2B36; --rosa-suave:#3F1D2E; --amb-borde:#5A4818; --raya1:#1C1921; --raya2:#232029;
-      --velo:rgba(30,27,36,.94); --velo-fondo:rgba(22,20,27,.94); --toast:#3B3644;
-      --sombra:0 2px 4px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.25); --sombra-alta:0 8px 30px rgba(0,0,0,.55);
-      color-scheme:dark;
-    }
+  /* Modo oscuro (data-theme lo pone aplicarTema según el teléfono o lo elegido en Mi cuenta).
+     Los colores de identidad se quedan; cambian fondos, líneas y texto */
+  :root[data-theme="oscuro"]{
+    --fondo:#16141B; --tarjeta:#221F29; --linea:#332E3C; --linea-fuerte:#48414F;
+    --tinta:#EEEAF4; --gris:#ABA4B8; --gris-claro:#857E91;
+    --morado:#8F42A3; --morado-tx:#C58AD6; --rosa-tx:#FF6FAE; --velo-modal:rgba(0,0,0,.55);
+    --ok:#4FC77F; --ok-suave:#173222; --alerta:#FF8C6B; --alerta-suave:#3B231D; --amb:#E8B93F; --amb-suave:#352A10;
+    --suave:#29252F; --hover:#2B2732; --lila:#3A2B45; --lila-borde:#5E4170; --azul-suave:#16303F; --texto2:#D7D1E0;
+    --gris-suave:#2F2B36; --rosa-suave:#3F1D2E; --amb-borde:#5A4818; --raya1:#1C1921; --raya2:#232029;
+    --velo:rgba(30,27,36,.94); --velo-fondo:rgba(22,20,27,.94); --toast:#3B3644;
+    --sombra:0 2px 4px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.25); --sombra-alta:0 8px 30px rgba(0,0,0,.55);
+    color-scheme:dark;
   }
   *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
   html{scroll-behavior:smooth; -webkit-text-size-adjust:100%; text-size-adjust:100%;}
@@ -87,11 +96,13 @@
   .marca-logo{height:42px; width:auto; display:block; flex:none;}
   .der{margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
   #reloj{font-size:13px; color:var(--gris); font-weight:700; font-variant-numeric:tabular-nums;}
-  .identidad{display:flex; align-items:center; gap:9px; background:var(--fondo); border:1px solid var(--linea); border-radius:999px; padding:5px 8px 5px 8px;}
+  .identidad{display:flex; align-items:center; gap:9px; background:var(--fondo); border:1px solid var(--linea); border-radius:999px; padding:5px 12px 5px 6px; color:var(--tinta); text-align:left; line-height:1.2; min-height:44px; min-width:0;}
+  .identidad .yo{min-width:0;} .identidad .nm{display:block; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .identidad .flecha{color:var(--gris); font-weight:800; font-size:16px; margin-left:-2px;}
   .identidad .av{width:26px; height:26px; border-radius:7px; color:#fff; display:grid; place-items:center; font-family:"Fredoka"; font-weight:600; font-size:12px;}
   .identidad .nm{font-weight:800; font-size:13.5px;} .identidad .rl{font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; opacity:.7;}
   .icono-btn{background:var(--fondo); border:1px solid var(--linea); color:var(--gris); border-radius:999px; padding:8px 13px; font-weight:700; font-size:13px;}
-  #btnAvisos.on{background:var(--lila); border-color:var(--lila-borde);}
+  .link-btn{display:block; margin:6px auto 0; min-height:44px; padding:0 12px; background:none; color:var(--morado-tx); font-weight:800; font-size:14px;}
   .icono-btn:hover{background:var(--tarjeta); border-color:var(--linea-fuerte); color:var(--tinta);}
 
   .aviso{background:linear-gradient(90deg,#FBF3E4,#F7ECFB); border-bottom:1px solid var(--linea); font-size:12.5px; color:var(--gris); text-align:center; padding:7px 16px; font-weight:600;}
@@ -291,6 +302,21 @@
   .nota-pie .rev-btn{margin-left:auto;}
   .acc-lista{display:flex; flex-direction:column; gap:8px;}
   .acc-btn{display:flex; align-items:center; gap:12px; width:100%; min-height:50px; padding:0 16px; border-radius:var(--r-sm); background:var(--fondo); border:1px solid var(--linea); color:var(--tinta); font-weight:800; font-size:15px; text-align:left;}
+  /* Mi cuenta */
+  .cuenta-yo{display:flex; align-items:center; gap:12px;}
+  .cuenta-yo .av{width:48px; height:48px; border-radius:14px; color:#fff; display:grid; place-items:center; font-family:"Fredoka"; font-weight:600; font-size:19px; flex:none;}
+  .cuenta-yo h3{font-size:19px;} .cuenta-yo .rl{font-size:12.5px; font-weight:800; color:var(--gris);}
+  .ajuste{margin-bottom:18px;} .ajuste:last-child{margin-bottom:0;}
+  .ajuste h4{font-size:12.5px; font-weight:800; color:var(--gris); text-transform:uppercase; letter-spacing:.4px; margin-bottom:7px;}
+  .ajuste .nota-aj{font-size:13px; color:var(--gris); margin-top:6px;}
+  .seg-tema{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; background:var(--fondo); border:1px solid var(--linea); border-radius:var(--r-sm); padding:4px;}
+  .seg-tema button{min-height:44px; border-radius:9px; background:none; color:var(--gris); font-weight:800; font-size:14px;}
+  .seg-tema button.on{background:var(--tarjeta); color:var(--morado-tx); box-shadow:var(--sombra);}
+  .fila-aj{display:flex; align-items:center; gap:12px; min-height:52px; padding:6px 6px 6px 14px; border:1px solid var(--linea); border-radius:var(--r-sm); background:var(--fondo);}
+  .fila-aj .tx{flex:1; min-width:0; font-weight:800; font-size:15px;} .fila-aj .tx small{display:block; font-weight:700; font-size:12.5px; color:var(--gris);}
+  .fila-aj .btn{flex:none; min-height:44px;}
+  .fila-aj + .fila-aj{margin-top:8px;}
+  .btn.salir{background:var(--alerta-suave); color:var(--alerta); box-shadow:none;}
   .acc-btn.peligro{background:var(--alerta-suave); border-color:transparent; color:var(--alerta);}
   .acc-btn.hecho{color:var(--ok);}
   .nota-lab{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;}
@@ -490,11 +516,11 @@
     .marca .nombre{font-size:17px; white-space:nowrap;}
     .marca .sub, #reloj{display:none;}
     .der{gap:6px; flex-wrap:nowrap;}
-    .identidad{padding:4px;}
-    .identidad > span:not(.av){display:none;}
-    .identidad .av{width:30px; height:30px; border-radius:9px;}
+    .identidad{padding:4px 10px 4px 4px; gap:7px;}
+    .identidad .rl{display:none;}
+    .identidad .nm{max-width:96px; font-size:13px;}
+    .identidad .av{width:32px; height:32px; border-radius:9px;}
     .icono-btn{min-height:38px;}
-    #btnAvisos{min-width:44px; min-height:44px; padding:0; font-size:18px;}
     main{padding:12px max(12px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));}
 
     /* Indicadores: una sola fila compacta en vez de 4 tarjetas grandes */
@@ -564,14 +590,12 @@
   @keyframes sube{from{transform:translateY(40px); opacity:.5;} to{transform:none; opacity:1;}}
   @media(prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important;}}
   /* Modo oscuro: ajustes que deben ir después de los estilos normales */
-  @media (prefers-color-scheme: dark){
-    .login{background:radial-gradient(1200px 600px at 20% -10%, #2E1E36 0%, transparent 55%),
+  :root[data-theme="oscuro"] .login{background:radial-gradient(1200px 600px at 20% -10%, #2E1E36 0%, transparent 55%),
                       radial-gradient(1000px 500px at 100% 0%, #172A38 0%, transparent 50%), linear-gradient(160deg,#18151D,#1D1824);}
-    .aviso{background:var(--suave);}
-    .marca-logo, .login-logo{background:#fff; border-radius:6px; padding:3px 6px; box-sizing:content-box;}
-    .toast.ok, .toast.err{color:#16141B;}
-    .cal .ev{box-shadow:0 2px 7px rgba(0,0,0,.35);}
-  }
+  :root[data-theme="oscuro"] .aviso{background:var(--suave);}
+  :root[data-theme="oscuro"] .marca-logo, :root[data-theme="oscuro"] .login-logo{background:#fff; border-radius:6px; padding:3px 6px; box-sizing:content-box;}
+  :root[data-theme="oscuro"] .toast.ok, :root[data-theme="oscuro"] .toast.err{color:#16141B;}
+  :root[data-theme="oscuro"] .cal .ev{box-shadow:0 2px 7px rgba(0,0,0,.35);}
 </style>
 </head>
 <body>
@@ -584,6 +608,7 @@
     <div class="campo"><label>Correo</label><input id="loginEmail" type="email" placeholder="tucorreo@mundoneurodiverso.mx"></div>
     <div class="campo"><label>Contraseña</label><input id="loginPass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')loginEmail()"></div>
     <button class="btn login-btn" onclick="loginEmail()">Iniciar sesión</button>
+    <button class="link-btn" onclick="olvideClave()">¿Olvidaste tu contraseña?</button>
     <div class="login-demo">
       <span style="font-size:12.5px;color:var(--gris)">Entra con el correo y contraseña que te dio Dirección.</span>
       <div class="login-accts" id="loginAccts"></div>
@@ -599,9 +624,7 @@
   </div>
   <div class="der">
     <span id="reloj" class="num"></span>
-    <div class="identidad" id="identidad"></div>
-    <button class="icono-btn" id="btnAvisos" style="display:none" onclick="tocarAvisos()" aria-label="Avisos">🔕</button>
-    <button class="icono-btn" onclick="logout()">Salir</button>
+    <button class="identidad" id="identidad" onclick="abrirCuenta()" aria-label="Mi cuenta y ajustes"></button>
   </div>
 </header>
 
@@ -799,6 +822,23 @@
   <div class="pie"><button class="btn fantasma" id="accCerrar" onclick="cerrar('modalAcciones')">Cancelar</button></div>
 </div></div>
 
+<div class="fondo-modal" id="modalCuenta"><div class="modal">
+  <div class="cab"><div class="cuenta-yo" id="cuentaYo"></div></div>
+  <div class="cuerpo" id="cuentaCuerpo"></div>
+  <div class="pie"><button class="btn fantasma" onclick="cerrar('modalCuenta')">Cerrar</button>
+    <button class="btn salir" id="cuentaSalir" onclick="cerrar('modalCuenta'); logout()">Salir</button></div>
+</div></div>
+
+<div class="fondo-modal" id="modalClave"><div class="modal">
+  <div class="cab"><h3 id="claveTitulo">Cambiar contraseña</h3><div class="cab-sub">Mínimo 8 caracteres</div></div>
+  <div class="cuerpo">
+    <div class="campo"><label for="clave1">Nueva contraseña</label><input id="clave1" type="password" autocomplete="new-password"></div>
+    <div class="campo"><label for="clave2">Escríbela otra vez</label><input id="clave2" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')guardarClave()"></div>
+  </div>
+  <div class="pie"><button class="btn fantasma" onclick="cerrar('modalClave')">Cancelar</button>
+    <button class="btn" id="claveGuardar" onclick="guardarClave()">Guardar</button></div>
+</div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -892,7 +932,7 @@ async function entrar(){
   if(configPendiente()){ mostrarLogin(); return; }
   const { data:{ user } } = await sb.auth.getUser();
   if(!user){ mostrarLogin(); return; }
-  estado.quien=user.id;
+  estado.quien=user.id; correoYo=user.email||"";
   await cargarTodo();
   // Dirección empieza en la semana en computadora; en el celular todas empiezan en el día
   if(viewer() && viewer().admin && !MOVIL.matches) estado.vistaAgenda="semana";
@@ -912,6 +952,59 @@ async function loginEmail(){
 }
 function mostrarLogin(){ document.getElementById("login").classList.remove("oculto"); document.getElementById("loginEmail").value=""; document.getElementById("loginPass").value=""; }
 async function cerrarSesion(){ await soltarAvisos(); await sb.auth.signOut(); estado.quien=null; mostrarLogin(); }
+
+/* ---- Mi cuenta: apariencia, avisos, contraseña y ajustes de este teléfono ---- */
+let correoYo="";
+function abrirCuenta(){ renderCuenta(); abrir("modalCuenta"); }
+function renderCuenta(){ const v=viewer(); if(!v) return;
+  document.getElementById("cuentaYo").innerHTML=`<span class="av" style="background:${v.color}">${esc(iniciales(v.nombre))}</span>
+    <div style="min-width:0"><h3>${esc(v.nombre)}</h3><div class="rl">${esAdmin()?"Dirección":"Psicóloga"}${correoYo? " · "+esc(correoYo) : ""}</div></div>`;
+  const t=temaGuardado(), tb=(k,txt)=>`<button type="button" class="${t===k?"on":""}" onclick="elegirTema('${k}')">${txt}</button>`;
+  let av;
+  if(!llaveAvisos) av=`<div class="fila-aj"><div class="tx">🔕 No disponibles<small>Los avisos aún no están instalados en el sistema.</small></div></div>`;
+  else if(esIOS() && !appInstalada()) av=`<div class="fila-aj"><div class="tx">🔕 Instala la app primero<small>En Safari: Compartir → Agregar a pantalla de inicio, y ábrela desde el ícono.</small></div></div>`;
+  else if(!puedeAvisar()) av=`<div class="fila-aj"><div class="tx">🔕 No disponibles aquí<small>Este navegador no recibe avisos. En Android usa Chrome.</small></div></div>`;
+  else if(avisosActivos) av=`<div class="fila-aj"><div class="tx">🔔 Activos<small>Citas 30 min antes y pendientes del día</small></div>
+      <button class="btn fantasma" onclick="tocarAvisos()">Probar</button><button class="btn fantasma" onclick="apagarAvisos()">Apagar</button></div>`;
+  else av=`<div class="fila-aj"><div class="tx">🔕 Apagados<small>Actívalos para recibir tus citas y pendientes</small></div>
+      <button class="btn" onclick="tocarAvisos()">Activar</button></div>`;
+  document.getElementById("cuentaCuerpo").innerHTML=`
+    <div class="ajuste"><h4>Apariencia</h4><div class="seg-tema">${tb("auto","Automático")}${tb("claro","Claro")}${tb("oscuro","Oscuro")}</div>
+      <div class="nota-aj">Automático sigue el modo de tu teléfono.</div></div>
+    <div class="ajuste" id="cuentaAvisos"><h4>Avisos en este teléfono</h4>${av}</div>
+    <div class="ajuste"><h4>Cuenta</h4>
+      <div class="fila-aj"><div class="tx">🔑 Contraseña</div><button class="btn fantasma" onclick="abrirClave()">Cambiar</button></div></div>
+    <div class="ajuste"><h4>Este teléfono</h4>
+      <div class="fila-aj"><div class="tx">🧪 Modo pruebas<small>${MODO_PRUEBAS? "Activo: agenda de 7 a 22 h todos los días" : "Agenda de 7 a 22 h todos los días, para probar"}</small></div>
+        <button class="btn fantasma" onclick="${MODO_PRUEBAS? "quitarModoPruebas()" : "ponerModoPruebas()"}">${MODO_PRUEBAS? "Quitar" : "Activar"}</button></div>
+      <div class="fila-aj"><div class="tx">🔄 Actualizar la app<small>Carga la versión más nueva</small></div>
+        <button class="btn fantasma" onclick="location.reload()">Actualizar</button></div></div>`;
+}
+function elegirTema(t){ try{ if(t==="auto") localStorage.removeItem("tema"); else localStorage.setItem("tema", t); }catch(_){} aplicarTema(); renderCuenta(); }
+function ponerModoPruebas(){ try{ localStorage.setItem("modoPruebas","1"); }catch(_){} location.replace(location.pathname); }
+// Contraseña: la cambia la propia usuaria con su sesión; si llegó por el enlace de "Olvidé mi contraseña", pone una nueva
+let recuperandoClave=false;
+function abrirClave(recuperar){ recuperandoClave=!!recuperar;
+  document.getElementById("claveTitulo").textContent= recuperar? "Escribe tu nueva contraseña" : "Cambiar contraseña";
+  document.getElementById("clave1").value=""; document.getElementById("clave2").value="";
+  cerrar("modalCuenta"); abrir("modalClave"); }
+async function guardarClave(){ const a=document.getElementById("clave1").value, b=document.getElementById("clave2").value;
+  if(a.length<8){ toast("La contraseña debe tener al menos 8 caracteres","err"); return; }
+  if(a!==b){ toast("Las dos contraseñas no son iguales","err"); return; }
+  const g=document.getElementById("claveGuardar"); g.disabled=true;
+  const {error}=await sb.auth.updateUser({password:a}); g.disabled=false;
+  if(error){ toast(/same|different/i.test(error.message)? "Debe ser distinta a la anterior" : "No se pudo cambiar: "+error.message,"err"); return; }
+  cerrar("modalClave"); toast("Contraseña cambiada ✓","ok");
+  if(recuperandoClave){ recuperandoClave=false; if(!estado.quien) await entrar(); } }
+async function olvideClave(){
+  if(configPendiente()) return;
+  const email=document.getElementById("loginEmail").value.trim();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast("Escribe tu correo arriba y vuelve a tocar «¿Olvidaste tu contraseña?»","err"); document.getElementById("loginEmail").focus(); return; }
+  const {error}=await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin+location.pathname});
+  if(error){ toast(/rate|seconds|limit/i.test(error.message)? "Espera unos minutos antes de pedir otro enlace" : "No se pudo mandar: "+error.message,"err"); return; }
+  toast("Si ese correo está registrado, te llegó un enlace para poner una contraseña nueva","ok"); }
+// Al abrir el enlace del correo, Supabase avisa PASSWORD_RECOVERY: se pide la contraseña nueva
+sb.auth.onAuthStateChange(ev=>{ if(ev==="PASSWORD_RECOVERY") setTimeout(()=>abrirClave(true), 300); });
 
 /* ---- Avisos al teléfono ----
    La función "avisar" de Supabase los manda (citas, pendientes, inasistencias). Aquí cada quien los activa en su
@@ -933,10 +1026,9 @@ async function prepararAvisos(){
 }
 async function guardarSuscripcion(sub){ const j=sub.toJSON();
   return sb.rpc("guardar_suscripcion", {p_endpoint:j.endpoint, p_p256dh:j.keys.p256dh, p_auth:j.keys.auth}); }
-function renderBotonAvisos(activos){ const b=document.getElementById("btnAvisos"); if(!b) return;
-  b.style.display= llaveAvisos && (puedeAvisar() || esIOS())? "" : "none";
-  b.textContent= activos? "🔔" : "🔕"; b.classList.toggle("on", !!activos);
-  b.title= activos? "Avisos activos en este teléfono" : "Activar avisos en este teléfono"; }
+let avisosActivos=false;
+function renderBotonAvisos(activos){ avisosActivos=!!activos;
+  if(document.getElementById("modalCuenta").classList.contains("abierto")) renderCuenta(); }
 async function tocarAvisos(){
   if(esIOS() && !appInstalada()){ toast("En iPhone primero instala la app: Compartir → Agregar a pantalla de inicio, y ábrela desde el ícono.","err"); return; }
   if(!puedeAvisar()){ toast("Este navegador no recibe avisos. En Android usa Chrome.","err"); return; }
@@ -953,6 +1045,10 @@ async function tocarAvisos(){
     toast("Avisos activados en este teléfono ✓","ok"); renderBotonAvisos(true);
   }catch(e){ toast("No se pudieron activar los avisos: "+(e.message||e),"err"); renderBotonAvisos(false); }
 }
+// Apagar los avisos en este teléfono (se pueden volver a prender desde Mi cuenta)
+async function apagarAvisos(){ const sub=puedeAvisar()? await suscripcionAvisos() : null;
+  if(sub){ try{ await sb.rpc("borrar_suscripcion", {p_endpoint:sub.endpoint}); }catch(_){} try{ await sub.unsubscribe(); }catch(_){} }
+  toast("Avisos apagados en este teléfono","ok"); renderBotonAvisos(false); }
 // Al salir, el teléfono deja de recibir los avisos de esta cuenta
 async function soltarAvisos(){ const sub=puedeAvisar()? await suscripcionAvisos() : null;
   if(sub){ try{ await sb.rpc("borrar_suscripcion", {p_endpoint:sub.endpoint}); }catch(_){} } }
@@ -1044,7 +1140,7 @@ function render(){ renderRol(); renderResumen(); renderAgenda(); renderExpedient
 function renderRol(){
   const v=viewer();
   document.getElementById("identidad").innerHTML=`<span class="av" style="background:${v.color}">${esc(iniciales(v.nombre))}</span>
-    <span><span class="nm">${esc(corto(v.nombre))}</span><br><span class="rl">${esAdmin()?"Dirección":"Psicóloga"}</span></span>`;
+    <span class="yo"><span class="nm">${esc(MOVIL.matches? corto(v.nombre).replace(/^(Psic\.|Mtra\.|Mtro\.|Dra\.|Dr\.|Lic\.)\s*/i,"").split(" ")[0] : corto(v.nombre))}</span><span class="rl">${esAdmin()?"Dirección":"Psicóloga"}</span></span><span class="flecha">›</span>`;
   document.getElementById("tabEquipo").style.display=esAdmin()?"":"none";
   if(!esAdmin() && document.querySelector('button[data-vista="equipo"]').classList.contains("activa")) irA("agenda");
   const b=document.getElementById("rolBanner");

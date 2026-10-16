@@ -33,8 +33,9 @@ Reglas:
 Identidad visual: los colores de `:root` (morado, verde, cian, rosa, naranja, amarillo) y las
 tipografías Fredoka (títulos) y Nunito (texto).
 
-Modo oscuro: sigue al teléfono (`prefers-color-scheme`). Los colores van siempre como variables de `:root`
-(`--tarjeta`, `--suave`, `--texto2`…) y el bloque oscuro las redefine; no escribas colores claros fijos
+Modo oscuro: `aplicarTema` (arriba, en el `<head>`) pone `data-theme="oscuro"` o `"claro"` en `<html>`, según el
+teléfono (Automático) o lo elegido en Mi cuenta (se guarda en ese dispositivo). Los colores van siempre como variables de
+`:root` (`--tarjeta`, `--suave`, `--texto2`…) y `:root[data-theme="oscuro"]` las redefine; no escribas colores claros fijos
 (`#fff`, `#F6F3FB`…) en CSS ni en el HTML que arma el JS. Revisa las capturas con `OSCURO=1` en `captura.js`.
 
 ## Agenda
@@ -69,7 +70,7 @@ en Equipo, Dirección ve qué faltó, si ya se registró después, y lo marca "�
 Avisos al teléfono (push): la función `supabase/functions/avisar/index.ts` corre cada 5 min (`sql/avisos-programar.sql`)
 y manda, cifrados y con iniciales del paciente, el aviso de cada cita 30 min antes (a quien atiende y a Dirección, con
 el nombre de quien atiende), "Documenta tu día" después de la última cita de cada quien, y a Dirección inasistencias,
-cierres y un resumen al cerrar. Cada quien los activa con 🔔 en su teléfono (`tocarAvisos`).
+cierres y un resumen al cerrar. Cada quien los activa o apaga en su teléfono desde Mi cuenta (`tocarAvisos`, `apagarAvisos`).
 Las llaves y la instalación están en `supabase/functions/avisar/LEEME.md`. `node pruebas/avisos.js` prueba reglas y cifrado.
 
 Expediente: Dirección ve a los pacientes agrupados por psicóloga (`gruposPx`, cada grupo se abre y se cierra); al buscar
@@ -92,8 +93,14 @@ tarifa del paciente y lo liga a la cita (`pagos.cita_id`, uno por cita). Nada qu
 cobros (`validado`) y "no asistió" (`confirmada_por`) los valida Dirección al final del día en "Por validar"
 (`verPorConfirmar`), que también le ofrece la hoja "Antes de salir".
 
+Mi cuenta (`abrirCuenta`): al tocar el nombre arriba se abre una hoja con apariencia (Automático / Claro / Oscuro),
+avisos en este teléfono, cambiar contraseña (`sb.auth.updateUser`), modo pruebas, actualizar la app y Salir.
+"¿Olvidaste tu contraseña?" en la entrada manda un enlace al correo (`resetPasswordForEmail`, de vuelta a la misma
+página); al abrirlo, Supabase avisa `PASSWORD_RECOVERY` y se pide la contraseña nueva. Para que el enlace regrese a la app,
+la URL publicada debe estar en Supabase → Authentication → URL Configuration (Site URL y Redirect URLs).
+
 Modo pruebas: abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos los días solo en ese dispositivo
-(`?pruebas=0` o el botón "Quitar" lo apaga). Los datos siguen siendo los reales.
+(`?pruebas=0`, el botón "Quitar" o Mi cuenta lo apagan). Los datos siguen siendo los reales.
 
 ## Seguridad
 

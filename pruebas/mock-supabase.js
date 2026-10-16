@@ -92,7 +92,11 @@
     from:q,
     rpc: async (fn, args) => { (window.__RPC = window.__RPC || []).push([fn, args]); return { data: null, error: null }; },
     auth:{ getUser: async()=>({data:{user: uid? {id:uid} : null}}),
-           signInWithPassword: async()=>({error:null}), signOut: async()=>{ uid=null; return {error:null}; } },
+           signInWithPassword: async()=>({error:null}), signOut: async()=>{ uid=null; return {error:null}; },
+           getSession: async()=>({data:{session: uid? {user:{id:uid, email:uid+"@prueba.mx"}} : null}}),
+           updateUser: async(d)=>{ (window.__AUTH = window.__AUTH || []).push(['updateUser', d]); return {data:{}, error:null}; },
+           resetPasswordForEmail: async(e, o)=>{ (window.__AUTH = window.__AUTH || []).push(['reset', e, o]); return {data:{}, error:null}; },
+           onAuthStateChange: (fn)=>{ window.__authEvento = fn; return {data:{subscription:{unsubscribe(){}}}}; } },
     channel(){ const c={ on(){ return c; }, subscribe(){ return c; } }; return c; },
   };
   window.supabase={ createClient: ()=>cliente };

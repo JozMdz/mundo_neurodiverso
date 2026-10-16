@@ -461,7 +461,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     __DB.citas = __DB.citas.filter(x => !(x.psicologa_id === 's1' && x.fecha === hoyISO())); __DB.citas.push(c('fin1', 'p1'), c('fin2', 'p2'));
     __DB.notas.push({ id: 'nf1', paciente_id: 'p1', psicologa_id: 's1', texto: 'Nota hecha', revisada: false, vista_psic: true, creado_en: new Date().toISOString() });
     __DB.pagos = __DB.pagos.filter(g => !(g.psicologa_id === 's1' && (g.paciente_id === 'p1' || g.paciente_id === 'p2'))); await refrescar(); });
-  await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
+  await page.click('#identidad'); await page.waitForTimeout(150); await page.click('#cuentaSalir'); await page.waitForTimeout(250);
   const filasCierre = await page.$$eval('#cierreLista .conf-fila', f => f.map(x => x.innerText.replace(/\s+/g, ' ')));
   ok(filasCierre.length === 2 && filasCierre.some(x => x.includes('Mateo') && x.includes('falta asistencia y cobro') && !x.includes('Nota') && x.includes('No vino')) && filasCierre.some(x => x.includes('Valentina') && x.includes('falta asistencia, cobro y nota')),
     'al salir dice qué paciente quedó sin nota o sin cobro');
@@ -473,7 +473,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.tap('#pGuardar'); await page.waitForTimeout(400);
   ok(!(await visible(page, '#modalCierre.abierto')) && (await page.textContent('#toast')).includes('Todo documentado'), 'con todo documentado avisa que ya puede salir');
   await page.evaluate(async () => { __DB.pagos = __DB.pagos.filter(g => g.cita_id !== 'fin1'); __DB.citas.find(c => c.id === 'fin2').estado = 'programada'; await refrescar(); });
-  await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
+  await page.click('#identidad'); await page.waitForTimeout(150); await page.click('#cuentaSalir'); await page.waitForTimeout(250);
   await page.click('#modalCierre .pie .fantasma'); await page.waitForTimeout(400);
   ok(await page.evaluate(() => { const x = __DB.cierres.at(-1); return x && x.notas_pendientes === 1 && x.cobros_pendientes === 2 && x.detalle.length === 2 && x.detalle.some(d => d.pac === 'p1' && !d.nota && d.cobro); }),
     'el cierre guarda qué pacientes quedaron pendientes');
@@ -491,7 +491,8 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
 
   console.log('Avisos al teléfono');
   page = await abrir(browser, 's1');
-  ok(!(await visible(page, '#btnAvisos')), 'si la función "avisar" no está en Supabase, no aparece el botón de avisos');
+  await page.tap('#identidad'); await page.waitForTimeout(200);
+  ok((await page.textContent('#cuentaAvisos')).includes('No disponibles'), 'si la función "avisar" no está en Supabase, Mi cuenta dice que los avisos no están disponibles');
   for (const [disp, nombre] of [[devices['iPhone 11'], 'iPhone'], [devices['Pixel 5'], 'Android']]) {
     const ctx = await browser.newContext({ ...disp, locale: 'es-MX', timezoneId: 'America/Mexico_City' });
     const p = await ctx.newPage(); p.errores = []; p.on('pageerror', e => p.errores.push(String(e)));
@@ -501,16 +502,49 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
       if (u.includes('supabase.co')) return r.abort();
       return r.continue(); });
     await p.goto('file://' + FILE + '?como=s1'); await p.waitForTimeout(800);
-    ok(await visible(p, '#btnAvisos') && (await p.textContent('#btnAvisos')) === '🔕', `${nombre}: con la función instalada aparece 🔕 para activar avisos`);
-    ok(await p.$eval('#btnAvisos', b => b.getBoundingClientRect().height >= 44 && b.getBoundingClientRect().width >= 44) && await p.evaluate(() => document.documentElement.scrollWidth) <= disp.viewport.width,
-      `${nombre}: el botón mide 44 px y el encabezado no se desborda`);
-    if (nombre === 'iPhone') {
-      await p.tap('#btnAvisos'); await p.waitForTimeout(200);
-      ok((await p.textContent('#toast')).includes('Agregar a pantalla de inicio'), 'iPhone sin instalar: explica que primero hay que instalar la app');
-    }
+    ok(await p.$eval('#identidad', b => b.getBoundingClientRect().height >= 44) && await p.evaluate(() => document.documentElement.scrollWidth) <= disp.viewport.width
+      && (await p.textContent('#identidad')).includes('Fernanda'), `${nombre}: el nombre en el encabezado es un botón de 44 px y no se desborda`);
+    await p.tap('#identidad'); await p.waitForTimeout(200);
+    const avTxt = await p.textContent('#cuentaAvisos');
+    if (nombre === 'iPhone') ok(avTxt.includes('Agregar a pantalla de inicio'), 'iPhone sin instalar: Mi cuenta explica que primero hay que instalar la app');
+    else ok(avTxt.includes('Apagados') && !!(await p.$('#cuentaAvisos .btn >> text="Activar"')), 'Android: Mi cuenta ofrece activar los avisos');
+    ok(await p.evaluate(() => document.documentElement.scrollWidth) <= disp.viewport.width, `${nombre}: Mi cuenta no se desborda`);
     ok(p.errores.length === 0, `${nombre}: sin errores en consola ` + (p.errores.join(' | ') || ''));
     await ctx.close();
   }
+
+  console.log('Mi cuenta');
+  page = await abrir(browser, 'd1');
+  await page.tap('#identidad'); await page.waitForTimeout(200);
+  ok(await visible(page, '#modalCuenta.abierto') && (await page.textContent('#cuentaYo')).includes('Laura'), 'tocar el nombre abre Mi cuenta');
+  await page.tap('.seg-tema button >> text="Oscuro"'); await page.waitForTimeout(100);
+  const fondoOsc = await page.evaluate(() => [document.documentElement.dataset.theme, getComputedStyle(document.body).backgroundColor, localStorage.getItem('tema')]);
+  ok(fondoOsc[0] === 'oscuro' && fondoOsc[1] === 'rgb(22, 20, 27)' && fondoOsc[2] === 'oscuro', 'elegir Oscuro cambia la app y se recuerda en el teléfono');
+  await page.reload(); await page.waitForTimeout(700);
+  ok(await page.evaluate(() => document.documentElement.dataset.theme) === 'oscuro', 'al volver a abrir sigue oscuro');
+  await page.tap('#identidad'); await page.waitForTimeout(150); await page.tap('.seg-tema button >> text="Automático"'); await page.waitForTimeout(100);
+  ok(await page.evaluate(() => document.documentElement.dataset.theme === 'claro' && localStorage.getItem('tema') === null), 'Automático sigue al teléfono (aquí, claro)');
+  await page.tap('.fila-aj .btn >> text="Cambiar"'); await page.waitForTimeout(200);
+  await page.fill('#clave1', 'corta'); await page.fill('#clave2', 'corta'); await page.tap('#claveGuardar'); await page.waitForTimeout(150);
+  ok((await page.textContent('#toast')).includes('8 caracteres'), 'la contraseña nueva pide al menos 8 caracteres');
+  await page.fill('#clave1', 'NuevaClave2026'); await page.fill('#clave2', 'NuevaClave2025'); await page.tap('#claveGuardar'); await page.waitForTimeout(150);
+  ok((await page.textContent('#toast')).includes('no son iguales'), 'y que se escriba igual dos veces');
+  await page.fill('#clave2', 'NuevaClave2026'); await page.tap('#claveGuardar'); await page.waitForTimeout(250);
+  ok(await page.evaluate(() => JSON.stringify(window.__AUTH)) === JSON.stringify([['updateUser', { password: 'NuevaClave2026' }]]) && !(await visible(page, '#modalClave.abierto')),
+    'cambia la contraseña de su propia cuenta');
+  ok(await ancho(page) <= 414, 'sin scroll horizontal');
+  await page.evaluate(() => window.__authEvento('PASSWORD_RECOVERY', {})); await page.waitForTimeout(450);
+  ok(await visible(page, '#modalClave.abierto') && (await page.textContent('#claveTitulo')).includes('nueva'), 'al llegar por el enlace del correo pide la contraseña nueva');
+  await page.evaluate(() => cerrar('modalClave'));
+  await page.tap('#identidad'); await page.waitForTimeout(150); await page.tap('#cuentaSalir'); await page.waitForTimeout(300);
+  await page.evaluate(() => { cerrar('modalCierre'); cerrarSesion(); }); await page.waitForTimeout(300);
+  await page.tap('.link-btn'); await page.waitForTimeout(150);
+  ok((await page.textContent('#toast')).includes('Escribe tu correo'), '"¿Olvidaste tu contraseña?" pide primero el correo');
+  await page.fill('#loginEmail', 'laura@prueba.mx'); await page.tap('.link-btn'); await page.waitForTimeout(200);
+  const rs = await page.evaluate(() => window.__AUTH.at(-1));
+  ok(rs[0] === 'reset' && rs[1] === 'laura@prueba.mx' && rs[2].redirectTo.startsWith('file://') && (await page.textContent('#toast')).includes('te llegó un enlace'),
+    'y manda el enlace al correo, de vuelta a la app');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
   console.log('Al volver a la app');
   page = await abrir(browser, 's1');
@@ -532,7 +566,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.tap('#accBotones .acc-btn >> text="✅ Asistió · registrar cobro"'); await page.waitForTimeout(250);
   await page.tap('#pGuardar'); await page.waitForTimeout(300);
   ok(await page.evaluate(() => { const g = __DB.pagos.find(x => x.cita_id === 'mia1'); return g && g.validado === false && g.psicologa_id === 'd1'; }), 'el cobro de la directora también queda por validar');
-  await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
+  await page.click('#identidad'); await page.waitForTimeout(150); await page.click('#cuentaSalir'); await page.waitForTimeout(250);
   const cierreDir = (await page.textContent('#modalCierre')).replace(/\s+/g, ' ');
   ok(await visible(page, '#modalCierre.abierto') && /falta asistencia, cobro y nota/.test(cierreDir) && cierreDir.includes('Validar el día · 2 por validar'),
     'al salir, a la directora le pide su sesión pendiente y validar el día');
