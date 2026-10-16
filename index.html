@@ -672,12 +672,12 @@
     </div>
     <div class="campo"><label>Tutor / contacto</label><input type="text" id="paTutor" placeholder="mamá: …"></div>
     <div class="campo"><label>Motivo de consulta</label><textarea id="paMotivo" placeholder="Motivo por el que acude…"></textarea></div>
-    <div class="fila2">
+    <div class="campo" id="paAsignadaCampo"><label>Psicóloga asignada</label><select id="paAsignada" onchange="camposPaciente()"></select></div>
+    <div class="fila2" id="paDinero">
       <div class="campo"><label>Se le cobra por sesión</label><input type="number" id="paTarifa" min="0" step="50" value="600" inputmode="numeric"></div>
-      <div class="campo"><label>Le toca a la psicóloga</label><input type="number" id="paPagoPsic" min="0" step="10" placeholder="la mitad" inputmode="numeric"></div>
+      <div class="campo" id="paPagoCampo"><label>Le toca a la psicóloga</label><input type="number" id="paPagoPsic" min="0" step="10" placeholder="la mitad" inputmode="numeric"></div>
     </div>
-    <div style="font-size:12.5px; color:var(--gris); font-weight:600; margin-top:-4px;">Lo que le toca a la psicóloga por cada sesión con este paciente. Si lo dejas vacío, se calcula la mitad de lo que se cobra.</div>
-    <div class="campo" id="paAsignadaCampo"><label>Psicóloga asignada</label><select id="paAsignada"></select></div>
+    <div id="paPagoHint" style="font-size:12.5px; color:var(--gris); font-weight:600; margin-top:-4px;">Lo que le toca a la psicóloga por cada sesión con este paciente. Si lo dejas vacío, se calcula la mitad de lo que se cobra.</div>
   </div>
   <div class="pie"><button class="btn fantasma" onclick="cerrar('modalPaciente')">Cancelar</button>
     <button class="btn" id="paGuardar" onclick="guardarPaciente()">Guardar paciente</button></div>
@@ -2057,9 +2057,10 @@ function abrirPaciente(){
   document.getElementById("paNombre").value=""; document.getElementById("paEdad").value=6;
   document.getElementById("paTel").value=""; document.getElementById("paTutor").value=""; document.getElementById("paMotivo").value=""; document.getElementById("paTarifa").value=600; document.getElementById("paPagoPsic").value="";
   const campo=document.getElementById("paAsignadaCampo");
-  if(esAdmin()){ campo.style.display=""; document.getElementById("paAsignada").innerHTML=opciones(atienden(),"id","nombre"); }
+  if(esAdmin()){ campo.style.display=""; document.getElementById("paAsignada").innerHTML=opciones(atienden(),"id","nombre");
+    document.getElementById("paAsignada").value=psicPorDefecto(); }
   else campo.style.display="none";
-  abrir("modalPaciente");
+  camposPaciente(); abrir("modalPaciente");
 }
 function abrirEditarPaciente(id){
   if(!esAdmin()) return;
@@ -2077,8 +2078,15 @@ function abrirEditarPaciente(id){
   const campo=document.getElementById("paAsignadaCampo"); campo.style.display="";
   document.getElementById("paAsignada").innerHTML=opciones(atienden(),"id","nombre");
   if(p.asignada) document.getElementById("paAsignada").value=p.asignada;
-  abrir("modalPaciente");
+  camposPaciente(); abrir("modalPaciente");
 }
+// Si el paciente es de Dirección (la directora), todo lo cobrado es para ella: no hay "le toca a la psicóloga"
+function pacienteDeDireccion(){ const s=document.getElementById("paAsignada"); return !!(esAdmin() && s.value && (psic(s.value)||{}).admin); }
+function camposPaciente(){ const dir=pacienteDeDireccion();
+  document.getElementById("paPagoCampo").style.display=dir?"none":"";
+  document.getElementById("paPagoHint").textContent= dir? "Paciente de Dirección: todo lo que se cobra es para ella, no hay reparto."
+    : "Lo que le toca a la psicóloga por cada sesión con este paciente. Si lo dejas vacío, se calcula la mitad de lo que se cobra.";
+  document.getElementById("paDinero").style.gridTemplateColumns= dir? "minmax(0,1fr)" : ""; }
 async function guardarPaciente(){
   const nombre=document.getElementById("paNombre").value.trim();
   if(!nombre){ toast("Escribe el nombre del paciente","err"); return; }
@@ -2086,7 +2094,7 @@ async function guardarPaciente(){
     telefono:document.getElementById("paTel").value.trim()||null, tutor:document.getElementById("paTutor").value.trim()||null,
     motivo:document.getElementById("paMotivo").value.trim()||null, tarifa:+document.getElementById("paTarifa").value||0 };
   const pp=document.getElementById("paPagoPsic").value.trim();
-  if(esAdmin()) datos.pago_psicologa= pp===""? null : Math.max(0,+pp);
+  if(esAdmin()) datos.pago_psicologa= pp==="" || pacienteDeDireccion()? null : Math.max(0,+pp);
   if(esAdmin()) datos.asignada_a=document.getElementById("paAsignada").value;
   if(pacienteEditId){
     const {error}=await sb.from("pacientes").update(datos).eq("id",pacienteEditId);
