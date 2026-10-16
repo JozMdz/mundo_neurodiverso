@@ -34,8 +34,9 @@ function descifrar(cuerpo, telPriv, telPub, auth) {
     notas: [], pagos: [], cierres: [], ...extra });
   const claves = d => f.avisosPendientes(d).map(a => a.clave);
   ok(claves(base(en('10:00'))).length === 0, 'fuera del horario no avisa nada');
-  let a = f.avisosPendientes(base(en('14:50')));
-  ok(a.length === 1 && a[0].clave === 'antes:c1' && a[0].para.join() === 'w' && a[0].body === 'H. R. · en 10 min', `10 min antes avisa a la psicóloga: «${a[0] && a[0].title} · ${a[0] && a[0].body}»`);
+  ok(claves(base(en('14:25'))).length === 0, 'más de 30 min antes todavía no avisa');
+  let a = f.avisosPendientes(base(en('14:30')));
+  ok(a.length === 1 && a[0].clave === 'antes:c1' && a[0].para.join() === 'w' && a[0].body === 'H. R. · en 30 min', `30 min antes avisa a la psicóloga: «${a[0] && a[0].title} · ${a[0] && a[0].body}»`);
   ok(!JSON.stringify(a).includes('Haniel'), 'el aviso lleva iniciales, no el nombre del paciente');
   a = f.avisosPendientes(base(en('14:50'), { citas: [{ id: 'cd', fecha: '2026-10-15', hora: '15:00:00', duracion: 60, psicologa_id: 'dir', paciente_id: 'p2', estado: 'programada', confirmada_por: null }] }));
   ok(a.length === 1 && a[0].clave === 'antes:cd' && a[0].para.join() === 'dir', 'la directora también recibe el aviso antes de sus pacientes (y solo ella)');
