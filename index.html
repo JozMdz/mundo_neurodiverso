@@ -129,6 +129,9 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
 
   section.vista{display:none; animation:surge .3s ease both;}
   section.vista.activa{display:block;}
+  section.vista.desde-der{animation:desdeDer .25s ease both;} section.vista.desde-izq{animation:desdeIzq .25s ease both;}
+  @keyframes desdeDer{from{transform:translateX(28px); opacity:.4;} to{transform:none; opacity:1;}}
+  @keyframes desdeIzq{from{transform:translateX(-28px); opacity:.4;} to{transform:none; opacity:1;}}
   @keyframes surge{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
   .cabecera-vista{display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;}
   .cabecera-vista h2{font-size:21px;} .cabecera-vista .sep{flex:1;}
@@ -1134,6 +1137,33 @@ function tocarPestana(v){
   if(document.body.dataset.vista!==v){ irA(v); return; }
   if(v==="expediente" && pxDetalle) volverPx(); else if(MOVIL.matches) saltarA(0);
 }
+
+/* Deslizar a los lados para cambiar de pestaña (solo celular). No se activa desde la orilla (ahí está el gesto de
+   regresar del teléfono), con una hoja abierta, al escribir, dentro de algo que se desplaza de lado ni en el detalle
+   de un paciente (ahí deslizar es para regresar). */
+let toqueIni=null;
+function seDesplazaDeLado(el){
+  for(; el && el!==document.body; el=el.parentElement){ const o=getComputedStyle(el).overflowX;
+    if((o==="auto" || o==="scroll") && el.scrollWidth>el.clientWidth+2) return true; }
+  return false; }
+document.addEventListener("touchstart", e=>{ toqueIni=null;
+  if(!MOVIL.matches || !estado.quien || e.touches.length!==1) return;
+  const t=e.touches[0], orilla=28;
+  if(t.clientX<orilla || t.clientX>innerWidth-orilla) return;
+  if(document.querySelector(".fondo-modal.abierto") || (document.body.dataset.vista==="expediente" && pxDetalle)) return;
+  if(e.target.closest("input, textarea, select, [contenteditable]") || seDesplazaDeLado(e.target)) return;
+  toqueIni={x:t.clientX, y:t.clientY, t:Date.now(), sy:window.scrollY}; }, {passive:true});
+document.addEventListener("touchend", e=>{ const a=toqueIni; toqueIni=null; if(!a) return;
+  const t=e.changedTouches[0], dx=t.clientX-a.x, dy=t.clientY-a.y;
+  if(Math.abs(dx)<70 || Math.abs(dx)<Math.abs(dy)*2 || Date.now()-a.t>700 || Math.abs(window.scrollY-a.sy)>20) return;
+  if(String(getSelection&&getSelection())) return;
+  const tabs=[...document.querySelectorAll("nav.tabs button")].filter(b=>b.offsetParent!==null).map(b=>b.dataset.vista);
+  const i=tabs.indexOf(document.body.dataset.vista), j=i+(dx<0? 1 : -1);
+  if(i<0 || j<0 || j>=tabs.length) return;
+  irA(tabs[j]); const sec=document.getElementById("v-"+tabs[j]);
+  sec.classList.remove("desde-der","desde-izq"); void sec.offsetWidth; sec.classList.add(dx<0? "desde-der" : "desde-izq");
+}, {passive:true});
+document.addEventListener("touchcancel", ()=>{ toqueIni=null; }, {passive:true});
 
 function render(){ renderRol(); renderResumen(); renderAgenda(); renderExpediente(); renderFiltroCobros(); renderCobros(); renderFacturas(); renderEquipo(); updateBadges(); }
 

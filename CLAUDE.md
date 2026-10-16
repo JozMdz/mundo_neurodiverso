@@ -20,7 +20,8 @@ Reglas:
    contenedor con `overflow-x:auto` (`.tabla-scroll`). En grids usa `minmax(0,1fr)` y en hijos flex `min-width:0`.
 4. Debe verse bien también en Android (revisa con `DISPOSITIVO='Pixel 5'` en `captura.js`). Áreas táctiles de **44 px** o más. Nada puede depender de `:hover`.
 5. Campos de texto con letra de **16 px** o más: con menos, Safari hace zoom al escribir.
-6. La navegación son las pestañas fijas abajo (`nav.tabs`). Las ventanas (`.fondo-modal`) suben desde
+6. La navegación son las pestañas fijas abajo (`nav.tabs`); en el celular también se cambia de pestaña deslizando a los
+   lados (no desde la orilla, ni con una hoja abierta, ni dentro de algo que se desplaza de lado, ni en el detalle de un paciente). Las ventanas (`.fondo-modal`) suben desde
    abajo como hojas de iOS.
 7. Lista → detalle: en el celular el detalle se abre a pantalla completa, con "‹ Regresar" arriba y un
    paso en el historial para que funcione el gesto de regresar del iPhone. El modelo es Expediente
