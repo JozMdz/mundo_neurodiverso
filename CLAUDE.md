@@ -38,7 +38,8 @@ tipografías Fredoka (títulos) y Nunito (texto).
 El horario de consulta está en la constante `HORARIO` de `index.html` (por día de la semana, 0 = domingo):
 lunes a viernes de 14 a 21 h y sábado de 8 a 18 h. La agenda muestra solo esas horas; si una cita cae
 fuera, se amplía para mostrarla. En la semana, las horas sin consulta de cada día se ven rayadas. En el
-celular la agenda empieza en la vista de día; en computadora, Dirección empieza en la semana.
+celular la agenda empieza en la vista de día; en computadora, Dirección empieza en la semana. En el celular la semana
+es una lista por día (`renderSemanaLista`): al tocar un día se abre su vista de día; la cuadrícula queda para computadora.
 
 Agendar por voz (solo Dirección, botón 🎤): `dictarCita()` escucha en es-MX y `entenderCita()` interpreta
 paciente, psicóloga ("con Andrea"), día, hora, duración y repetición ("todos los martes y jueves… por un

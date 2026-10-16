@@ -178,6 +178,27 @@
   .cal .sem-col .ev{padding:3px 5px;}
   .cal .sem-col .ev .p{font-size:11px;}
   .cal .sem-col .ev .r{font-size:10px;}
+  /* Semana en el celular: una lista por día */
+  .sem-lista{display:flex; flex-direction:column; gap:10px;}
+  .sem-dia{background:var(--tarjeta); border:1px solid var(--linea); border-radius:var(--r); box-shadow:var(--sombra); overflow:hidden;}
+  .sem-dia.hoy{border-color:#D9C2E6;}
+  .sem-dia-cab{display:flex; align-items:stretch;}
+  .sem-dia-ir{flex:1; min-width:0; display:flex; align-items:center; gap:10px; min-height:52px; padding:0 14px; background:none; border:none; text-align:left; color:var(--tinta);}
+  .sem-dia-ir b{font-family:"Fredoka"; font-size:17px; font-weight:600;}
+  .sem-dia.hoy .sem-dia-ir b{color:var(--morado);}
+  .sem-dia-ir span{font-size:13px; font-weight:700; color:var(--gris);}
+  .sem-dia-ir .flecha{margin-left:auto; font-size:22px; color:var(--gris-claro);}
+  .sem-dia-mas{flex:none; width:52px; background:none; border:none; border-left:1px solid var(--linea); color:var(--morado); font-size:22px; font-weight:800;}
+  .sem-filas{border-top:1px solid var(--linea);}
+  .sem-fila{display:flex; align-items:center; gap:10px; width:100%; min-height:56px; padding:8px 14px; background:none; border:none; border-top:1px solid var(--linea); text-align:left; color:var(--tinta);}
+  .sem-fila:first-child{border-top:none;}
+  .sem-fila .h{flex:none; width:44px; font-family:"Fredoka"; font-weight:600; font-size:15px; color:var(--morado); font-variant-numeric:tabular-nums;}
+  .sem-fila .barra{flex:none; width:5px; align-self:stretch; border-radius:3px;}
+  .sem-fila .info{flex:1; min-width:0;}
+  .sem-fila .info b{display:block; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .sem-fila .info span{display:block; font-size:12.5px; color:var(--gris); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .sem-fila.cancelada{opacity:.5;} .sem-fila.cancelada b{text-decoration:line-through;}
+  .sem-fila.no-asistio .info span{color:var(--amb);}
   /* ---------- Expediente: lista de pacientes → ficha y notas ---------- */
   .split{display:grid; grid-template-columns:300px minmax(0,1fr); gap:16px; align-items:start;}
   .px-col-lista,.px-col-detalle{min-width:0;}
@@ -1073,12 +1094,15 @@ function renderAgenda(){
   const _puedeAgendar=esAdmin();
   const _btnAg=document.getElementById("btnAgendar"); if(_btnAg) _btnAg.style.display=_puedeAgendar?"":"none";
   const _btnVoz=document.getElementById("btnVoz"); if(_btnVoz) _btnVoz.style.display=(_puedeAgendar && vozSoportada())?"":"none";
-  document.getElementById("semCab").style.display = semanal? "flex" : "none";
+  // En el celular la semana es una lista por día; la cuadrícula queda para la computadora
+  const semLista = semanal && MOVIL.matches;
+  document.getElementById("semCab").style.display = semanal && !semLista? "flex" : "none";
   // Dirección ve arriba cuántos cobros e inasistencias esperan que los valide
   const pend=porValidarTotal();
   document.getElementById("avisoAgenda").innerHTML = pend? `<button class="aviso-pendiente" onclick="verPorConfirmar()">✓
     <span><b>${pend}</b> por validar</span><span class="ir">Validar ›</span></button>` : "";
   const dias = semanal? [0,1,2,3,4,5].map(i=>addDaysISO(lunS,i)) : [estado.fechaAgenda];
+  if(semLista){ renderSemanaLista(dias); return; }
   const R=rangoAgenda(dias);
   if(!R){ document.getElementById("agenda").innerHTML=`<div class="cal agenda-cerrado"><div class="em">🌙</div><b>${fechaLarga(estado.fechaAgenda)}</b>Sin horario de consulta.</div>`; return; }
   let lineas="";
@@ -1100,6 +1124,26 @@ function renderAgenda(){
   const huecos=fueraYHuecos(estado.fechaAgenda, R, _puedeAgendar? t=>`abrirCita('${t}')` : null, "");
   document.getElementById("agenda").innerHTML=marco(`${huecos}<div class="lane">${eventos}</div>`);
 }
+function renderSemanaLista(dias){
+  const hoyI=hoyISO(), adm=esAdmin();
+  // El domingo solo aparece si tiene citas
+  const domingo=addDaysISO(dias[0],6), lista=dias.concat(citasVisibles().some(c=>c.fecha===domingo)? [domingo] : []);
+  document.getElementById("agenda").innerHTML=`<div class="sem-lista">`+lista.map(f=>{
+    const cs=citasVisibles().filter(c=>c.fecha===f).sort((a,b)=>a.hora.localeCompare(b.hora));
+    const activas=cs.filter(c=>c.estado!=="cancelada").length, d=new Date(f+"T12:00:00");
+    const filas=cs.map(c=>{ const p=psic(c.psic)||{nombre:"—",color:"#A9A3B6"}, pa=pac(c.pac)||{nombre:"—"}, est=estadoCita(c);
+      return `<button class="sem-fila${est?" "+est.clase:""}" data-cita="${c.id}" onclick="menuCita('${c.id}')">
+        <span class="h">${c.hora}</span><span class="barra" style="background:${p.color}"></span>
+        <span class="info"><b>${esc(pa.nombre)}</b><span>${adm? esc(corto(p.nombre))+" · " : ""}${c.dur||60} min${est? " · "+est.texto : ""}</span></span></button>`; }).join("");
+    return `<div class="sem-dia${f===hoyI?" hoy":""}" data-dia="${f}">
+      <div class="sem-dia-cab"><button class="sem-dia-ir" onclick="irADia('${f}')"><b>${DSEM[d.getDay()].replace(/^./,x=>x.toUpperCase())} ${d.getDate()}</b>
+        <span>${f===hoyI?"hoy · ":""}${activas? activas+" "+(activas===1?"cita":"citas") : (horarioDe(f)? "sin citas" : "sin consulta")}</span><span class="flecha">›</span></button>
+        ${adm && horarioDe(f)? `<button class="sem-dia-mas" aria-label="Agendar el ${f}" onclick="abrirCitaEn('${f}', String(horarioDe('${f}')[0]).padStart(2,'0')+':00')">+</button>` : ""}</div>
+      ${filas? `<div class="sem-filas">${filas}</div>` : ""}</div>`;
+  }).join("")+`</div>`;
+}
+function irADia(f){ estado.fechaAgenda=f; setVistaAgenda("dia"); saltarA(0); }
+MOVIL.addEventListener("change", ()=>{ if(estado.quien) renderAgenda(); });
 function renderAgendaSemana(dias, R, marco){
   const adm=esAdmin(), hoyI=hoyISO();
   const nom=["Lun","Mar","Mié","Jue","Vie","Sáb"];
