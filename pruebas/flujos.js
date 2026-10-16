@@ -780,6 +780,12 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(!(await visible(page, '#rolBanner.ver')), '"Quitar" lo apaga');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
+  page = await abrir(browser, 's1');
+  await page.goto(page.url().replace('?como=', '?pruebas=1&como=')); await page.waitForTimeout(600);
+  ok(!(await visible(page, '#rolBanner.ver')) && await page.evaluate(() => horarioDe(addDaysISO(hoyISO(), 0)) === null || horarioDe(addDaysISO(hoyISO(), 0))[0] !== 7), 'a una psicóloga el modo pruebas no le cambia nada');
+  await page.tap('#identidad'); await page.waitForTimeout(150);
+  ok(!(await page.textContent('#cuentaCuerpo')).includes('Modo pruebas'), 'y en Mi cuenta no le aparece');
+
   console.log('Dirección en computadora');
   page = await abrir(browser, 'd1', { viewport: { width: 1280, height: 800 } });
   ok(await page.evaluate(() => estado.vistaAgenda) === 'semana', 'en computadora Dirección empieza en la semana');

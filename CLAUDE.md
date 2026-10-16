@@ -99,7 +99,7 @@ avisos en este teléfono, cambiar contraseña (`sb.auth.updateUser`), modo prueb
 página); al abrirlo, Supabase avisa `PASSWORD_RECOVERY` y se pide la contraseña nueva. Para que el enlace regrese a la app,
 la URL publicada debe estar en Supabase → Authentication → URL Configuration (Site URL y Redirect URLs).
 
-Modo pruebas: abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos los días solo en ese dispositivo
+Modo pruebas (solo Dirección y soporte, `pruebasActivo`): abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos los días solo en ese dispositivo
 (`?pruebas=0`, el botón "Quitar" o Mi cuenta lo apagan). Los datos siguen siendo los reales.
 
 ## Seguridad

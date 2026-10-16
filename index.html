@@ -975,8 +975,8 @@ function renderCuenta(){ const v=viewer(); if(!v) return;
     <div class="ajuste"><h4>Cuenta</h4>
       <div class="fila-aj"><div class="tx">🔑 Contraseña</div><button class="btn fantasma" onclick="abrirClave()">Cambiar</button></div></div>
     <div class="ajuste"><h4>Este teléfono</h4>
-      <div class="fila-aj"><div class="tx">🧪 Modo pruebas<small>${MODO_PRUEBAS? "Activo: agenda de 7 a 22 h todos los días" : "Agenda de 7 a 22 h todos los días, para probar"}</small></div>
-        <button class="btn fantasma" onclick="${MODO_PRUEBAS? "quitarModoPruebas()" : "ponerModoPruebas()"}">${MODO_PRUEBAS? "Quitar" : "Activar"}</button></div>
+      ${esAdmin()? `<div class="fila-aj"><div class="tx">🧪 Modo pruebas<small>${MODO_PRUEBAS? "Activo: agenda de 7 a 22 h todos los días" : "Agenda de 7 a 22 h todos los días, para probar"}</small></div>
+        <button class="btn fantasma" onclick="${MODO_PRUEBAS? "quitarModoPruebas()" : "ponerModoPruebas()"}">${MODO_PRUEBAS? "Quitar" : "Activar"}</button></div>` : ""}
       <div class="fila-aj"><div class="tx">🔄 Actualizar la app<small>Carga la versión más nueva</small></div>
         <button class="btn fantasma" onclick="location.reload()">Actualizar</button></div></div>`;
 }
@@ -1144,8 +1144,8 @@ function renderRol(){
   document.getElementById("tabEquipo").style.display=esAdmin()?"":"none";
   if(!esAdmin() && document.querySelector('button[data-vista="equipo"]').classList.contains("activa")) irA("agenda");
   const b=document.getElementById("rolBanner");
-  if(b){ b.className=MODO_PRUEBAS? "ver" : ""; b.style.cssText=MODO_PRUEBAS? "background:var(--amb-suave); color:var(--amb);" : "";
-    b.innerHTML=MODO_PRUEBAS? `🧪 Modo pruebas: horario de 7 a 22 h en este teléfono · <button class="rev-btn" style="min-height:44px; background:var(--tarjeta)" onclick="quitarModoPruebas()">Quitar</button>` : ""; }
+  if(b){ b.className=pruebasActivo()? "ver" : ""; b.style.cssText=pruebasActivo()? "background:var(--amb-suave); color:var(--amb);" : "";
+    b.innerHTML=pruebasActivo()? `🧪 Modo pruebas: horario de 7 a 22 h en este teléfono · <button class="rev-btn" style="min-height:44px; background:var(--tarjeta)" onclick="quitarModoPruebas()">Quitar</button>` : ""; }
 }
 
 function renderResumen(){
@@ -1184,7 +1184,9 @@ const MODO_PRUEBAS=(()=>{ try{ const q=new URLSearchParams(location.search).get(
   if(q==="1") localStorage.setItem("modoPruebas","1"); else if(q==="0") localStorage.removeItem("modoPruebas");
   return localStorage.getItem("modoPruebas")==="1"; }catch(_){ return false; } })();
 function quitarModoPruebas(){ try{ localStorage.removeItem("modoPruebas"); }catch(_){} location.replace(location.pathname); }
-function horarioDe(f){ if(MODO_PRUEBAS) return [7,22]; return HORARIO[new Date(f+"T12:00:00").getDay()]||null; }
+// Solo cuenta para Dirección (incluida la cuenta de soporte); las psicólogas siempre ven el horario normal
+function pruebasActivo(){ return MODO_PRUEBAS && esAdmin(); }
+function horarioDe(f){ if(pruebasActivo()) return [7,22]; return HORARIO[new Date(f+"T12:00:00").getDay()]||null; }
 function horaInicial(){ const h=horarioDe(estado.fechaAgenda); return String(h?h[0]:9).padStart(2,"0")+":00"; }
 // Horas que cubre la agenda para esos días: su horario más cualquier cita que caiga fuera de él
 function rangoAgenda(fechas){
