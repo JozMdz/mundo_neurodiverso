@@ -6,7 +6,12 @@ Lista de cosas por hacer. Se van quitando conforme se terminan.
 
 1. **Cobros.** Cobro ligado a la cita y validación al final del día por la directora. Falta probarlo con datos reales.
 
-(Hechos: expediente agrupado por psicóloga, facturas de las psicólogas sin monto, avisos al teléfono.
+2. **Mandar su corte a cada psicóloga por WhatsApp.** Pendiente, José avisa cuándo.
+3. **Apartados de la nota.** Los puso José como supuesto (Qué se trabajó, Conducta y respuesta, Plan para la próxima
+   sesión, Dudas o pendientes); falta que la directora los confirme o cambie (`APARTADOS_NOTA` en `index.html`).
+
+(Hechos: nota por apartados y dictada, recordatorio por WhatsApp, historial en la ficha, "¿Dónde cabe?", modo oscuro,
+expediente agrupado por psicóloga, facturas de las psicólogas sin monto, avisos al teléfono.
 Omitido por decisión de José: que los comentarios de soporte le avisen a la directora.)
 
 ## Ideas anteriores (sin aprobar)

@@ -8,7 +8,8 @@ const [,, file, out, como='d1', ...pasos] = process.argv;
   const browser = await chromium.launch();
   // DISPOSITIVO='Pixel 5' (u otro de Playwright) para revisar en Android
   const disp = process.env.ESCRITORIO ? { viewport:{ width:1280, height:800 } } : devices[process.env.DISPOSITIVO || 'iPhone 11'];
-  const ctx = await browser.newContext({ ...disp, locale:'es-MX', timezoneId:'America/Mexico_City' });
+  // OSCURO=1 para ver el modo oscuro
+  const ctx = await browser.newContext({ ...disp, locale:'es-MX', timezoneId:'America/Mexico_City', colorScheme: process.env.OSCURO ? 'dark' : 'light' });
   const page = await ctx.newPage();
   const mock = fs.readFileSync(__dirname + '/mock-supabase.js', 'utf8');
   await page.route('**/*', r => {
