@@ -4,8 +4,7 @@ Lista de cosas por hacer. Se van quitando conforme se terminan.
 
 ## Anotados por José (15 oct 2026)
 
-1. **Cobros.** Lo que le toca a la psicóloga se captura por paciente y el corte dice cuánto pagarle. Falta probarlo
-   con datos reales.
+1. **Cobros.** Cobro ligado a la cita y validación al final del día por la directora. Falta probarlo con datos reales.
 
 (Hechos: expediente agrupado por psicóloga, facturas de las psicólogas sin monto, avisos al teléfono.
 Omitido por decisión de José: que los comentarios de soporte le avisen a la directora.)

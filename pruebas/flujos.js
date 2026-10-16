@@ -310,7 +310,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await verDia(-1);
   await page.tap('.ev[data-cita="ayer1"]'); await page.waitForTimeout(250);
   let bs = await botones();
-  ok(await visible(page, '#modalAcciones.abierto') && ['📝 Escribir nota', '💵 Registrar cobro', '🚫 No asistió'].every(x => bs.includes(x)), 'al tocar su cita de ayer: nota, cobro y "No asistió"');
+  ok(await visible(page, '#modalAcciones.abierto') && ['📝 Escribir nota', '✅ Asistió · registrar cobro', '🚫 No asistió'].every(x => bs.includes(x)), 'al tocar su cita de ayer: nota, cobro y "No asistió"');
   ok(!bs.some(x => /Editar|Cancelar cita|Reagendar|Eliminar/.test(x)), 'la psicóloga no ve editar, cancelar, reagendar ni eliminar');
   await tocar('🚫 No asistió');
   let fl = await fila('ayer1');
@@ -320,10 +320,10 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await tocar('↩︎ Sí asistió');
   ok((await fila('ayer1')).estado === 'programada', 'si se equivocó, "Sí asistió" la regresa');
   await page.tap('.ev[data-cita="ayer1"]'); await page.waitForTimeout(250); await tocar('🚫 No asistió');
-  await page.tap('.ev[data-cita="ayer2"]'); await page.waitForTimeout(250); await tocar('💵 Registrar cobro');
-  ok(await visible(page, '#modalPago.abierto') && await page.inputValue('#pPaciente') === 'p6' && await page.inputValue('#pMonto') === '700', '"Registrar cobro" abre la hoja con el paciente y su tarifa');
+  await page.tap('.ev[data-cita="ayer2"]'); await page.waitForTimeout(250); await tocar('✅ Asistió · registrar cobro');
+  ok(await visible(page, '#modalPago.abierto') && await page.inputValue('#pPaciente') === 'p6' && await page.inputValue('#pMonto') === '700', '"Asistió · registrar cobro" abre el cobro con el paciente y su tarifa');
   await page.tap('#pGuardar'); await page.waitForTimeout(300);
-  ok(await page.evaluate(() => { const g = __DB.pagos.at(-1); return g.paciente_id === 'p6' && g.psicologa_id === 's1' && g.monto === 700; }), 'se registra el cobro de esa sesión');
+  ok(await page.evaluate(() => { const g = __DB.pagos.at(-1); return g.paciente_id === 'p6' && g.psicologa_id === 's1' && g.monto === 700 && g.cita_id === 'ayer2' && g.validado === false; }), 'el cobro queda ligado a esa cita y por validar');
   await page.tap('.ev[data-cita="ayer2"]'); await page.waitForTimeout(250);
   ok((await botones()).includes('💵 Cobro registrado ✓'), 'después dice "Cobro registrado ✓"');
   await tocar('📝 Escribir nota');
@@ -350,10 +350,10 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   console.log('Asistencia de las citas: Dirección');
   page = await abrir(browser, 'd1');
   await page.evaluate(`(async () => { ${cita('ayer4', -1, '15:00', 's2', 'p3')} ${cita('lejos1', 10, '15:00', 's1', 'p1')} ${cita('lejos2', 10, '16:00', 's2', 'p3')}
-    ${cita('lejos3', 12, '16:00', 's2', 'p4')} ${cita('hoyNo', 0, '00:00', 's1', 'p1', { estado: 'no_asistio', confirmada_por: 'd1' })} await refrescar(); })()`);
-  ok((await page.textContent('#avisoAgenda')).includes('1 inasistencia por confirmar') && await page.textContent('#badgeAg') === '1', 'Dirección ve el aviso y el número en la pestaña Agenda');
+    ${cita('lejos3', 12, '16:00', 's2', 'p4')} ${cita('hoyNo', 0, '00:00', 's1', 'p1', { estado: 'no_asistio', confirmada_por: 'd1' })} __DB.pagos.forEach(g => g.validado = true); await refrescar(); })()`);
+  ok((await page.textContent('#avisoAgenda')).includes('1 por validar') && await page.textContent('#badgeAg') === '1', 'Dirección ve cuántos hay por validar, también en la pestaña Agenda');
   await page.tap('#avisoAgenda button'); await page.waitForTimeout(250);
-  ok(await page.$$eval('#accBotones .conf-fila', f => f.length) === 1, '"Revisar" lista las inasistencias por confirmar');
+  ok(await page.$$eval('#accBotones .conf-fila', f => f.length) === 1, '"Validar" lista lo que falta validar');
   await page.tap('#accBotones .conf-fila .btn >> nth=0'); await page.waitForTimeout(300);
   ok(await page.evaluate(() => __DB.citas.filter(c => c.estado === 'no_asistio' && !c.confirmada_por).length) === 0 && !(await visible(page, '#modalAcciones.abierto')), 'al confirmar la última, se cierra la lista');
   ok(await page.textContent('#avisoAgenda') === '' && await page.textContent('#badgeAg') === '', 'ya no hay aviso');
@@ -362,7 +362,8 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   bs = await botones();
   ok(['✎ Editar o cambiar de día', '🚫 No asistió', '✕ Cancelar cita'].every(x => bs.includes(x)), 'Dirección puede editar, marcar y cancelar');
   await tocar('🚫 No asistió');
-  ok((await fila('ayer4')).confirmada_por === 'd1' && await page.textContent('#avisoAgenda') === '', 'lo que marca Dirección queda confirmado');
+  ok(!(await fila('ayer4')).confirmada_por && (await page.textContent('#avisoAgenda')).includes('1 por validar'), 'lo que marca Dirección también queda por validar');
+  await page.evaluate(() => confirmarCita('ayer4')); await page.waitForTimeout(300);
   await page.tap('.ev[data-cita="ayer4"]'); await page.waitForTimeout(250);
   await tocar('📅 Reagendar en otro día');
   ok(await visible(page, '#modalCita.abierto') && await page.inputValue('#cPaciente') === 'p3' && await page.inputValue('#cPsic') === 's2'
@@ -440,11 +441,16 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     __DB.pagos = __DB.pagos.filter(g => !(g.psicologa_id === 's1' && (g.paciente_id === 'p1' || g.paciente_id === 'p2'))); await refrescar(); });
   await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
   const filasCierre = await page.$$eval('#cierreLista .conf-fila', f => f.map(x => x.innerText.replace(/\s+/g, ' ')));
-  ok(filasCierre.length === 2 && filasCierre.some(x => x.includes('Mateo') && x.includes('falta cobro') && !x.includes('Nota')) && filasCierre.some(x => x.includes('Valentina') && x.includes('falta nota y cobro')),
+  ok(filasCierre.length === 2 && filasCierre.some(x => x.includes('Mateo') && x.includes('falta asistencia y cobro') && !x.includes('Nota') && x.includes('No vino')) && filasCierre.some(x => x.includes('Valentina') && x.includes('falta asistencia, cobro y nota')),
     'al salir dice qué paciente quedó sin nota o sin cobro');
-  await page.tap('#cierreLista .conf-fila:has-text("Mateo") .btn'); await page.waitForTimeout(300);
+  await page.tap('#cierreLista .conf-fila:has-text("Valentina") .btn >> text="🚫 No vino"'); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => __DB.citas.find(c => c.id === 'fin2').estado) === 'no_asistio' && await visible(page, '#modalCierre.abierto')
+    && (await page.$$eval('#cierreLista .conf-fila', f => f.length)) === 1, '"No vino" la marca y regresa a la lista con lo que falta');
+  await page.tap('#cierreLista .conf-fila:has-text("Mateo") .btn >> text="✅ Asistió"'); await page.waitForTimeout(300);
   ok(await visible(page, '#modalPago.abierto') && await page.inputValue('#pPaciente') === 'p1', 'si ya hizo la nota, el botón la lleva directo al cobro de ese paciente');
-  await page.evaluate(() => cerrar('modalPago'));
+  await page.tap('#pGuardar'); await page.waitForTimeout(400);
+  ok(!(await visible(page, '#modalCierre.abierto')) && (await page.textContent('#toast')).includes('Todo documentado'), 'con todo documentado avisa que ya puede salir');
+  await page.evaluate(async () => { __DB.pagos = __DB.pagos.filter(g => g.cita_id !== 'fin1'); __DB.citas.find(c => c.id === 'fin2').estado = 'programada'; await refrescar(); });
   await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
   await page.click('#modalCierre .pie .fantasma'); await page.waitForTimeout(400);
   ok(await page.evaluate(() => { const x = __DB.cierres.at(-1); return x && x.notas_pendientes === 1 && x.cobros_pendientes === 2 && x.detalle.length === 2 && x.detalle.some(d => d.pac === 'p1' && !d.nota && d.cobro); }),
@@ -490,6 +496,29 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(!(await page.$('.ev[data-cita="otraPC"]')), 'una cita agendada en otro aparato no aparece sola si se cortó la conexión');
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await page.waitForTimeout(300);
   ok(!!(await page.$('.ev[data-cita="otraPC"]')), 'al volver a la app se recarga y aparece');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
+  console.log('La directora valida al final del día');
+  page = await abrir(browser, 'd1');
+  await page.evaluate(async () => {
+    const f = addDaysISO(hoyISO(), 0), c = (id, psic, pac) => ({ id, fecha: f, hora: '00:00:00', duracion: 1, psicologa_id: psic, paciente_id: pac, estado: 'programada', confirmada_por: null });
+    __DB.citas = __DB.citas.filter(x => !(x.estado === 'no_asistio' && !x.confirmada_por)); __DB.pagos.forEach(g => g.validado = true);
+    __DB.citas.push(c('mia1', 'd1', 'p3'), c('mia2', 'd1', 'p4'), c('suya1', 's1', 'p1'));
+    __DB.pagos.push({ id: 'gs1', paciente_id: 'p1', psicologa_id: 's1', monto: 600, metodo: 'efectivo', validado: false, cita_id: 'suya1', creado_en: new Date().toISOString() });
+    await refrescar(); });
+  await page.evaluate(() => { menuCita('mia1'); }); await page.waitForTimeout(200);
+  await page.tap('#accBotones .acc-btn >> text="✅ Asistió · registrar cobro"'); await page.waitForTimeout(250);
+  await page.tap('#pGuardar'); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => { const g = __DB.pagos.find(x => x.cita_id === 'mia1'); return g && g.validado === false && g.psicologa_id === 'd1'; }), 'el cobro de la directora también queda por validar');
+  await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
+  const cierreDir = (await page.textContent('#modalCierre')).replace(/\s+/g, ' ');
+  ok(await visible(page, '#modalCierre.abierto') && /falta asistencia, cobro y nota/.test(cierreDir) && cierreDir.includes('Validar el día · 2 por validar'),
+    'al salir, a la directora le pide su sesión pendiente y validar el día');
+  await page.tap('#cierreValidar .acc-btn'); await page.waitForTimeout(250);
+  ok((await page.textContent('#accTitulo')) === 'Por validar' && await page.$$eval('#accBotones .conf-fila', f => f.length) === 2, 'la lista "Por validar" trae los cobros del día, de todas');
+  await page.tap('#accBotones .acc-btn >> text=/Validar los 2 cobros/'); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => __DB.pagos.every(g => g.validado)) && !(await visible(page, '#modalAcciones.abierto')) && await page.textContent('#badgeAg') === '', '"Validar los 2 cobros" los valida y ya no queda nada');
+  ok(await ancho(page) <= 414, 'sin scroll horizontal');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
   console.log('Expediente por psicóloga y facturas');

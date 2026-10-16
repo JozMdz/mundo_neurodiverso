@@ -20,7 +20,7 @@ const HORARIO: Record<number, [number, number]> = { 1: [14, 21], 2: [14, 21], 3:
 
 type Psic = { id: string; nombre: string; es_direccion: boolean };
 type Cita = { id: string; fecha: string; hora: string; duracion: number; psicologa_id: string; paciente_id: string; estado: string; confirmada_por: string | null };
-type Reg = { paciente_id: string; psicologa_id: string; creado_en: string };
+type Reg = { paciente_id: string; psicologa_id: string; creado_en: string; validado?: boolean };
 type Cierre = { id: string; psicologa_id: string; creado_en: string; notas_pendientes: number; cobros_pendientes: number };
 export type Datos = { ahora: Date; psicologas: Psic[]; pacientes: { id: string; nombre: string }[]; citas: Cita[];
   notas: Reg[]; pagos: Reg[]; cierres: Cierre[]; enviados: Set<string> };
@@ -48,16 +48,23 @@ export function avisosPendientes(d: Datos): Aviso[] {
   const citasHoy = d.citas.filter(c => c.fecha === hoy && c.estado === "programada").sort((a, b) => a.hora.localeCompare(b.hora));
 
   for (const c of citasHoy) {
-    const ini = minutos(c.hora), fin = ini + (c.duracion || 60), falta = ini - ahora;
-    // A quien atiende: media hora antes de su cita
-    if (falta > 0 && falta <= ANTES)
+    const ini = minutos(c.hora), falta = ini - ahora;
+    // Dirección recibe también los avisos de las demás, con el nombre de quien atiende (para saber quién ocupa los consultorios)
+    const p = psic(c.psicologa_id), quien = p ? corto(p.nombre) + " · " : "", otros = direccion.filter(id => id !== c.psicologa_id);
+    // A quien atiende (y a Dirección): media hora antes de la cita
+    if (falta > 0 && falta <= ANTES) {
       avisos.push({ para: [c.psicologa_id], clave: "antes:" + c.id, title: `Cita a las ${hhmm(ini)}`, body: `${pac(c.paciente_id)} · en ${falta} min` });
-    // A la psicóloga: 10 minutos después de terminar, si le falta la nota o el cobro (hasta 3 h después)
-    if (ahora >= fin + 10 && ahora <= fin + 180) {
-      const n = !tiene(d.notas, c), g = !tiene(d.pagos, c);
-      if (n || g) avisos.push({ para: [c.psicologa_id], clave: "falta:" + c.id, title: "Falta registrar",
-        body: `${hhmm(ini)} ${pac(c.paciente_id)}: ${[n ? "nota" : "", g ? "cobro" : ""].filter(Boolean).join(" y ")}` });
+      avisos.push({ para: otros, clave: "antes-dir:" + c.id, title: `Cita a las ${hhmm(ini)}`, body: `${quien}${pac(c.paciente_id)} · en ${falta} min` });
     }
+  }
+  // A cada quien que atiende: 15 min después de su última cita del día, si quedó algo sin documentar (asistencia,
+  // cobro o nota). Documentan todo al final de la jornada, no después de cada sesión.
+  for (const id of [...new Set(citasHoy.map(c => c.psicologa_id))]) {
+    const suyas = citasHoy.filter(c => c.psicologa_id === id), ultima = Math.max(...suyas.map(c => minutos(c.hora) + (c.duracion || 60)));
+    if (ahora < ultima + 15 || ahora > ultima + 180) continue;
+    const sinDoc = suyas.filter(c => !tiene(d.notas, c) || !tiene(d.pagos, c)).length;
+    if (sinDoc) avisos.push({ para: [id], clave: `jornada:${id}:${hoy}`, title: "Documenta tu día",
+      body: `${plural(sinDoc, "sesión", "sesiones")} sin registrar: asistencia, cobro o nota` });
   }
   // A Dirección: inasistencias marcadas que esperan confirmación (de la última semana)
   const semana = fechaLocal(new Date(d.ahora.getTime() - 7 * 86400_000));
@@ -76,9 +83,9 @@ export function avisosPendientes(d: Datos): Aviso[] {
   if (ahora >= h[1] * 60 + 15) {
     const dadas = citasHoy.filter(c => minutos(c.hora) + (c.duracion || 60) <= ahora);
     const sinNota = dadas.filter(c => !tiene(d.notas, c)).length, sinCobro = dadas.filter(c => !tiene(d.pagos, c)).length;
-    const porConf = d.citas.filter(c => c.estado === "no_asistio" && !c.confirmada_por).length;
+    const porConf = d.citas.filter(c => c.estado === "no_asistio" && !c.confirmada_por).length + d.pagos.filter(g => g.validado === false).length;
     const partes = [sinNota ? plural(sinNota, "sin nota", "sin nota") : "", sinCobro ? plural(sinCobro, "sin cobro", "sin cobro") : "",
-      porConf ? plural(porConf, "por confirmar", "por confirmar") : ""].filter(Boolean);
+      porConf ? plural(porConf, "por validar", "por validar") : ""].filter(Boolean);
     avisos.push({ para: direccion, clave: "resumen:" + hoy, title: `Hoy: ${plural(dadas.length, "sesión", "sesiones")}`,
       body: partes.length ? partes.join(" · ") : "Todo registrado ✓" });
   }
@@ -155,7 +162,7 @@ if (typeof Deno !== "undefined") Deno.serve(async (req: Request) => {
     sb.from("pacientes").select("id,nombre"),
     sb.from("citas").select("id,fecha,hora,duracion,psicologa_id,paciente_id,estado,confirmada_por").gte("fecha", semana).lte("fecha", hoy),
     sb.from("notas").select("paciente_id,psicologa_id,creado_en").gte("creado_en", hace(1)),
-    sb.from("pagos").select("paciente_id,psicologa_id,creado_en").gte("creado_en", hace(1)),
+    sb.from("pagos").select("paciente_id,psicologa_id,creado_en,validado").gte("creado_en", hace(1)),
     sb.from("cierres").select("id,psicologa_id,creado_en,notas_pendientes,cobros_pendientes").is("revisado_por", null).gte("creado_en", hace(2)),
     sb.from("avisos_enviados").select("clave").gte("enviado_en", hace(10)),
     sb.from("push_subs").select("endpoint,psicologa_id,p256dh,auth"),

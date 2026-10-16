@@ -2,7 +2,7 @@
 --
 -- Reconstruida el 15 oct 2026 con sql/inventario.sql y sql/revisar.sql; ya incluye sql/seguridad.sql,
 -- sql/ajustes.sql, sql/citas-estado.sql, sql/pago-psicologa.sql,
--- sql/cierres-detalle.sql y sql/avisos.sql (sql/avisos-programar.sql va aparte: necesita pg_cron). Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
+-- sql/cierres-detalle.sql, sql/avisos.sql y sql/cobro-cita.sql (sql/avisos-programar.sql va aparte: necesita pg_cron). Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
 -- (SQL Editor → pega todo → Run). Si cambias la base, actualiza este archivo para que siga siendo fiel.
 
 begin;
@@ -72,7 +72,8 @@ create table public.pagos (
   monto numeric not null,
   metodo text not null check (metodo in ('efectivo', 'transferencia', 'tarjeta')),
   validado boolean not null default false,
-  creado_en timestamptz not null default now()
+  creado_en timestamptz not null default now(),
+  cita_id uuid references public.citas(id) on delete set null          -- la sesión que se cobró (sql/cobro-cita.sql)
 );
 create table public.facturas (
   id uuid primary key default gen_random_uuid(),
@@ -112,6 +113,7 @@ create table public.avisos_enviados (
 );
 
 -- ================= Índices =================
+create unique index pagos_cita_unica on public.pagos (cita_id) where cita_id is not null;
 create index citas_fecha_idx          on public.citas (fecha);
 create index citas_psicologa_idx      on public.citas (psicologa_id);
 create index citas_paciente_idx       on public.citas (paciente_id);
@@ -218,6 +220,9 @@ begin
   end if;
   if tg_op = 'INSERT' then
     new.validado := false;
+    if new.cita_id is not null and not exists (select 1 from citas where id = new.cita_id and psicologa_id = auth.uid()) then
+      raise exception 'Solo puedes registrar el cobro de tus propias citas.';
+    end if;
     return new;
   end if;
   if old.validado then
@@ -252,7 +257,8 @@ begin
   return coalesce(new, old);
 end $$;
 
--- De sql/citas-estado.sql: la psicóloga solo marca si asistió a sus citas; Dirección confirma y cancela
+-- De sql/citas-estado.sql y sql/cobro-cita.sql: la psicóloga solo marca si asistió a sus citas; todo lo marcado
+-- espera a que Dirección lo confirme; Dirección cancela
 create function public.proteger_citas() returns trigger
 language plpgsql set search_path = public, pg_temp as $$
 begin
@@ -262,8 +268,7 @@ begin
   if new.estado is distinct from old.estado then
     new.marcada_por := auth.uid();
     new.marcada_en := now();
-    -- Lo que marca Dirección queda confirmado; lo que marca una psicóloga espera a Dirección
-    new.confirmada_por := case when es_direccion() and new.estado <> 'programada' then auth.uid() end;
+    new.confirmada_por := null;
   elsif new.confirmada_por is distinct from old.confirmada_por then
     if not es_direccion() then
       raise exception 'Solo Dirección confirma inasistencias.';

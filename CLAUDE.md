@@ -47,8 +47,8 @@ para confirmar: nunca guarda sola. Las frases de prueba están en `pruebas/flujo
 
 Estado de las citas (`sql/citas-estado.sql`): una cita que ya pasó cuenta como **atendida** y pide nota y cobro.
 Al tocar una cita se abre su hoja de opciones (`menuCita`): nota, cobro con la tarifa del paciente y "No asistió".
-Lo que marca una psicóloga queda **por confirmar** hasta que Dirección lo corrobora (aviso arriba de la agenda y
-`verPorConfirmar`); lo que marca Dirección queda confirmado. Solo Dirección cancela, reactiva, reagenda y cambia
+Todo lo marcado queda **por confirmar** hasta que Dirección lo corrobora (aviso arriba de la agenda y
+`verPorConfirmar`), también lo que marca la directora. Solo Dirección cancela, reactiva, reagenda y cambia
 de día (campo Día en la hoja de cita). Canceladas y "no asistió" no piden nota ni cobro ni ocupan el horario.
 El corte de Cobros (`sesionesDe`) compara las sesiones dadas de la agenda con los cobros de cada paciente y avisa
 las que no tienen cobro.
@@ -56,18 +56,25 @@ Lo que le toca a cada psicóloga sale de cada paciente (`pago_psicologa`, se cap
 la tarifa, `sql/pago-psicologa.sql`). El corte (`pagoPsicologa`) suma sus sesiones por paciente, le resta el efectivo
 que ella ya tiene y dice cuánto le paga Dirección o cuánto entrega ella.
 
-Al salir, si una psicóloga tiene sesiones de hoy sin nota o sin cobro (`pendientesHoy`), la hoja "Antes de salir" las
-lista por paciente con su botón (nota o cobro). Si sale así, el cierre guarda el detalle (`sql/cierres-detalle.sql`);
+Se documenta al final de la jornada: al salir, si una psicóloga (o la directora) tiene sesiones de hoy sin documentar
+(`pendientesHoy`), la hoja "Antes de salir" las lista por paciente con Nota, Asistió (cobro) y No vino, y regresa a la
+lista después de cada una (`seguirCierre`). Si sale así, el cierre guarda el detalle (`sql/cierres-detalle.sql`);
 en Equipo, Dirección ve qué faltó, si ya se registró después, y lo marca "✓ Revisado" para quitarlo de la lista.
 
 Avisos al teléfono (push): la función `supabase/functions/avisar/index.ts` corre cada 5 min (`sql/avisos-programar.sql`)
-y manda, cifrados y con iniciales del paciente, recordatorios de cita, nota o cobro pendientes a cada psicóloga, y a
-Dirección inasistencias, cierres y un resumen al cerrar. Cada quien los activa con 🔔 en su teléfono (`tocarAvisos`).
+y manda, cifrados y con iniciales del paciente, el aviso de cada cita 30 min antes (a quien atiende y a Dirección, con
+el nombre de quien atiende), "Documenta tu día" después de la última cita de cada quien, y a Dirección inasistencias,
+cierres y un resumen al cerrar. Cada quien los activa con 🔔 en su teléfono (`tocarAvisos`).
 Las llaves y la instalación están en `supabase/functions/avisar/LEEME.md`. `node pruebas/avisos.js` prueba reglas y cifrado.
 
 Expediente: Dirección ve a los pacientes agrupados por psicóloga (`gruposPx`, cada grupo se abre y se cierra); al buscar
 o filtrar, la lista es directa. Facturas: la psicóloga solo avisa que un paciente la pidió (monto 0 = por definir);
 Dirección pone el monto antes de emitirla.
+
+Cobro de la sesión (`sql/cobro-cita.sql`): al tocar una cita ya empezada, "✅ Asistió · registrar cobro" abre el cobro con la
+tarifa del paciente y lo liga a la cita (`pagos.cita_id`, uno por cita). Nada queda validado solo, ni lo de la directora:
+cobros (`validado`) y "no asistió" (`confirmada_por`) los valida Dirección al final del día en "Por validar"
+(`verPorConfirmar`), que también le ofrece la hoja "Antes de salir".
 
 Modo pruebas: abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos los días solo en ese dispositivo
 (`?pruebas=0` o el botón "Quitar" lo apaga). Los datos siguen siendo los reales.

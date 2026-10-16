@@ -714,7 +714,8 @@
   <div class="cuerpo">
     <div id="cierreResumen" style="font-size:14px; color:#4b4653;"></div>
     <div class="acc-lista" id="cierreLista"></div>
-    <div style="font-size:12.5px; color:var(--gris); font-weight:600;">Toca lo que falta para registrarlo ahora. Si sales así, quedará anotado para Dirección.</div>
+    <div class="acc-lista" id="cierreValidar"></div>
+    <div id="cierreHint" style="font-size:12.5px; color:var(--gris); font-weight:600;">Toca lo que falta para registrarlo ahora. Si sales así, quedará anotado para Dirección.</div>
   </div>
   <div class="pie"><button class="btn fantasma" onclick="salirDeTodasFormas()">Salir de todas formas</button>
     <button class="btn" onclick="cerrar('modalCierre')">Regresar</button></div>
@@ -810,7 +811,7 @@ async function cargarTodo(){
     estado:r.estado||"programada",confirmadaPor:r.confirmada_por||null}));
   estado.notas=(nts.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,pac:r.paciente_id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,texto:r.texto,revisada:r.revisada,vistaPsic:r.vista_psic!==false,
     comentarios:(r.comentarios||[]).slice().sort((a,b)=>(a.creado_en||"").localeCompare(b.creado_en||"")).map(c=>{ const cd=c.creado_en?new Date(c.creado_en):null; return {id:c.id,autor:c.autor_id,fecha:cd?(cd.getFullYear()+"-"+String(cd.getMonth()+1).padStart(2,"0")+"-"+String(cd.getDate()).padStart(2,"0")):"",hora:cd?cd.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false}):"",texto:c.texto,editado:c.editado}; })}; });
-  estado.pagos=(pgs.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,fecha:_t.f,hora:_t.h,pac:r.paciente_id,psic:r.psicologa_id,monto:Number(r.monto)||0,metodo:r.metodo,validado:r.validado}; });
+  estado.pagos=(pgs.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,fecha:_t.f,hora:_t.h,pac:r.paciente_id,psic:r.psicologa_id,monto:Number(r.monto)||0,metodo:r.metodo,validado:r.validado,cita:r.cita_id||null}; });
   estado.facturas=(fac.data||[]).map(r=>({id:r.id,pac:r.paciente_id,monto:Number(r.monto)||0,estado:r.estado,solicitadaPor:r.solicitada_por,solicitada:r.fecha_solicitada,emitida:r.fecha_emitida,entregada:r.fecha_entregada}));
   estado.cierres=(cie.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,notas:r.notas_pendientes,cobros:r.cobros_pendientes,
     detalle:Array.isArray(r.detalle)? r.detalle : [],revisado:!!r.revisado_por}; });
@@ -895,6 +896,9 @@ async function soltarAvisos(){ const sub=puedeAvisar()? await suscripcionAvisos(
 function citaEmpezo(c){ const h=hoyISO(); return c.fecha<h || (c.fecha===h && minutos(c.hora)<=minutos(ahoraHM())); }
 function citaTermino(c){ const h=hoyISO(); return c.fecha<h || (c.fecha===h && minutos(c.hora)+(c.dur||60)<=minutos(ahoraHM())); }
 function porConfirmar(){ return citasVisibles().filter(c=>c.estado==="no_asistio" && !c.confirmadaPor); }
+// Lo que Dirección valida al final del día: cobros registrados y "no asistió" marcados (también los suyos)
+function cobrosPorValidar(){ return esAdmin()? estado.pagos.filter(g=>!g.validado) : []; }
+function porValidarTotal(){ return esAdmin()? porConfirmar().length + cobrosPorValidar().length : 0; }
 function estadoCita(c){
   if(c.estado==="cancelada") return {clase:"cancelada", corto:"cancelada", texto:"Cancelada"};
   if(c.estado==="no_asistio") return {clase:"no-asistio", corto:"no asistió", texto:c.confirmadaPor? "No asistió" : "No asistió · por confirmar"};
@@ -905,22 +909,32 @@ function citasTerminadasHoy(quien){
 // Sesiones de hoy que ya terminaron y a las que les falta nota o cobro, una por una
 function pendientesHoy(){ const hoy=hoyISO(), cits=citasTerminadasHoy(estado.quien);
   const items=cits.map(c=>({c, nota:!estado.notas.some(n=>n.pac===c.pac && n.psic===c.psic && n.fecha===hoy),
-    cobro:!estado.pagos.some(g=>g.pac===c.pac && g.psic===c.psic && g.fecha===hoy)})).filter(x=>x.nota||x.cobro);
+    cobro:!estado.pagos.some(g=>g.cita===c.id || (!g.cita && g.pac===c.pac && g.psic===c.psic && g.fecha===hoy))})).filter(x=>x.nota||x.cobro);
   return {citas:cits.length, items, notas:items.filter(x=>x.nota).length, cobros:items.filter(x=>x.cobro).length}; }
-function faltaTxt(nota, cobro){ return "falta "+[nota?"nota":"", cobro?"cobro":""].filter(Boolean).join(" y "); }
+function faltaTxt(nota, cobro){ return cobro&&nota? "falta asistencia, cobro y nota" : cobro? "falta asistencia y cobro" : "falta nota"; }
+// Se documenta al final de la jornada: después de cada nota, cobro o "no vino" hecho desde "Antes de salir", se regresa a la lista
+let desdeCierre=false;
+function seguirCierre(){ if(!desdeCierre) return; desdeCierre=false;
+  if(pendientesHoy().items.length || porValidarTotal()) logout(); else toast("Todo documentado ✓ Ya puedes salir","ok"); }
+// Al salir: lo propio sin nota o sin cobro (psicólogas y la directora) y, para Dirección, validar lo del día
 function logout(){
-  if(estado.quien && !esAdmin()){ const p=pendientesHoy();
-    if(p.items.length){
-      document.getElementById("cierreResumen").innerHTML=`De tus <b>${p.citas}</b> sesiones de hoy te falta registrar:`;
+  if(estado.quien){ const p=pendientesHoy(), pv=porValidarTotal();
+    if(p.items.length || pv){
+      document.getElementById("cierreResumen").innerHTML= p.items.length
+        ? (p.citas===1? "De tu sesión de hoy te falta registrar:" : `De tus <b>${p.citas}</b> sesiones de hoy te falta registrar:`) : "Antes de salir, valida lo del día:";
+      document.getElementById("cierreHint").style.display=esAdmin()? "none" : "";
       document.getElementById("cierreLista").innerHTML=p.items.map(({c,nota,cobro})=>`<div class="conf-fila"><b>${esc((pac(c.pac)||{}).nombre||"—")}</b>
         <span class="cuando">${c.hora} · ${faltaTxt(nota,cobro)}</span><div class="conf-acc">
-        ${nota?`<button class="btn" onclick="cerrar('modalCierre'); notaDesdeCita('${c.id}')">📝 Nota</button>`:""}
-        ${cobro?`<button class="btn verde" onclick="cerrar('modalCierre'); cobroDesdeCita('${c.id}')">💵 Cobro</button>`:""}</div></div>`).join("");
+        ${nota?`<button class="btn" onclick="desdeCierre=true; cerrar('modalCierre'); notaDesdeCita('${c.id}')">📝 Nota</button>`:""}
+        ${cobro?`<button class="btn verde" onclick="desdeCierre=true; cerrar('modalCierre'); cobroDesdeCita('${c.id}')">✅ Asistió</button>
+          <button class="btn fantasma" onclick="desdeCierre=true; cerrar('modalCierre'); marcarCita('${c.id}','no_asistio')">🚫 No vino</button>`:""}</div></div>`).join("");
+      document.getElementById("cierreValidar").innerHTML= pv
+        ? `<button class="acc-btn hecho" onclick="cerrar('modalCierre'); verPorConfirmar()">✓ Validar el día · ${pv} por validar</button>` : "";
       abrir("modalCierre"); return; } }
   cerrarSesion();
 }
 async function salirDeTodasFormas(){ const p=pendientesHoy();
-  if(p.items.length){
+  if(p.items.length && !esAdmin()){   // el cierre con pendientes es de las psicólogas
     const cierre={psicologa_id:estado.quien, notas_pendientes:p.notas, cobros_pendientes:p.cobros, fecha:hoyISO(), hora:ahoraHM()};
     const {error}=await sb.from("cierres").insert({...cierre, detalle:p.items.map(x=>({cita:x.c.id, pac:x.c.pac, nota:x.nota, cobro:x.cobro}))});
     if(error) await sb.from("cierres").insert(cierre);   // por si la base aún no tiene el detalle (sql/cierres-detalle.sql)
@@ -1060,10 +1074,10 @@ function renderAgenda(){
   const _btnAg=document.getElementById("btnAgendar"); if(_btnAg) _btnAg.style.display=_puedeAgendar?"":"none";
   const _btnVoz=document.getElementById("btnVoz"); if(_btnVoz) _btnVoz.style.display=(_puedeAgendar && vozSoportada())?"":"none";
   document.getElementById("semCab").style.display = semanal? "flex" : "none";
-  // Dirección ve arriba cuántas inasistencias esperan que las corrobore
-  const pend=_puedeAgendar? porConfirmar().length : 0;
-  document.getElementById("avisoAgenda").innerHTML = pend? `<button class="aviso-pendiente" onclick="verPorConfirmar()">🚫
-    <span><b>${pend}</b> ${pend===1?"inasistencia":"inasistencias"} por confirmar</span><span class="ir">Revisar ›</span></button>` : "";
+  // Dirección ve arriba cuántos cobros e inasistencias esperan que los valide
+  const pend=porValidarTotal();
+  document.getElementById("avisoAgenda").innerHTML = pend? `<button class="aviso-pendiente" onclick="verPorConfirmar()">✓
+    <span><b>${pend}</b> por validar</span><span class="ir">Validar ›</span></button>` : "";
   const dias = semanal? [0,1,2,3,4,5].map(i=>addDaysISO(lunS,i)) : [estado.fechaAgenda];
   const R=rangoAgenda(dias);
   if(!R){ document.getElementById("agenda").innerHTML=`<div class="cal agenda-cerrado"><div class="em">🌙</div><b>${fechaLarga(estado.fechaAgenda)}</b>Sin horario de consulta.</div>`; return; }
@@ -1516,7 +1530,7 @@ async function guardarEdicionComentario(nid,cid){
 async function marcarRevisada(id){ const {error}=await sb.from("notas").update({revisada:true}).eq("id",id); if(error){ toast("No se pudo","err"); return; } await refrescar(); toast("Nota marcada como revisada ✓","ok"); }
 function updateBadges(){
   const b=document.getElementById("badgeExp"); if(b){ const c=notasConAviso().length; b.textContent=c?String(c):""; }
-  const a=document.getElementById("badgeAg"); if(a){ const n=esAdmin()? porConfirmar().length : 0; a.textContent=n?String(n):""; } }
+  const a=document.getElementById("badgeAg"); if(a){ const n=porValidarTotal(); a.textContent=n?String(n):""; } }
 const EMOJIS=["😊","👍","🎉","❤️","👏","🙌","💪","✅","📌","😄","🤔","🙏","👀","🔥","😢","😅","💡","⭐","🧩","🌈","😍","🥳"];
 function toggleEmojis(id){ const p=document.getElementById("emo-"+id); if(p) p.classList.toggle("ver"); }
 function insertEmoji(id,e){ const inp=document.getElementById("com-"+id); if(inp){ inp.value+=e; inp.focus(); } const p=document.getElementById("emo-"+id); if(p) p.classList.remove("ver"); }
@@ -1621,7 +1635,8 @@ function sesionesDe(psicId, r, pagos){
   const noAsistio=cs.filter(c=>c.estado==="no_asistio");
   const libres=pagos.filter(g=>g.psic===psicId);
   const tomar=f=>{ const i=libres.findIndex(f); if(i<0) return false; libres.splice(i,1); return true; };
-  const sinCobro=dadas.filter(c=>!tomar(g=>g.pac===c.pac && g.fecha===c.fecha)).filter(c=>!tomar(g=>g.pac===c.pac));
+  // Primero el cobro ligado a la cita; los cobros sin cita (anteriores) se emparejan por paciente
+  const sinCobro=dadas.filter(c=>!tomar(g=>g.cita===c.id)).filter(c=>!tomar(g=>!g.cita && g.pac===c.pac && g.fecha===c.fecha)).filter(c=>!tomar(g=>!g.cita && g.pac===c.pac));
   return {dadas, noAsistio, porConf:noAsistio.filter(c=>!c.confirmadaPor), sinCobro};
 }
 function avisosCorte(s, admin){
@@ -1724,7 +1739,7 @@ function fijarPsic(sel, incluirDireccion){ const s=document.getElementById(sel);
   if(!esAdmin()){ s.value=estado.quien; s.disabled=true; }
   else { s.disabled=false; s.value = incluirDireccion? estado.quien : psicPorDefecto(); } }
 
-let citaEditId=null; let pagoEditId=null; let facturaEditId=null;
+let citaEditId=null; let pagoEditId=null; let facturaEditId=null; let pagoCitaId=null;
 // Hoja de cita: ¿el paciente lo eligió alguien (tú, la voz o la cita que editas)? ¿hay que pedir que lo elijan?
 let pacienteElegido=false, pedirPaciente=false;
 const DIAS=[{i:1,n:"Lun"},{i:2,n:"Mar"},{i:3,n:"Mié"},{i:4,n:"Jue"},{i:5,n:"Vie"},{i:6,n:"Sáb"}];
@@ -1879,10 +1894,10 @@ function menuCita(id){
     if(citaEmpezo(c)){
       const conNota=estado.notas.some(n=>n.pac===c.pac && n.psic===c.psic && n.fecha===c.fecha);
       // Igual que en el corte: el cobro puede registrarse otro día
-      const r={desde:c.fecha, hasta:hoyISO()}, conCobro=citaTermino(c)? !sesionesDe(c.psic, r, estado.pagos.filter(g=>g.fecha>=r.desde)).sinCobro.some(x=>x.id===c.id)
+      const r={desde:c.fecha, hasta:hoyISO()}, conCobro=estado.pagos.some(g=>g.cita===c.id) || citaTermino(c)? !sesionesDe(c.psic, r, estado.pagos.filter(g=>g.fecha>=r.desde)).sinCobro.some(x=>x.id===c.id)
         : estado.pagos.some(g=>g.pac===c.pac && g.psic===c.psic && g.fecha===c.fecha);
       b.push(conNota? boton("📝 Nota escrita ✓", `expedienteDeCita('${id}')`, "hecho") : boton("📝 Escribir nota", `notaDesdeCita('${id}')`));
-      b.push(conCobro? boton("💵 Cobro registrado ✓", `cerrar('modalAcciones'); irA('cobros')`, "hecho") : boton("💵 Registrar cobro", `cobroDesdeCita('${id}')`));
+      b.push(conCobro? boton("💵 Cobro registrado ✓", `cerrar('modalAcciones'); irA('cobros')`, "hecho") : boton("✅ Asistió · registrar cobro", `cobroDesdeCita('${id}')`));
       b.push(boton("🚫 No asistió", `marcarCita('${id}','no_asistio')`));
     }
     if(admin) b.push(boton("✕ Cancelar cita", `marcarCita('${id}','cancelada')`, "peligro"));
@@ -1909,10 +1924,10 @@ async function marcarCita(id, nuevo, enLista){
   const {error}=await sb.from("citas").update({estado:nuevo}).eq("id",id);
   if(error){ toast("No se pudo: "+error.message,"err"); return; }
   await refrescar();
-  toast(nuevo==="no_asistio"? (esAdmin()? "Anotado: no asistió ✓" : "Anotado: no asistió. Dirección lo confirmará ✓")
+  toast(nuevo==="no_asistio"? (esAdmin()? "Anotado: no asistió · queda por validar" : "Anotado: no asistió. Dirección lo validará ✓")
     : nuevo==="cancelada"? "Cita cancelada · el horario quedó libre"
     : antes==="cancelada"? "Cita reactivada ✓" : "Listo: sí asistió ✓", "ok");
-  if(enLista) verPorConfirmar();
+  if(enLista) verPorConfirmar(); else seguirCierre();
 }
 async function confirmarCita(id, enLista){
   if(!esAdmin()) return;
@@ -1923,19 +1938,39 @@ async function confirmarCita(id, enLista){
   if(enLista) verPorConfirmar();
 }
 // Lista para que Dirección corrobore las inasistencias que marcaron las psicólogas
+// Dirección valida al final del día: cobros de sesiones (asistió) y "no asistió", de todas, incluida ella
 function verPorConfirmar(){
   if(!esAdmin()) return;
-  const lista=porConfirmar().sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
-  if(!lista.length){ cerrar("modalAcciones"); return; }
-  document.getElementById("accTitulo").textContent="Inasistencias por confirmar";
-  document.getElementById("accSub").textContent="Corrobora que de verdad no asistieron: no se cobran ni llevan nota.";
+  const cobros=cobrosPorValidar().sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const faltas=porConfirmar().sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  if(!cobros.length && !faltas.length){ cerrar("modalAcciones"); return; }
+  document.getElementById("accTitulo").textContent="Por validar";
+  document.getElementById("accSub").textContent="Corrobora que de verdad asistieron (y pagaron) o que no vinieron.";
   document.getElementById("accCerrar").textContent="Cerrar";
-  document.getElementById("accBotones").innerHTML=lista.map(c=>{ const pa=pac(c.pac)||{nombre:"—"}, ps=psic(c.psic)||{nombre:"—", color:"#A9A3B6"};
-    return `<div class="conf-fila"><b>${esc(pa.nombre)}</b>
-      <span class="cuando"><span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))} · ${fechaCorta(c.fecha,true)} · ${c.hora}</span>
-      <div class="conf-acc"><button class="btn" onclick="confirmarCita('${c.id}',true)">✓ Confirmar</button><button class="btn fantasma" onclick="marcarCita('${c.id}','programada',true)">Sí asistió</button></div></div>`;
-  }).join("");
+  const quien=id=>{ const ps=psic(id)||{nombre:"—", color:"#A9A3B6"}; return `<span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))}`; };
+  const cita=g=>g.cita? estado.citas.find(c=>c.id===g.cita) : null;
+  document.getElementById("accBotones").innerHTML=
+    (cobros.length>1? `<button class="acc-btn hecho" onclick="validarTodo()">✓ Validar los ${cobros.length} cobros</button>` : "")
+    + cobros.map(g=>{ const c=cita(g);
+      return `<div class="conf-fila"><b>${esc((pac(g.pac)||{}).nombre||"—")}</b>
+        <span class="cuando">${quien(g.psic)} · ${fechaCorta(c? c.fecha : g.fecha,true)} · ${c? c.hora : g.hora}</span>
+        <span class="cuando" style="color:var(--ok)">Asistió · ${mxn(g.monto)} ${esc(g.metodo)}</span>
+        <div class="conf-acc"><button class="btn verde" onclick="validarPagoLista('${g.id}')">✓ Validar</button><button class="btn fantasma" onclick="cerrar('modalAcciones'); abrirEditarPago('${g.id}')">Corregir</button></div></div>`; }).join("")
+    + faltas.map(c=>`<div class="conf-fila"><b>${esc((pac(c.pac)||{}).nombre||"—")}</b>
+        <span class="cuando">${quien(c.psic)} · ${fechaCorta(c.fecha,true)} · ${c.hora}</span>
+        <span class="cuando" style="color:var(--amb)">No asistió</span>
+        <div class="conf-acc"><button class="btn" onclick="confirmarCita('${c.id}',true)">✓ Confirmar</button><button class="btn fantasma" onclick="marcarCita('${c.id}','programada',true)">Sí asistió</button></div></div>`).join("");
   abrir("modalAcciones");
+}
+async function validarPagoLista(id){
+  const {error}=await sb.from("pagos").update({validado:true}).eq("id",id);
+  if(error){ toast("No se pudo validar: "+error.message,"err"); return; }
+  await refrescar(); toast("Validado ✓","ok"); verPorConfirmar();
+}
+async function validarTodo(){
+  const ids=cobrosPorValidar().map(g=>g.id); if(!ids.length) return;
+  for(const id of ids){ const {error}=await sb.from("pagos").update({validado:true}).eq("id",id); if(error){ toast("No se pudo validar: "+error.message,"err"); break; } }
+  await refrescar(); toast(ids.length+" cobros validados ✓","ok"); verPorConfirmar();
 }
 function expedienteDeCita(id){
   const c=estado.citas.find(x=>x.id===id); cerrar("modalAcciones"); if(!c) return false;
@@ -1946,7 +1981,8 @@ function expedienteDeCita(id){
 function notaDesdeCita(id){ if(expedienteDeCita(id)) abrirNota(); }
 function cobroDesdeCita(id){
   const c=estado.citas.find(x=>x.id===id); if(!c) return;
-  cerrar("modalAcciones"); abrirPago();
+  cerrar("modalAcciones"); abrirPago(); pagoCitaId=c.id;
+  document.getElementById("pTitulo").textContent="Asistió · cobro de las "+c.hora;
   asegurarOpcion("pPaciente", c.pac, (pac(c.pac)||{}).nombre);
   if(!document.getElementById("pPsic").disabled) asegurarOpcion("pPsic", c.psic, (psic(c.psic)||{}).nombre);
   sincronizarTarifa();
@@ -1959,7 +1995,7 @@ async function guardarNota(){ const texto=document.getElementById("nTexto").valu
   if(!texto){ toast("Escribe qué se trabajó en la sesión","err"); return; }
   const {error}=await sb.from("notas").insert({paciente_id:pacienteSel, psicologa_id:document.getElementById("nPsic").value, texto, revisada:esAdmin(), fecha:hoyISO(), hora:ahoraHM()});
   if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
-  cerrar("modalNota"); await refrescar(); toast("Nota guardada ✓","ok"); }
+  cerrar("modalNota"); await refrescar(); toast("Nota guardada ✓","ok"); seguirCierre(); }
 
 function abrirEditarPago(id){
   const g=estado.pagos.find(x=>x.id===id); if(!g) return;
@@ -1987,7 +2023,7 @@ async function eliminarPago(id){
   if(error){ toast("No se pudo eliminar: "+error.message,"err"); return; }
   await refrescar(); toast("Cobro eliminado ✓","ok");
 }
-function abrirPago(){ pagoEditId=null;
+function abrirPago(){ pagoEditId=null; pagoCitaId=null;
   document.getElementById("pTitulo").textContent="Registrar cobro";
   document.getElementById("pGuardar").textContent="Registrar";
   const sel=document.getElementById("pPaciente"); sel.innerHTML=opciones(pacActivos(esAdmin()?estado.pacientes:pacientesVisibles()),"id","nombre"); sel.onchange=function(){ sincronizarTarifa(); }; fijarPsic("pPsic"); document.getElementById("pMetodo").value="transferencia"; sincronizarTarifa(); actualizarCampoMonto(); abrir("modalPago"); }
@@ -1995,8 +2031,7 @@ function sincronizarTarifa(){
   const p=pac(document.getElementById("pPaciente").value);
   const metodo=document.getElementById("pMetodo").value;
   const inp=document.getElementById("pMonto");
-  if(metodo==="efectivo"){ inp.value=0; }
-  else if(p&&p.tarifa){ inp.value=p.tarifa; }
+  if(p&&p.tarifa) inp.value=p.tarifa;   // lo que se le cobra a ese paciente
 }
 function actualizarCampoMonto(){ const metodo=document.getElementById("pMetodo").value; const ocultar=(!esAdmin() && metodo!=="efectivo"); document.getElementById("campoMonto").style.display=ocultar?"none":""; sincronizarTarifa(); }
 async function guardarPago(){ const metodo=document.getElementById("pMetodo").value; const pacId=document.getElementById("pPaciente").value;
@@ -2008,9 +2043,12 @@ async function guardarPago(){ const metodo=document.getElementById("pMetodo").va
     if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
     cerrar("modalPago"); await refrescar(); toast("Cobro actualizado ✓","ok"); return;
   }
-  const {error}=await sb.from("pagos").insert({paciente_id:pacId, psicologa_id:document.getElementById("pPsic").value, monto, metodo, validado:esAdmin(), fecha:hoyISO(), hora:ahoraHM()});
+  // Todo cobro queda por validar, también los de Dirección; si viene de una cita, va ligado a ella
+  const nuevo={paciente_id:pacId, psicologa_id:document.getElementById("pPsic").value, monto, metodo, validado:false, fecha:hoyISO(), hora:ahoraHM()};
+  if(pagoCitaId) nuevo.cita_id=pagoCitaId;
+  const {error}=await sb.from("pagos").insert(nuevo);
   if(error){ toast("No se pudo registrar: "+error.message,"err"); return; }
-  cerrar("modalPago"); await refrescar(); toast("Cobro registrado ✓","ok"); }
+  pagoCitaId=null; cerrar("modalPago"); await refrescar(); toast("Cobro registrado · queda por validar ✓","ok"); seguirCierre(); }
 
 function abrirPaciente(){
   pacienteEditId=null;

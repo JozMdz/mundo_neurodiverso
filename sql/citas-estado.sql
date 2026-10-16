@@ -6,6 +6,7 @@
 --
 -- Cómo correrlo: Supabase → SQL Editor → New query → pega todo este archivo → Run.
 -- Se puede correr varias veces. Va en una transacción: si algo falla, no se aplica nada.
+-- Si ya corriste sql/cobro-cita.sql, vuelve a correrlo después de este (cambia proteger_citas).
 
 begin;
 

@@ -36,28 +36,34 @@ function descifrar(cuerpo, telPriv, telPub, auth) {
   ok(claves(base(en('10:00'))).length === 0, 'fuera del horario no avisa nada');
   ok(claves(base(en('14:25'))).length === 0, 'más de 30 min antes todavía no avisa');
   let a = f.avisosPendientes(base(en('14:30')));
-  ok(a.length === 1 && a[0].clave === 'antes:c1' && a[0].para.join() === 'w' && a[0].body === 'H. R. · en 30 min', `30 min antes avisa a la psicóloga: «${a[0] && a[0].title} · ${a[0] && a[0].body}»`);
+  ok(a.length === 2 && a[0].clave === 'antes:c1' && a[0].para.join() === 'w' && a[0].body === 'H. R. · en 30 min', `30 min antes avisa a la psicóloga: «${a[0] && a[0].title} · ${a[0] && a[0].body}»`);
   ok(!JSON.stringify(a).includes('Haniel'), 'el aviso lleva iniciales, no el nombre del paciente');
   a = f.avisosPendientes(base(en('14:50'), { citas: [{ id: 'cd', fecha: '2026-10-15', hora: '15:00:00', duracion: 60, psicologa_id: 'dir', paciente_id: 'p2', estado: 'programada', confirmada_por: null }] }));
-  ok(a.length === 1 && a[0].clave === 'antes:cd' && a[0].para.join() === 'dir', 'la directora también recibe el aviso antes de sus pacientes (y solo ella)');
+  ok(a.find(x => x.clave === 'antes:cd').para.join() === 'dir' && a.find(x => x.clave === 'antes-dir:cd').para.join() === 'sop', 'la directora recibe el aviso de sus pacientes una sola vez');
   a = f.avisosPendientes(base(en('16:15'), { citas: [{ id: 'cd', fecha: '2026-10-15', hora: '15:00:00', duracion: 60, psicologa_id: 'dir', paciente_id: 'p2', estado: 'programada', confirmada_por: null }] }));
-  ok(a.some(x => x.clave === 'falta:cd' && x.para.join() === 'dir'), 'y el recordatorio si le falta nota o cobro');
-  ok(claves(base(en('14:50'), { enviados: new Set(['antes:c1']) })).length === 0, 'no repite un aviso ya mandado');
+  ok(a.some(x => x.clave === 'jornada:dir:2026-10-15' && x.para.join() === 'dir'), 'y que documente su día si le falta algo');
+  a = f.avisosPendientes(base(en('14:30')));
+  ok(a[1].clave === 'antes-dir:c1' && a[1].para.join() === 'dir,sop' && a[1].body === 'Wendy · H. R. · en 30 min', 'a Dirección también le llega, con el nombre de quien atiende');
+  ok(claves(base(en('14:50'), { enviados: new Set(['antes:c1', 'antes-dir:c1']) })).length === 0, 'no repite un aviso ya mandado');
   ok(!claves(base(en('16:40'))).includes('antes:c1') && !claves(base(en('16:40'))).some(c => c.includes('c2')), 'no avisa de citas canceladas');
   a = f.avisosPendientes(base(en('16:15')));
-  ok(a.some(x => x.clave === 'falta:c1' && x.body === '15:00 H. R.: nota y cobro'), 'al terminar, si falta nota y cobro, le avisa');
+  ok(!a.some(x => x.clave.startsWith('falta')), 'no avisa después de cada sesión: se documenta al final de la jornada');
+  ok(!claves(base(en('16:10'))).some(c => c.startsWith('jornada')), 'antes de 15 min después de su última cita no pide documentar');
+  ok(a.some(x => x.clave === 'jornada:w:2026-10-15' && x.para.join() === 'w' && x.body === '1 sesión sin registrar: asistencia, cobro o nota'), '15 min después de su última cita le pide documentar su día');
   const hoy = '2026-10-15T22:05:00Z';   // 16:05 en México
   a = f.avisosPendientes(base(en('16:15'), { notas: [{ paciente_id: 'p1', psicologa_id: 'w', creado_en: hoy }] }));
-  ok(a.some(x => x.clave === 'falta:c1' && x.body.endsWith(': cobro')), 'si ya hizo la nota, solo le recuerda el cobro');
+  ok(a.some(x => x.clave === 'jornada:w:2026-10-15'), 'si solo hizo la nota, igual le falta documentar');
   a = f.avisosPendientes(base(en('16:15'), { notas: [{ paciente_id: 'p1', psicologa_id: 'w', creado_en: hoy }], pagos: [{ paciente_id: 'p1', psicologa_id: 'w', creado_en: hoy }] }));
-  ok(!a.some(x => x.clave === 'falta:c1'), 'con nota y cobro no hay recordatorio');
+  ok(!a.some(x => x.clave.startsWith('jornada')), 'con todo documentado no hay recordatorio');
   a = f.avisosPendientes(base(en('16:15'), { citas: [{ id: 'c3', fecha: '2026-10-15', hora: '15:00:00', duracion: 60, psicologa_id: 'w', paciente_id: 'p2', estado: 'no_asistio', confirmada_por: null }] }));
-  ok(a.length === 1 && a[0].clave === 'noasis:c3' && a[0].para.join() === 'dir,sop' && a[0].body === 'Wendy: 15:00 M.', 'una inasistencia por confirmar le avisa a Dirección');
+  ok(a.filter(x => x.clave.startsWith('noasis')).length === 1 && a[0].clave === 'noasis:c3' && a[0].para.join() === 'dir,sop' && a[0].body === 'Wendy: 15:00 M.', 'una inasistencia por confirmar le avisa a Dirección');
   a = f.avisosPendientes(base(en('19:00'), { cierres: [{ id: 'x1', psicologa_id: 'w', creado_en: en('18:58').toISOString(), notas_pendientes: 1, cobros_pendientes: 2 }] }));
   ok(a.some(x => x.clave === 'cierre:x1' && x.body === 'Wendy: 1 nota y 2 cobros sin registrar'), 'si alguien sale con pendientes, le avisa a Dirección');
   a = f.avisosPendientes(base(en('21:20')));
   const r = a.find(x => x.clave === 'resumen:2026-10-15');
   ok(r && r.para.join() === 'dir,sop' && r.title === 'Hoy: 1 sesión' && r.body === '1 sin nota · 1 sin cobro', `a las 21:15 manda el resumen a Dirección: «${r && r.title} · ${r && r.body}»`);
+  a = f.avisosPendientes(base(en('21:20'), { pagos: [{ paciente_id: 'p1', psicologa_id: 'w', creado_en: hoy, validado: false }] }));
+  ok(a.find(x => x.clave === 'resumen:2026-10-15').body === '1 sin nota · 1 por validar', 'el resumen dice cuántos cobros faltan por validar');
   ok(f.avisosPendientes(base(new Date('2026-10-17T15:20:00-06:00'))).some(x => x.clave === 'resumen:2026-10-17') === false
     && f.avisosPendientes(base(new Date('2026-10-17T18:20:00-06:00'))).some(x => x.clave === 'resumen:2026-10-17'), 'el sábado el resumen llega después de las 18:15');
 
