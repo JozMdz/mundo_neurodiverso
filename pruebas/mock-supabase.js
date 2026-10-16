@@ -90,6 +90,7 @@
   }
   const cliente={
     from:q,
+    rpc: async (fn, args) => { (window.__RPC = window.__RPC || []).push([fn, args]); return { data: null, error: null }; },
     auth:{ getUser: async()=>({data:{user: uid? {id:uid} : null}}),
            signInWithPassword: async()=>({error:null}), signOut: async()=>{ uid=null; return {error:null}; } },
     channel(){ const c={ on(){ return c; }, subscribe(){ return c; } }; return c; },

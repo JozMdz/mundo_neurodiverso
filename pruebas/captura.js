@@ -14,6 +14,7 @@ const [,, file, out, como='d1', ...pasos] = process.argv;
   await page.route('**/*', r => {
     const u = r.request().url();
     if (u.includes('supabase-js')) return r.fulfill({ contentType: 'application/javascript', body: mock });
+    if (u.includes('/functions/v1/avisar')) return r.fulfill({ contentType: 'application/json', body: '{"publica":null}' });   // función de avisos sin instalar
     if (u.includes('supabase.co')) return r.abort();            // nunca a la base real
     return r.continue();
   });

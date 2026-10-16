@@ -12,6 +12,7 @@ async function abrir(browser, como, disp) {
   await page.route('**/*', r => {
     const u = r.request().url();
     if (u.includes('supabase-js')) return r.fulfill({ contentType: 'application/javascript', body: mock });
+    if (u.includes('/functions/v1/avisar')) return r.fulfill({ contentType: 'application/json', body: '{"publica":null}' });   // función de avisos sin instalar
     if (u.includes('supabase.co')) return r.abort();
     return r.continue();
   });
@@ -433,14 +434,14 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     __DB.citas = __DB.citas.filter(x => !(x.psicologa_id === 's1' && x.fecha === hoyISO())); __DB.citas.push(c('fin1', 'p1'), c('fin2', 'p2'));
     __DB.notas.push({ id: 'nf1', paciente_id: 'p1', psicologa_id: 's1', texto: 'Nota hecha', revisada: false, vista_psic: true, creado_en: new Date().toISOString() });
     __DB.pagos = __DB.pagos.filter(g => !(g.psicologa_id === 's1' && (g.paciente_id === 'p1' || g.paciente_id === 'p2'))); await refrescar(); });
-  await page.click('header .icono-btn'); await page.waitForTimeout(250);
+  await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
   const filasCierre = await page.$$eval('#cierreLista .conf-fila', f => f.map(x => x.innerText.replace(/\s+/g, ' ')));
   ok(filasCierre.length === 2 && filasCierre.some(x => x.includes('Mateo') && x.includes('falta cobro') && !x.includes('Nota')) && filasCierre.some(x => x.includes('Valentina') && x.includes('falta nota y cobro')),
     'al salir dice qué paciente quedó sin nota o sin cobro');
   await page.tap('#cierreLista .conf-fila:has-text("Mateo") .btn'); await page.waitForTimeout(300);
   ok(await visible(page, '#modalPago.abierto') && await page.inputValue('#pPaciente') === 'p1', 'si ya hizo la nota, el botón la lleva directo al cobro de ese paciente');
   await page.evaluate(() => cerrar('modalPago'));
-  await page.click('header .icono-btn'); await page.waitForTimeout(250);
+  await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
   await page.click('#modalCierre .pie .fantasma'); await page.waitForTimeout(400);
   ok(await page.evaluate(() => { const x = __DB.cierres.at(-1); return x && x.notas_pendientes === 1 && x.cobros_pendientes === 2 && x.detalle.length === 2 && x.detalle.some(d => d.pac === 'p1' && !d.nota && d.cobro); }),
     'el cierre guarda qué pacientes quedaron pendientes');
@@ -455,6 +456,29 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(await page.evaluate(() => __DB.cierres.find(x => x.id === 'ci1').revisado_por === 'd1') && !(await page.textContent('#controlCard')).includes('Valentina'), '"✓ Revisado" lo quita de la lista');
   ok(await ancho(page) <= 414, 'sin scroll horizontal en Equipo');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
+  console.log('Avisos al teléfono');
+  page = await abrir(browser, 's1');
+  ok(!(await visible(page, '#btnAvisos')), 'si la función "avisar" no está en Supabase, no aparece el botón de avisos');
+  for (const [disp, nombre] of [[devices['iPhone 11'], 'iPhone'], [devices['Pixel 5'], 'Android']]) {
+    const ctx = await browser.newContext({ ...disp, locale: 'es-MX', timezoneId: 'America/Mexico_City' });
+    const p = await ctx.newPage(); p.errores = []; p.on('pageerror', e => p.errores.push(String(e)));
+    await p.route('**/*', r => { const u = r.request().url();
+      if (u.includes('supabase-js')) return r.fulfill({ contentType: 'application/javascript', body: mock });
+      if (u.includes('/functions/v1/avisar')) return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ publica: 'BPruebaPublica' }) });
+      if (u.includes('supabase.co')) return r.abort();
+      return r.continue(); });
+    await p.goto('file://' + FILE + '?como=s1'); await p.waitForTimeout(800);
+    ok(await visible(p, '#btnAvisos') && (await p.textContent('#btnAvisos')) === '🔕', `${nombre}: con la función instalada aparece 🔕 para activar avisos`);
+    ok(await p.$eval('#btnAvisos', b => b.getBoundingClientRect().height >= 44 && b.getBoundingClientRect().width >= 44) && await p.evaluate(() => document.documentElement.scrollWidth) <= disp.viewport.width,
+      `${nombre}: el botón mide 44 px y el encabezado no se desborda`);
+    if (nombre === 'iPhone') {
+      await p.tap('#btnAvisos'); await p.waitForTimeout(200);
+      ok((await p.textContent('#toast')).includes('Agregar a pantalla de inicio'), 'iPhone sin instalar: explica que primero hay que instalar la app');
+    }
+    ok(p.errores.length === 0, `${nombre}: sin errores en consola ` + (p.errores.join(' | ') || ''));
+    await ctx.close();
+  }
 
   console.log('Modo pruebas');
   page = await abrir(browser, 'd1');

@@ -66,8 +66,16 @@ ATAQUES = [
     ("Psicóloga borra el detalle de un cierre", F, f"update cierres set detalle='[]' returning 1", "rechazado"),
     ("Dirección cambia lo que dejó pendiente la psicóloga", D, f"update cierres set notas_pendientes=0 returning 1", "rechazado"),
     ("Psicóloga marca 'no asistió' en una cita que aún no llega", F, f"update citas set estado='no_asistio' where id='{C75}' returning estado", "rechazado"),
+    ("Psicóloga ve los teléfonos registrados", F, "select count(*) from push_subs", "rechazado"),
+    ("Psicóloga ve qué avisos se mandaron", F, "select count(*) from avisos_enviados", "rechazado"),
+    ("Psicóloga registra un servicio de avisos desconocido", F, "select guardar_suscripcion('https://ejemplo.com/x','k','a'); select 'registrado'", "rechazado"),
+    ("Sin sesión registra un teléfono", None, "set local role anon; select guardar_suscripcion('https://fcm.googleapis.com/fcm/send/anon','k','a'); select 'registrado'", "rechazado"),
+    ("Psicóloga quita el teléfono de otra", F, f"reset role; insert into push_subs values('https://fcm.googleapis.com/fcm/send/andrea','{A}','k','a'); set local role authenticated; select borrar_suscripcion('https://fcm.googleapis.com/fcm/send/andrea'); reset role; select count(*)::text from push_subs where endpoint='https://fcm.googleapis.com/fcm/send/andrea'", "1"),
 ]
 NORMAL = [
+    ("Psicóloga activa avisos en su teléfono", F, f"select guardar_suscripcion('https://fcm.googleapis.com/fcm/send/fer','k','a'); reset role; select (psicologa_id='{F}')::text from push_subs where endpoint='https://fcm.googleapis.com/fcm/send/fer'", "true"),
+    ("El teléfono pasa a la cuenta que entra", F, f"reset role; insert into push_subs values('https://fcm.googleapis.com/fcm/send/cel','{A}','k','a'); set local role authenticated; select guardar_suscripcion('https://fcm.googleapis.com/fcm/send/cel','k2','a2'); reset role; select (psicologa_id='{F}' and p256dh='k2')::text from push_subs where endpoint='https://fcm.googleapis.com/fcm/send/cel'", "true"),
+    ("Psicóloga quita su teléfono al salir", F, f"reset role; insert into push_subs values('https://fcm.googleapis.com/fcm/send/mio','{F}','k','a'); set local role authenticated; select borrar_suscripcion('https://fcm.googleapis.com/fcm/send/mio'); reset role; select count(*)::text from push_subs where endpoint='https://fcm.googleapis.com/fcm/send/mio'", "0"),
     ("Psicóloga escribe una nota", F, f"insert into notas(paciente_id,psicologa_id,texto,revisada) values('{P1}','{F}','nueva',false) returning revisada", "f"),
     ("Psicóloga edita su nota", F, f"update notas set texto='corregida' where id='{N1}' returning texto", "corregida"),
     ("Si edita una nota revisada, vuelve a 'por revisar'", F, f"update notas set texto='corregida' where id='{N2}' returning revisada", "f"),
@@ -122,7 +130,7 @@ for archivo in ("pruebas/base/supabase-minimo.sql", "sql/esquema.sql", "pruebas/
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): sys.exit(f"{archivo} no cargó:\n{r}")
 fallas = correr("Con sql/esquema.sql")
-for archivo in ("sql/seguridad.sql", "sql/ajustes.sql", "sql/citas-estado.sql", "sql/pago-psicologa.sql", "sql/cierres-detalle.sql"):
+for archivo in ("sql/seguridad.sql", "sql/ajustes.sql", "sql/citas-estado.sql", "sql/pago-psicologa.sql", "sql/cierres-detalle.sql", "sql/avisos.sql"):
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): print(f"\n✗ {archivo} no se puede volver a correr:\n{r}"); fallas += 1
 fallas += correr("Después de volver a correr los archivos de sql/")
