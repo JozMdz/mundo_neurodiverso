@@ -480,6 +480,14 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     await ctx.close();
   }
 
+  console.log('Al volver a la app');
+  page = await abrir(browser, 's1');
+  await page.evaluate(() => { __DB.citas.push({ id: 'otraPC', fecha: estado.fechaAgenda, hora: '20:00:00', duracion: 60, psicologa_id: 's1', paciente_id: 'p1', estado: 'programada', confirmada_por: null }); });
+  ok(!(await page.$('.ev[data-cita="otraPC"]')), 'una cita agendada en otro aparato no aparece sola si se cortó la conexión');
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await page.waitForTimeout(300);
+  ok(!!(await page.$('.ev[data-cita="otraPC"]')), 'al volver a la app se recarga y aparece');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
   console.log('Modo pruebas');
   page = await abrir(browser, 'd1');
   await page.goto(page.url().replace('?como=', '?pruebas=1&como=')); await page.waitForTimeout(600);

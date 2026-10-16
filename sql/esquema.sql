@@ -404,6 +404,9 @@ revoke truncate, trigger, references on all tables in schema public from authent
 grant select, insert, update, delete on all tables in schema public to authenticated;
 -- Los avisos solo los tocan la función "avisar" (service_role) y guardar_suscripcion / borrar_suscripcion
 revoke all on public.push_subs, public.avisos_enviados from anon, authenticated;
+-- La función "avisar" usa la cuenta del servidor (sql/avisos-permisos.sql)
+grant usage on schema public to service_role;
+grant select, insert, update, delete on all tables in schema public to service_role;
 revoke execute on function public.guardar_suscripcion(text, text, text), public.borrar_suscripcion(text) from public, anon;
 grant execute on function public.guardar_suscripcion(text, text, text), public.borrar_suscripcion(text) to authenticated;
 

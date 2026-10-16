@@ -2,7 +2,8 @@
 
 Unos 15 minutos, una sola vez. Todo en https://supabase.com, en el proyecto del consultorio.
 
-1. **Tablas.** SQL Editor → New query → pega todo `sql/avisos.sql` → Run.
+1. **Tablas.** SQL Editor → New query → pega todo `sql/avisos.sql` → Run. Luego, igual, `sql/avisos-permisos.sql`
+   (permiso de la cuenta del servidor para leer la agenda).
 2. **Llaves.** Abre https://jozmdz.github.io/mundo_neurodiverso/herramientas/llaves-avisos.html.
    La página genera dos llaves en tu navegador.
 3. **Secrets.** Edge Functions → Secrets → agrega tres:
@@ -24,6 +25,10 @@ Unos 15 minutos, una sola vez. Todo en https://supabase.com, en el proyecto del 
 - Solo de media hora antes de abrir a una hora después de cerrar. Con iniciales del paciente, no el nombre.
 
 ## Si algo no llega
+
+- `select created, status_code, content from net._http_response order by created desc limit 5;` muestra cada
+  corrida: cuántos avisos tocaban, cuántos se mandaron, cuántas citas de hoy leyó y si alguna consulta falló.
+  "permission denied" → corre `sql/avisos-permisos.sql`.
 
 - Edge Functions → avisar → Logs: cada corrida dice cuántos avisos tocaban y cuántos se mandaron.
 - Un teléfono es de la última cuenta que entró en él. Al salir de la app, ese teléfono deja de recibir avisos.
