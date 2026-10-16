@@ -47,8 +47,8 @@ para confirmar: nunca guarda sola. Las frases de prueba están en `pruebas/flujo
 
 Estado de las citas (`sql/citas-estado.sql`): una cita que ya pasó cuenta como **atendida** y pide nota y cobro.
 Al tocar una cita se abre su hoja de opciones (`menuCita`): nota, cobro con la tarifa del paciente y "No asistió".
-Lo que marca una psicóloga queda **por confirmar** hasta que Dirección lo corrobora (aviso arriba de la agenda y
-`verPorConfirmar`); lo que marca Dirección queda confirmado. Solo Dirección cancela, reactiva, reagenda y cambia
+Todo lo marcado queda **por confirmar** hasta que Dirección lo corrobora (aviso arriba de la agenda y
+`verPorConfirmar`), también lo que marca la directora. Solo Dirección cancela, reactiva, reagenda y cambia
 de día (campo Día en la hoja de cita). Canceladas y "no asistió" no piden nota ni cobro ni ocupan el horario.
 El corte de Cobros (`sesionesDe`) compara las sesiones dadas de la agenda con los cobros de cada paciente y avisa
 las que no tienen cobro.
@@ -68,6 +68,11 @@ Las llaves y la instalación están en `supabase/functions/avisar/LEEME.md`. `no
 Expediente: Dirección ve a los pacientes agrupados por psicóloga (`gruposPx`, cada grupo se abre y se cierra); al buscar
 o filtrar, la lista es directa. Facturas: la psicóloga solo avisa que un paciente la pidió (monto 0 = por definir);
 Dirección pone el monto antes de emitirla.
+
+Cobro de la sesión (`sql/cobro-cita.sql`): al tocar una cita ya empezada, "✅ Asistió · registrar cobro" abre el cobro con la
+tarifa del paciente y lo liga a la cita (`pagos.cita_id`, uno por cita). Nada queda validado solo, ni lo de la directora:
+cobros (`validado`) y "no asistió" (`confirmada_por`) los valida Dirección al final del día en "Por validar"
+(`verPorConfirmar`), que también le ofrece la hoja "Antes de salir".
 
 Modo pruebas: abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos los días solo en ese dispositivo
 (`?pruebas=0` o el botón "Quitar" lo apaga). Los datos siguen siendo los reales.

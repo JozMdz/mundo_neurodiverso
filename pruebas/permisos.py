@@ -66,6 +66,9 @@ ATAQUES = [
     ("Psicóloga borra el detalle de un cierre", F, f"update cierres set detalle='[]' returning 1", "rechazado"),
     ("Dirección cambia lo que dejó pendiente la psicóloga", D, f"update cierres set notas_pendientes=0 returning 1", "rechazado"),
     ("Psicóloga marca 'no asistió' en una cita que aún no llega", F, f"update citas set estado='no_asistio' where id='{C75}' returning estado", "rechazado"),
+    ("Psicóloga liga un cobro a la cita de otra", F, f"insert into pagos(paciente_id,psicologa_id,monto,metodo,cita_id) values('{P1}','{F}',600,'efectivo','{C74}'); select 'registrado'", "rechazado"),
+    ("Psicóloga registra dos cobros para la misma cita", F, f"insert into pagos(paciente_id,psicologa_id,monto,metodo,cita_id) values('{P1}','{F}',600,'efectivo','{C71}'),('{P1}','{F}',600,'efectivo','{C71}'); select 'registrado'", "rechazado"),
+    ("Psicóloga cambia a qué cita va su cobro", F, f"update pagos set cita_id='{C71}' where id='{G1}' returning 1", "rechazado"),
     ("Psicóloga ve los teléfonos registrados", F, "select count(*) from push_subs", "rechazado"),
     ("Psicóloga ve qué avisos se mandaron", F, "select count(*) from avisos_enviados", "rechazado"),
     ("Psicóloga registra un servicio de avisos desconocido", F, "select guardar_suscripcion('https://ejemplo.com/x','k','a'); select 'registrado'", "rechazado"),
@@ -104,7 +107,9 @@ NORMAL = [
     ("Psicóloga corrige: sí asistió", F, f"update citas set estado='programada' where id='{C72}' returning estado", "programada"),
     ("Dirección confirma la inasistencia", D, f"update citas set confirmada_por='{D}' where id='{C72}' returning (confirmada_por='{D}')::text", "true"),
     ("Soporte confirma la inasistencia", J, f"update citas set confirmada_por='{J}' where id='{C72}' returning (confirmada_por='{J}')::text", "true"),
-    ("Dirección marca 'no asistió' (queda confirmada)", D, f"update citas set estado='no_asistio' where id='{C74}' returning (confirmada_por='{D}')::text", "true"),
+    ("Dirección marca 'no asistió' (también queda por confirmar)", D, f"update citas set estado='no_asistio' where id='{C74}' returning coalesce(confirmada_por::text,'por confirmar')", "por confirmar"),
+    ("Psicóloga registra el cobro de su cita (queda por validar)", F, f"insert into pagos(paciente_id,psicologa_id,monto,metodo,validado,cita_id) values('{P1}','{F}',600,'efectivo',true,'{C71}') returning validado::text", "false"),
+    ("Dirección registra el cobro de su sesión por validar", D, f"insert into pagos(paciente_id,psicologa_id,monto,metodo,validado,cita_id) values('{P1}','{D}',600,'transferencia',false,'{C71}') returning validado::text", "false"),
     ("Dirección cancela una cita", D, f"update citas set estado='cancelada' where id='{C71}' returning estado", "cancelada"),
     ("Dirección cambia de día una cita", D, f"update citas set fecha=current_date+3 where id='{C71}' returning (fecha=current_date+3)::text", "true"),
     ("Dirección regresa una inasistencia confirmada", D, f"update citas set estado='programada' where id='{C73}' returning coalesce(confirmada_por::text,'sin confirmar')", "sin confirmar"),
@@ -130,7 +135,7 @@ for archivo in ("pruebas/base/supabase-minimo.sql", "sql/esquema.sql", "pruebas/
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): sys.exit(f"{archivo} no cargó:\n{r}")
 fallas = correr("Con sql/esquema.sql")
-for archivo in ("sql/seguridad.sql", "sql/ajustes.sql", "sql/citas-estado.sql", "sql/pago-psicologa.sql", "sql/cierres-detalle.sql", "sql/avisos.sql"):
+for archivo in ("sql/seguridad.sql", "sql/ajustes.sql", "sql/citas-estado.sql", "sql/pago-psicologa.sql", "sql/cierres-detalle.sql", "sql/avisos.sql", "sql/cobro-cita.sql"):
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): print(f"\n✗ {archivo} no se puede volver a correr:\n{r}"); fallas += 1
 fallas += correr("Después de volver a correr los archivos de sql/")

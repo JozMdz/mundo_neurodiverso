@@ -58,6 +58,8 @@ function descifrar(cuerpo, telPriv, telPub, auth) {
   a = f.avisosPendientes(base(en('21:20')));
   const r = a.find(x => x.clave === 'resumen:2026-10-15');
   ok(r && r.para.join() === 'dir,sop' && r.title === 'Hoy: 1 sesión' && r.body === '1 sin nota · 1 sin cobro', `a las 21:15 manda el resumen a Dirección: «${r && r.title} · ${r && r.body}»`);
+  a = f.avisosPendientes(base(en('21:20'), { pagos: [{ paciente_id: 'p1', psicologa_id: 'w', creado_en: hoy, validado: false }] }));
+  ok(a.find(x => x.clave === 'resumen:2026-10-15').body === '1 sin nota · 1 por validar', 'el resumen dice cuántos cobros faltan por validar');
   ok(f.avisosPendientes(base(new Date('2026-10-17T15:20:00-06:00'))).some(x => x.clave === 'resumen:2026-10-17') === false
     && f.avisosPendientes(base(new Date('2026-10-17T18:20:00-06:00'))).some(x => x.clave === 'resumen:2026-10-17'), 'el sábado el resumen llega después de las 18:15');
 

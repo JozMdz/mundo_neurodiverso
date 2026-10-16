@@ -76,9 +76,9 @@
         if(tabla==="notas" && /comentarios/.test(st.cols)) rows.forEach(r=>r.comentarios=DB.comentarios.filter(c=>c.nota_id===r.id).map(c=>({...c})));
         return {data:rows, error:null}; }
       if(st.op==="update"){ t.filter(match).forEach(r=>{ const p={...st.patch};
-          if(tabla==="citas"){   // como el trigger proteger_citas: anota quién marcó; lo de Dirección queda confirmado
+          if(tabla==="citas"){   // como el trigger proteger_citas: anota quién marcó
             const dir=DB.psicologas.some(x=>x.id===uid && x.es_direccion);
-            if(p.estado!==undefined && p.estado!==r.estado){ p.marcada_por=uid; p.marcada_en=new Date().toISOString(); p.confirmada_por=(dir && p.estado!=="programada")? uid : null; }
+            if(p.estado!==undefined && p.estado!==r.estado){ p.marcada_por=uid; p.marcada_en=new Date().toISOString(); p.confirmada_por=null; /* todo lo marcado espera a que Dirección lo valide */ }
             else if(p.confirmada_por!==undefined) p.confirmada_por=(dir && p.confirmada_por)? uid : r.confirmada_por;
           }
           if(tabla==="cierres" && p.revisado_por) p.revisado_por=uid;   // como proteger_cierres
