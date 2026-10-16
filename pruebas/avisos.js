@@ -37,6 +37,10 @@ function descifrar(cuerpo, telPriv, telPub, auth) {
   let a = f.avisosPendientes(base(en('14:50')));
   ok(a.length === 1 && a[0].clave === 'antes:c1' && a[0].para.join() === 'w' && a[0].body === 'H. R. · en 10 min', `10 min antes avisa a la psicóloga: «${a[0] && a[0].title} · ${a[0] && a[0].body}»`);
   ok(!JSON.stringify(a).includes('Haniel'), 'el aviso lleva iniciales, no el nombre del paciente');
+  a = f.avisosPendientes(base(en('14:50'), { citas: [{ id: 'cd', fecha: '2026-10-15', hora: '15:00:00', duracion: 60, psicologa_id: 'dir', paciente_id: 'p2', estado: 'programada', confirmada_por: null }] }));
+  ok(a.length === 1 && a[0].clave === 'antes:cd' && a[0].para.join() === 'dir', 'la directora también recibe el aviso antes de sus pacientes (y solo ella)');
+  a = f.avisosPendientes(base(en('16:15'), { citas: [{ id: 'cd', fecha: '2026-10-15', hora: '15:00:00', duracion: 60, psicologa_id: 'dir', paciente_id: 'p2', estado: 'programada', confirmada_por: null }] }));
+  ok(a.some(x => x.clave === 'falta:cd' && x.para.join() === 'dir'), 'y el recordatorio si le falta nota o cobro');
   ok(claves(base(en('14:50'), { enviados: new Set(['antes:c1']) })).length === 0, 'no repite un aviso ya mandado');
   ok(!claves(base(en('16:40'))).includes('antes:c1') && !claves(base(en('16:40'))).some(c => c.includes('c2')), 'no avisa de citas canceladas');
   a = f.avisosPendientes(base(en('16:15')));
