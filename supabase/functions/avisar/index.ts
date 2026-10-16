@@ -179,5 +179,11 @@ if (typeof Deno !== "undefined") Deno.serve(async (req: Request) => {
   }
   if (muertas.length) await sb.from("push_subs").delete().in("endpoint", muertas);
   await sb.from("avisos_enviados").delete().lt("enviado_en", hace(30));
-  return json({ avisos: avisos.length, enviados });
+  // Para revisar desde net._http_response: cuántos renglones leyó y qué consulta falló (sin datos de pacientes)
+  const tablas: Record<string, any> = { psicologas: ps, pacientes: pa, citas: ci, notas: no, pagos: pg, cierres: cr, enviados: en, telefonos: su };
+  const leidos: Record<string, number> = {}, errores: string[] = [];
+  for (const [k, r] of Object.entries(tablas)) { leidos[k] = (r.data || []).length; if (r.error) errores.push(k + ": " + r.error.message); }
+  const l = new Date(ahora.getTime() + TZ_OFFSET * 3600_000);
+  return json({ avisos: avisos.length, enviados, hora: l.toISOString().slice(0, 16).replace("T", " "), citasHoy: (ci.data || []).filter((c: any) => c.fecha === hoy).length,
+    leidos, ...(errores.length ? { errores } : {}) });
 });
