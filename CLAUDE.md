@@ -56,13 +56,15 @@ Lo que le toca a cada psicóloga sale de cada paciente (`pago_psicologa`, se cap
 la tarifa, `sql/pago-psicologa.sql`). El corte (`pagoPsicologa`) suma sus sesiones por paciente, le resta el efectivo
 que ella ya tiene y dice cuánto le paga Dirección o cuánto entrega ella.
 
-Al salir, si una psicóloga tiene sesiones de hoy sin nota o sin cobro (`pendientesHoy`), la hoja "Antes de salir" las
-lista por paciente con su botón (nota o cobro). Si sale así, el cierre guarda el detalle (`sql/cierres-detalle.sql`);
+Se documenta al final de la jornada: al salir, si una psicóloga (o la directora) tiene sesiones de hoy sin documentar
+(`pendientesHoy`), la hoja "Antes de salir" las lista por paciente con Nota, Asistió (cobro) y No vino, y regresa a la
+lista después de cada una (`seguirCierre`). Si sale así, el cierre guarda el detalle (`sql/cierres-detalle.sql`);
 en Equipo, Dirección ve qué faltó, si ya se registró después, y lo marca "✓ Revisado" para quitarlo de la lista.
 
 Avisos al teléfono (push): la función `supabase/functions/avisar/index.ts` corre cada 5 min (`sql/avisos-programar.sql`)
-y manda, cifrados y con iniciales del paciente, recordatorios de cita, nota o cobro pendientes a cada psicóloga (y a
-Dirección los de todas, con el nombre de quien atiende), y a Dirección inasistencias, cierres y un resumen al cerrar. Cada quien los activa con 🔔 en su teléfono (`tocarAvisos`).
+y manda, cifrados y con iniciales del paciente, el aviso de cada cita 30 min antes (a quien atiende y a Dirección, con
+el nombre de quien atiende), "Documenta tu día" después de la última cita de cada quien, y a Dirección inasistencias,
+cierres y un resumen al cerrar. Cada quien los activa con 🔔 en su teléfono (`tocarAvisos`).
 Las llaves y la instalación están en `supabase/functions/avisar/LEEME.md`. `node pruebas/avisos.js` prueba reglas y cifrado.
 
 Expediente: Dirección ve a los pacientes agrupados por psicóloga (`gruposPx`, cada grupo se abre y se cierra); al buscar

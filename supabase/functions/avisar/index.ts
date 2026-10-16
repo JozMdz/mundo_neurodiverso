@@ -48,7 +48,7 @@ export function avisosPendientes(d: Datos): Aviso[] {
   const citasHoy = d.citas.filter(c => c.fecha === hoy && c.estado === "programada").sort((a, b) => a.hora.localeCompare(b.hora));
 
   for (const c of citasHoy) {
-    const ini = minutos(c.hora), fin = ini + (c.duracion || 60), falta = ini - ahora;
+    const ini = minutos(c.hora), falta = ini - ahora;
     // Dirección recibe también los avisos de las demás, con el nombre de quien atiende (para saber quién ocupa los consultorios)
     const p = psic(c.psicologa_id), quien = p ? corto(p.nombre) + " · " : "", otros = direccion.filter(id => id !== c.psicologa_id);
     // A quien atiende (y a Dirección): media hora antes de la cita
@@ -56,14 +56,15 @@ export function avisosPendientes(d: Datos): Aviso[] {
       avisos.push({ para: [c.psicologa_id], clave: "antes:" + c.id, title: `Cita a las ${hhmm(ini)}`, body: `${pac(c.paciente_id)} · en ${falta} min` });
       avisos.push({ para: otros, clave: "antes-dir:" + c.id, title: `Cita a las ${hhmm(ini)}`, body: `${quien}${pac(c.paciente_id)} · en ${falta} min` });
     }
-    // 10 minutos después de terminar, si falta la nota o el cobro (hasta 3 h después)
-    if (ahora >= fin + 10 && ahora <= fin + 180) {
-      const n = !tiene(d.notas, c), g = !tiene(d.pagos, c), que = [n ? "nota" : "", g ? "cobro" : ""].filter(Boolean).join(" y ");
-      if (n || g) {
-        avisos.push({ para: [c.psicologa_id], clave: "falta:" + c.id, title: "Falta registrar", body: `${hhmm(ini)} ${pac(c.paciente_id)}: ${que}` });
-        avisos.push({ para: otros, clave: "falta-dir:" + c.id, title: "Falta registrar", body: `${quien}${hhmm(ini)} ${pac(c.paciente_id)}: ${que}` });
-      }
-    }
+  }
+  // A cada quien que atiende: 15 min después de su última cita del día, si quedó algo sin documentar (asistencia,
+  // cobro o nota). Documentan todo al final de la jornada, no después de cada sesión.
+  for (const id of [...new Set(citasHoy.map(c => c.psicologa_id))]) {
+    const suyas = citasHoy.filter(c => c.psicologa_id === id), ultima = Math.max(...suyas.map(c => minutos(c.hora) + (c.duracion || 60)));
+    if (ahora < ultima + 15 || ahora > ultima + 180) continue;
+    const sinDoc = suyas.filter(c => !tiene(d.notas, c) || !tiene(d.pagos, c)).length;
+    if (sinDoc) avisos.push({ para: [id], clave: `jornada:${id}:${hoy}`, title: "Documenta tu día",
+      body: `${plural(sinDoc, "sesión", "sesiones")} sin registrar: asistencia, cobro o nota` });
   }
   // A Dirección: inasistencias marcadas que esperan confirmación (de la última semana)
   const semana = fechaLocal(new Date(d.ahora.getTime() - 7 * 86400_000));

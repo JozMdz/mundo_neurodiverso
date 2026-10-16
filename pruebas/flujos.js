@@ -441,11 +441,16 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     __DB.pagos = __DB.pagos.filter(g => !(g.psicologa_id === 's1' && (g.paciente_id === 'p1' || g.paciente_id === 'p2'))); await refrescar(); });
   await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
   const filasCierre = await page.$$eval('#cierreLista .conf-fila', f => f.map(x => x.innerText.replace(/\s+/g, ' ')));
-  ok(filasCierre.length === 2 && filasCierre.some(x => x.includes('Mateo') && x.includes('falta cobro') && !x.includes('Nota')) && filasCierre.some(x => x.includes('Valentina') && x.includes('falta nota y cobro')),
+  ok(filasCierre.length === 2 && filasCierre.some(x => x.includes('Mateo') && x.includes('falta asistencia y cobro') && !x.includes('Nota') && x.includes('No vino')) && filasCierre.some(x => x.includes('Valentina') && x.includes('falta asistencia, cobro y nota')),
     'al salir dice qué paciente quedó sin nota o sin cobro');
-  await page.tap('#cierreLista .conf-fila:has-text("Mateo") .btn'); await page.waitForTimeout(300);
+  await page.tap('#cierreLista .conf-fila:has-text("Valentina") .btn >> text="🚫 No vino"'); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => __DB.citas.find(c => c.id === 'fin2').estado) === 'no_asistio' && await visible(page, '#modalCierre.abierto')
+    && (await page.$$eval('#cierreLista .conf-fila', f => f.length)) === 1, '"No vino" la marca y regresa a la lista con lo que falta');
+  await page.tap('#cierreLista .conf-fila:has-text("Mateo") .btn >> text="✅ Asistió"'); await page.waitForTimeout(300);
   ok(await visible(page, '#modalPago.abierto') && await page.inputValue('#pPaciente') === 'p1', 'si ya hizo la nota, el botón la lleva directo al cobro de ese paciente');
-  await page.evaluate(() => cerrar('modalPago'));
+  await page.tap('#pGuardar'); await page.waitForTimeout(400);
+  ok(!(await visible(page, '#modalCierre.abierto')) && (await page.textContent('#toast')).includes('Todo documentado'), 'con todo documentado avisa que ya puede salir');
+  await page.evaluate(async () => { __DB.pagos = __DB.pagos.filter(g => g.cita_id !== 'fin1'); __DB.citas.find(c => c.id === 'fin2').estado = 'programada'; await refrescar(); });
   await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
   await page.click('#modalCierre .pie .fantasma'); await page.waitForTimeout(400);
   ok(await page.evaluate(() => { const x = __DB.cierres.at(-1); return x && x.notas_pendientes === 1 && x.cobros_pendientes === 2 && x.detalle.length === 2 && x.detalle.some(d => d.pac === 'p1' && !d.nota && d.cobro); }),
@@ -507,7 +512,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(await page.evaluate(() => { const g = __DB.pagos.find(x => x.cita_id === 'mia1'); return g && g.validado === false && g.psicologa_id === 'd1'; }), 'el cobro de la directora también queda por validar');
   await page.click('header .icono-btn:not(#btnAvisos)'); await page.waitForTimeout(250);
   const cierreDir = (await page.textContent('#modalCierre')).replace(/\s+/g, ' ');
-  ok(await visible(page, '#modalCierre.abierto') && /falta nota y cobro/.test(cierreDir) && cierreDir.includes('Validar el día · 2 por validar'),
+  ok(await visible(page, '#modalCierre.abierto') && /falta asistencia, cobro y nota/.test(cierreDir) && cierreDir.includes('Validar el día · 2 por validar'),
     'al salir, a la directora le pide su sesión pendiente y validar el día');
   await page.tap('#cierreValidar .acc-btn'); await page.waitForTimeout(250);
   ok((await page.textContent('#accTitulo')) === 'Por validar' && await page.$$eval('#accBotones .conf-fila', f => f.length) === 2, 'la lista "Por validar" trae los cobros del día, de todas');

@@ -911,7 +911,11 @@ function pendientesHoy(){ const hoy=hoyISO(), cits=citasTerminadasHoy(estado.qui
   const items=cits.map(c=>({c, nota:!estado.notas.some(n=>n.pac===c.pac && n.psic===c.psic && n.fecha===hoy),
     cobro:!estado.pagos.some(g=>g.cita===c.id || (!g.cita && g.pac===c.pac && g.psic===c.psic && g.fecha===hoy))})).filter(x=>x.nota||x.cobro);
   return {citas:cits.length, items, notas:items.filter(x=>x.nota).length, cobros:items.filter(x=>x.cobro).length}; }
-function faltaTxt(nota, cobro){ return "falta "+[nota?"nota":"", cobro?"cobro":""].filter(Boolean).join(" y "); }
+function faltaTxt(nota, cobro){ return cobro&&nota? "falta asistencia, cobro y nota" : cobro? "falta asistencia y cobro" : "falta nota"; }
+// Se documenta al final de la jornada: después de cada nota, cobro o "no vino" hecho desde "Antes de salir", se regresa a la lista
+let desdeCierre=false;
+function seguirCierre(){ if(!desdeCierre) return; desdeCierre=false;
+  if(pendientesHoy().items.length || porValidarTotal()) logout(); else toast("Todo documentado ✓ Ya puedes salir","ok"); }
 // Al salir: lo propio sin nota o sin cobro (psicólogas y la directora) y, para Dirección, validar lo del día
 function logout(){
   if(estado.quien){ const p=pendientesHoy(), pv=porValidarTotal();
@@ -921,8 +925,9 @@ function logout(){
       document.getElementById("cierreHint").style.display=esAdmin()? "none" : "";
       document.getElementById("cierreLista").innerHTML=p.items.map(({c,nota,cobro})=>`<div class="conf-fila"><b>${esc((pac(c.pac)||{}).nombre||"—")}</b>
         <span class="cuando">${c.hora} · ${faltaTxt(nota,cobro)}</span><div class="conf-acc">
-        ${nota?`<button class="btn" onclick="cerrar('modalCierre'); notaDesdeCita('${c.id}')">📝 Nota</button>`:""}
-        ${cobro?`<button class="btn verde" onclick="cerrar('modalCierre'); cobroDesdeCita('${c.id}')">✅ Asistió · cobro</button>`:""}</div></div>`).join("");
+        ${nota?`<button class="btn" onclick="desdeCierre=true; cerrar('modalCierre'); notaDesdeCita('${c.id}')">📝 Nota</button>`:""}
+        ${cobro?`<button class="btn verde" onclick="desdeCierre=true; cerrar('modalCierre'); cobroDesdeCita('${c.id}')">✅ Asistió</button>
+          <button class="btn fantasma" onclick="desdeCierre=true; cerrar('modalCierre'); marcarCita('${c.id}','no_asistio')">🚫 No vino</button>`:""}</div></div>`).join("");
       document.getElementById("cierreValidar").innerHTML= pv
         ? `<button class="acc-btn hecho" onclick="cerrar('modalCierre'); verPorConfirmar()">✓ Validar el día · ${pv} por validar</button>` : "";
       abrir("modalCierre"); return; } }
@@ -1922,7 +1927,7 @@ async function marcarCita(id, nuevo, enLista){
   toast(nuevo==="no_asistio"? (esAdmin()? "Anotado: no asistió · queda por validar" : "Anotado: no asistió. Dirección lo validará ✓")
     : nuevo==="cancelada"? "Cita cancelada · el horario quedó libre"
     : antes==="cancelada"? "Cita reactivada ✓" : "Listo: sí asistió ✓", "ok");
-  if(enLista) verPorConfirmar();
+  if(enLista) verPorConfirmar(); else seguirCierre();
 }
 async function confirmarCita(id, enLista){
   if(!esAdmin()) return;
@@ -1990,7 +1995,7 @@ async function guardarNota(){ const texto=document.getElementById("nTexto").valu
   if(!texto){ toast("Escribe qué se trabajó en la sesión","err"); return; }
   const {error}=await sb.from("notas").insert({paciente_id:pacienteSel, psicologa_id:document.getElementById("nPsic").value, texto, revisada:esAdmin(), fecha:hoyISO(), hora:ahoraHM()});
   if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
-  cerrar("modalNota"); await refrescar(); toast("Nota guardada ✓","ok"); }
+  cerrar("modalNota"); await refrescar(); toast("Nota guardada ✓","ok"); seguirCierre(); }
 
 function abrirEditarPago(id){
   const g=estado.pagos.find(x=>x.id===id); if(!g) return;
@@ -2043,7 +2048,7 @@ async function guardarPago(){ const metodo=document.getElementById("pMetodo").va
   if(pagoCitaId) nuevo.cita_id=pagoCitaId;
   const {error}=await sb.from("pagos").insert(nuevo);
   if(error){ toast("No se pudo registrar: "+error.message,"err"); return; }
-  pagoCitaId=null; cerrar("modalPago"); await refrescar(); toast("Cobro registrado · queda por validar ✓","ok"); }
+  pagoCitaId=null; cerrar("modalPago"); await refrescar(); toast("Cobro registrado · queda por validar ✓","ok"); seguirCierre(); }
 
 function abrirPaciente(){
   pacienteEditId=null;
