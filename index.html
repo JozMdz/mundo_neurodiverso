@@ -2108,6 +2108,10 @@ function reloj(){ document.getElementById("reloj").textContent=new Date().toLoca
 setInterval(reloj,1000); reloj();
 
 renderLoginAccts();
+// En el celular la conexión en vivo se corta cuando la app queda en segundo plano: al volver, o al regresar el
+// internet, se recarga todo para ver lo que otras agendaron o registraron mientras tanto
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && estado.quien) refrescar(); });
+window.addEventListener("online", ()=>{ if(estado.quien) refrescar(); });
 var _ll=document.getElementById("loginLogo"); if(_ll){ document.getElementById("marcaLogo").src=_ll.src; }
 document.querySelectorAll(".fondo-modal").forEach(f=>f.addEventListener("click",e=>{ if(e.target===f) f.classList.remove("abierto"); }));
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.querySelectorAll(".fondo-modal").forEach(f=>f.classList.remove("abierto")); });
