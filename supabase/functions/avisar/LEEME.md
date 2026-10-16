@@ -18,7 +18,7 @@ Unos 15 minutos, una sola vez. Todo en https://supabase.com, en el proyecto del 
 
 ## Qué avisa
 
-- **Quien atiende** (psicólogas y la directora): 15 min antes de cada cita suya, y 10 min después de terminar si
+- **Quien atiende** (psicólogas y la directora): 30 min antes de cada cita suya, y 10 min después de terminar si
   le falta la nota o el cobro.
 - **Dirección:** cuando marcan "No asistió", cuando alguien sale con pendientes, y un resumen 15 min después
   de cerrar (21:15 entre semana, 18:15 el sábado).

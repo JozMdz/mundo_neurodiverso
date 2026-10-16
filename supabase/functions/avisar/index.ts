@@ -12,6 +12,7 @@
 // En la pantalla bloqueada solo aparecen iniciales del paciente.
 
 const TZ_OFFSET = -6;                       // México, sin horario de verano
+const ANTES = 30;                           // minutos antes de la cita para avisar
 // Igual que HORARIO en index.html (0 = domingo)
 const HORARIO: Record<number, [number, number]> = { 1: [14, 21], 2: [14, 21], 3: [14, 21], 4: [14, 21], 5: [14, 21], 6: [8, 18] };
 
@@ -36,8 +37,8 @@ const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
 export function avisosPendientes(d: Datos): Aviso[] {
   const hoy = fechaLocal(d.ahora), l = local(d.ahora), ahora = l.getUTCHours() * 60 + l.getUTCMinutes();
   const h = HORARIO[l.getUTCDay()];
-  // Solo de media hora antes de abrir a una hora después de cerrar
-  if (!h || ahora < h[0] * 60 - 30 || ahora > h[1] * 60 + 60) return [];
+  // Solo desde el primer aviso antes de abrir hasta una hora después de cerrar
+  if (!h || ahora < h[0] * 60 - ANTES || ahora > h[1] * 60 + 60) return [];
   const pac = (id: string) => iniciales((d.pacientes.find(p => p.id === id) || { nombre: "?" }).nombre);
   const psic = (id: string) => d.psicologas.find(p => p.id === id);
   const direccion = d.psicologas.filter(p => p.es_direccion).map(p => p.id);
@@ -48,8 +49,8 @@ export function avisosPendientes(d: Datos): Aviso[] {
 
   for (const c of citasHoy) {
     const ini = minutos(c.hora), fin = ini + (c.duracion || 60), falta = ini - ahora;
-    // A la psicóloga: 15 minutos antes de su cita
-    if (falta > 0 && falta <= 15)
+    // A quien atiende: media hora antes de su cita
+    if (falta > 0 && falta <= ANTES)
       avisos.push({ para: [c.psicologa_id], clave: "antes:" + c.id, title: `Cita a las ${hhmm(ini)}`, body: `${pac(c.paciente_id)} · en ${falta} min` });
     // A la psicóloga: 10 minutos después de terminar, si le falta la nota o el cobro (hasta 3 h después)
     if (ahora >= fin + 10 && ahora <= fin + 180) {
