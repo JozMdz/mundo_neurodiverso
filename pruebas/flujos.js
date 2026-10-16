@@ -408,8 +408,9 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   console.log('Lo que le toca a la psicóloga');
   page = await abrir(browser, 'd1');
   await page.tap('nav.tabs button[data-vista=expediente]'); await page.tap('#btnNuevoPx'); await page.waitForTimeout(250);
+  await page.selectOption('#paAsignada', 's1');
   await page.fill('#paNombre', 'PRUEBA Haniel'); await page.fill('#paTarifa', '290'); await page.fill('#paPagoPsic', '150');
-  await page.selectOption('#paAsignada', 's1'); await page.tap('#paGuardar'); await page.waitForTimeout(400);
+  await page.tap('#paGuardar'); await page.waitForTimeout(400);
   const nuevoPx = await page.evaluate(() => __DB.pacientes.find(p => p.nombre === 'PRUEBA Haniel'));
   ok(nuevoPx && nuevoPx.tarifa === 290 && nuevoPx.pago_psicologa === 150, 'al dar de alta se guarda cuánto se cobra y cuánto le toca a la psicóloga');
   // Semana sola de Fernanda: 2 sesiones de Haniel (le tocan 150 c/u) y 1 de Mateo sin monto capturado (mitad de 600)
@@ -555,6 +556,19 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.fill('#fMonto', '650'); await page.tap('#modalFactura .btn.naranja'); await page.waitForTimeout(300);
   await page.evaluate(() => avanzarFactura('fx')); await page.waitForTimeout(300);
   ok(await page.evaluate(() => { const f = __DB.facturas.find(x => x.id === 'fx'); return f.monto === 650 && f.estado === 'emitida'; }), 'con el monto ya se emite');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
+  console.log('Paciente de la directora');
+  page = await abrir(browser, 'd1');
+  await page.evaluate(() => { irA('expediente'); abrirPaciente(); });
+  ok(await page.inputValue('#paAsignada') === 'd1' && !(await visible(page, '#paPagoCampo')) && (await page.textContent('#paPagoHint')).includes('no hay reparto'),
+    'al dar de alta un paciente suyo, la directora no captura "le toca a la psicóloga"');
+  await page.selectOption('#paAsignada', 's1');
+  ok(await visible(page, '#paPagoCampo'), 'si lo asigna a otra psicóloga, aparece el campo');
+  await page.fill('#paPagoPsic', '300');   // lo escribe y luego se lo asigna a ella: no debe guardarse
+  await page.selectOption('#paAsignada', 'd1'); await page.fill('#paNombre', 'PRUEBA Directora');
+  await page.tap('#paGuardar'); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => { const p = __DB.pacientes.find(x => x.nombre === 'PRUEBA Directora'); return p && p.asignada_a === 'd1' && p.pago_psicologa === null; }), 'se guarda sin monto para la psicóloga');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
   console.log('Modo pruebas');
