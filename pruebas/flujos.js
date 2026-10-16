@@ -641,6 +641,33 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(esperando && await page.evaluate(() => __DB.notas.length - window.__nNotas) === 1 && await page.evaluate(() => __DB.notas.at(-1).texto) === '▸ Qué se trabajó\nTrabajó turnos con calma'
     && (await page.textContent('#toast')).includes('Nota guardada'), 'mientras guarda dice "Guardando…", cerrar la hoja no lo cancela y dos toques guardan una sola nota');
   await page.evaluate(() => { window.__espera = 40; });
+  // Algunos teléfonos repiten lo ya dicho en cada pedazo; la nota no debe salir doble
+  const uni = await page.evaluate(() => [
+    unirDictado(['Llegó contento', ' y trabajó bien']),
+    unirDictado(['Llegó contento', 'Llegó contento y trabajó', 'Llegó contento y trabajó bien']),
+    unirDictado(['llegó contento', 'y trabajó bien', 'Llegó contento y trabajó bien.']),
+    unirDictado(['Llegó contento.', 'Llegó contento.', 'Se frustró']),
+    unirDictado(['Llegó contento llegó contento']),
+    unirDictado(['Llegó contento y', 'contento y trabajó bien']),
+    unirDictado(['Llegó contento', 'se frustró']),
+    unirDictado(['No', 'no quiso']),
+    unirDictado(['Llegó contento al consultorio', 'Llegó contenta al consultorio y trabajó']),
+    unirDictado(['Llegó contento al consultorio', 'Después jugó con bloques']),
+  ]);
+  ok(JSON.stringify(uni) === JSON.stringify(['Llegó contento y trabajó bien', 'Llegó contento y trabajó bien', 'Llegó contento y trabajó bien.',
+    'Llegó contento. Se frustró', 'Llegó contento', 'Llegó contento y trabajó bien', 'Llegó contento se frustró', 'no quiso',
+    'Llegó contenta al consultorio y trabajó', 'Llegó contento al consultorio Después jugó con bloques']),
+    `el dictado no repite lo que el teléfono manda dos veces (${uni.join(' | ')})`);
+  await nuevaNota();
+  await page.evaluate(() => { const Antes = window.SpeechRecognition;
+    window.SpeechRecognition = window.webkitSpeechRecognition = class extends Antes {   // como algunos Android: cada pedazo trae todo lo anterior
+      start() { super.start(); const r = [], dar = t => { r.push([{ transcript: t }]); this.onresult && this.onresult({ results: r.slice() }); };
+        setTimeout(() => dar('Llegó contento'), 50); setTimeout(() => dar('Llegó contento y trabajó'), 70); setTimeout(() => dar('Llegó contento y trabajó turnos'), 90); }
+    };
+    window.__dictado = ''; });
+  await page.tap('#mic-nConducta'); await page.waitForTimeout(200);
+  ok(await page.inputValue('#nConducta') === 'Llegó contento y trabajó turnos', `al dictar en un teléfono que repite, el apartado no sale doble (${await page.inputValue('#nConducta')})`);
+  await page.evaluate(() => { cerrar('modalNota'); window.__dictado = 'Trabajamos la rutina de la mañana'; });
   // WhatsApp
   const wa = await page.evaluate(async () => {
     const f = addDaysISO(hoyISO(), 1);

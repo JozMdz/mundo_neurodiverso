@@ -79,7 +79,8 @@ Dirección pone el monto antes de emitirla.
 Notas de sesión: se escriben en apartados (`APARTADOS_NOTA`: Qué se trabajó, Conducta y respuesta, Plan para la
 próxima sesión, Dudas o pendientes). Se guardan en el mismo `notas.texto`, cada apartado con un encabezado "▸ "
 (`textoNota`), y se muestran con `notaFormato`. Solo "Qué se trabajó" es obligatorio. Cada apartado se puede dictar
-con 🎤 (`dictarApartado`, es-MX) donde el navegador lo permite.
+con 🎤 (`dictarApartado`, es-MX) donde el navegador lo permite. Algunos teléfonos repiten lo ya dicho en cada pedazo:
+`unirDictado` lo quita para que la nota no salga doble.
 La ficha del paciente muestra su próxima cita, asistencia (sesiones y faltas; avisa si falta seguido) y cuántas notas
 tiene. Dirección ve el teléfono con enlace a WhatsApp y, en una cita que no ha empezado, "📲 Recordar por WhatsApp"
 (`recordarWhats`) abre WhatsApp con el recordatorio escrito: nunca lo manda sola.

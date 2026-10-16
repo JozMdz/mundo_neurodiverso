@@ -2153,6 +2153,24 @@ function pararVozNota(descartar){
     setTimeout(()=>{ if(!v.hecho){ try{ v.r.abort(); }catch(_){} v.fin(); } },1500); try{ v.r.stop(); }catch(_){ v.fin(); } });
   return v.parando;
 }
+// Une los pedazos que entrega el reconocedor de voz. Según el teléfono, un pedazo puede traer otra vez todo lo
+// anterior, repetir el final de lo anterior o venir dos veces; se quita lo repetido para que no salga doble en la nota.
+function unirDictado(partes){
+  const n=w=>w.toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g,"");
+  const igual=(a,b)=>a.length===b.length && a.every((w,i)=>n(w)===n(b[i]));
+  // lo anterior corregido: casi las mismas palabras en el mismo orden (el reconocedor a veces cambia una al repetir)
+  const casi=(a,b)=>{ const c=a.filter((w,i)=>n(w)===n(b[i])).length; return c===a.length || (a.length>=4 && c>=a.length*0.75); };
+  let A=[];
+  for(const p of partes){
+    let B=String(p||"").trim().split(/\s+/).filter(Boolean); if(!B.length) continue;
+    const m=B.length/2; if(m>=2 && Number.isInteger(m) && igual(B.slice(0,m), B.slice(m))) B=B.slice(0,m);   // la misma frase dos veces
+    if(B.length>=A.length && casi(A, B.slice(0,A.length))){ A=B; continue; }                                 // trae todo lo anterior
+    let k=Math.min(A.length, B.length);
+    for(; k>0; k--) if((k>=2 || k===B.length) && igual(A.slice(-k), B.slice(0,k))) break;                   // repite el final
+    A=A.concat(B.slice(k));
+  }
+  return A.join(" ");
+}
 // Si escribe a mano en el apartado que se está dictando, el dictado se detiene y queda lo que se ve
 function tecleoNota(id){ if(vozNota && vozNota.id===id) pararVozNota(true); }
 let vozPedida=null, guardandoNota=false;
@@ -2166,9 +2184,8 @@ async function dictarApartado(id){
   const r=new SR(), base=ta.value.trim();
   r.lang="es-MX"; r.continuous=true; r.interimResults=true;
   const v={id, r}; vozNota=v; btn.classList.add("oyendo"); btn.textContent="⏹";
-  r.onresult=e=>{ let dicho="";
-    for(let i=0;i<e.results.length;i++){ const t=e.results[i][0].transcript; dicho+=(dicho && !/\s$/.test(dicho) && !/^\s/.test(t)? " " : "")+t; }
-    ta.value=(base? base+" " : "")+dicho.trim(); };
+  r.onresult=e=>{ const partes=[]; for(let i=0;i<e.results.length;i++) partes.push(e.results[i][0].transcript);
+    ta.value=(base? base+" " : "")+unirDictado(partes); };
   v.fin=()=>{ if(v.hecho) return; v.hecho=true; r.onresult=null; if(vozNota===v) vozNota=null; btn.classList.remove("oyendo"); btn.textContent="🎤"; if(v.alTerminar) v.alTerminar(); };
   r.onend=v.fin;
   r.onerror=e=>{ v.fin(); if(e.error==="not-allowed" || e.error==="service-not-allowed") toast("Da permiso al micrófono para dictar","err"); };
