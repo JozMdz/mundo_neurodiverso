@@ -65,6 +65,10 @@ y manda, cifrados y con iniciales del paciente, recordatorios de cita, nota o co
 Dirección inasistencias, cierres y un resumen al cerrar. Cada quien los activa con 🔔 en su teléfono (`tocarAvisos`).
 Las llaves y la instalación están en `supabase/functions/avisar/LEEME.md`. `node pruebas/avisos.js` prueba reglas y cifrado.
 
+Expediente: Dirección ve a los pacientes agrupados por psicóloga (`gruposPx`, cada grupo se abre y se cierra); al buscar
+o filtrar, la lista es directa. Facturas: la psicóloga solo avisa que un paciente la pidió (monto 0 = por definir);
+Dirección pone el monto antes de emitirla.
+
 Modo pruebas: abrir la app con `?pruebas=1` amplía la agenda de 7 a 22 h todos los días solo en ese dispositivo
 (`?pruebas=0` o el botón "Quitar" lo apaga). Los datos siguen siendo los reales.
 
