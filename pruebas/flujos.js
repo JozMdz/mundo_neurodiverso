@@ -701,7 +701,25 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     window.__dictado = ''; });
   await page.tap('#mic-nConducta'); await page.waitForTimeout(200);
   ok(await page.inputValue('#nConducta') === 'Llegó contento y trabajó turnos', `al dictar en un teléfono que repite, el apartado no sale doble (${await page.inputValue('#nConducta')})`);
-  await page.evaluate(() => { cerrar('modalNota'); window.__dictado = 'Trabajamos la rutina de la mañana'; });
+  await page.evaluate(() => { cerrar('modalNota'); window.__dictado = 'Trabajamos la rutina de la mañana';
+    window.SpeechRecognition = window.webkitSpeechRecognition = Object.getPrototypeOf(window.SpeechRecognition); });   // vuelve el micrófono simulado normal
+  // Dictar un comentario de una nota
+  await page.evaluate(() => { irA('expediente'); seleccionarPx('p1'); const n = document.querySelector('.nota .com-toggle'); n && n.click(); });
+  await page.waitForTimeout(200);
+  const nid = await page.evaluate(() => { const b = document.querySelector('[id^="micc-"]'); return b && b.id.slice(5); });
+  ok(!!nid, 'los comentarios de una nota tienen 🎤');
+  if (nid) {
+    await page.evaluate(() => { window.__dictado = 'Bien, sigan así'; window.__final = null; });
+    await page.tap('#micc-' + nid); await page.waitForTimeout(150);
+    ok(await page.inputValue('#com-' + nid) === 'Bien, sigan así' && (await page.textContent('#micc-' + nid)) === '⏹', 'dictar escribe el comentario');
+    const antes = await page.evaluate(() => __DB.comentarios ? __DB.comentarios.length : null);
+    await page.evaluate(id => agregarComentario(id), nid); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => window.__mics) === 0, 'al enviarlo se apaga el micrófono');
+    await page.tap('#micc-' + nid).catch(() => {}); await page.waitForTimeout(80);
+    await page.evaluate(() => irA('agenda')); await page.waitForTimeout(80);
+    ok(await page.evaluate(() => window.__mics) === 0, 'cambiar de pestaña mientras dicta un comentario apaga el micrófono');
+  }
+  await page.evaluate(() => { window.__dictado = 'Trabajamos la rutina de la mañana'; });
   // WhatsApp
   const wa = await page.evaluate(async () => {
     const f = addDaysISO(hoyISO(), 1);

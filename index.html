@@ -417,6 +417,7 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   .emoji-btn{background:var(--fondo); border:1px solid var(--linea-fuerte); border-radius:9px; width:42px; font-size:18px; cursor:pointer;}
   .emoji-pop{position:absolute; bottom:48px; left:0; background:var(--tarjeta); border:1px solid var(--linea); border-radius:12px; box-shadow:var(--sombra-alta); padding:8px; display:none; grid-template-columns:repeat(7,1fr); gap:2px; z-index:5; width:252px;}
   .emoji-pop.ver{display:grid;}
+  .mic-com.oyendo{background:var(--rosa); border-color:var(--rosa); animation:latido 1.4s ease-in-out infinite;}
   .emoji-pop span{font-size:20px; text-align:center; padding:5px; border-radius:7px; cursor:pointer;}
   .emoji-pop span:hover{background:var(--fondo);}
   .mini-color{width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:7px; vertical-align:middle;}
@@ -1123,6 +1124,7 @@ const MOVIL=window.matchMedia("(max-width:860px)");
 const scrollVista={};
 function saltarA(y){ const h=document.documentElement, antes=h.style.scrollBehavior; h.style.scrollBehavior="auto"; window.scrollTo(0,y); h.style.scrollBehavior=antes; }
 function irA(v){
+  if(vozNota && vozNota.id.startsWith("com-")) pararVozNota(true);
   const antes=document.body.dataset.vista;
   if(antes && antes!==v) scrollVista[antes]=window.scrollY;
   document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("activa", b.dataset.vista===v));
@@ -1165,7 +1167,7 @@ document.addEventListener("touchend", e=>{ const a=toqueIni; toqueIni=null; if(!
 }, {passive:true});
 document.addEventListener("touchcancel", ()=>{ toqueIni=null; }, {passive:true});
 
-function render(){ renderRol(); renderResumen(); renderAgenda(); renderExpediente(); renderFiltroCobros(); renderCobros(); renderFacturas(); renderEquipo(); updateBadges(); }
+function render(){ renderRol(); renderResumen(); renderAgenda(); renderExpediente(); renderFiltroCobros(); renderCobros(); renderFacturas(); renderEquipo(); updateBadges(); soltarVozComentario(); }
 
 function renderRol(){
   const v=viewer();
@@ -1658,10 +1660,12 @@ function renderHilo(n){
     <div class="com-add">
       <button class="emoji-btn" type="button" aria-label="Emojis" onclick="toggleEmojis('${n.id}')">😊</button>
       <div class="emoji-pop" id="emo-${n.id}">${EMOJIS.map(x=>`<span onclick="insertEmoji('${n.id}','${x}')">${x}</span>`).join("")}</div>
-      <input id="com-${n.id}" placeholder="Escribe un comentario…" enterkeyhint="send" onkeydown="if(event.key==='Enter')agregarComentario('${n.id}')">
+      ${vozSoportada()? `<button class="emoji-btn mic-com" type="button" id="micc-${n.id}" aria-label="Dictar comentario" onclick="dictarComentario('${n.id}')">🎤</button>` : ""}
+      <input id="com-${n.id}" oninput="tecleoNota('com-${n.id}')" placeholder="Comentario…" enterkeyhint="send" onkeydown="if(event.key==='Enter')agregarComentario('${n.id}')">
       <button class="btn" onclick="agregarComentario('${n.id}')">Enviar</button></div></div>`;
 }
 function seleccionarPx(id){
+  if(vozNota && vozNota.id.startsWith("com-")) pararVozNota(true);
   if(!pacientesVisibles().some(p=>p.id===id)) return;
   if(pacienteSel!==id){ notaEditId=null; comEditId=null; }
   pacienteSel=id;
@@ -1673,7 +1677,7 @@ function seleccionarPx(id){
   if(MOVIL.matches) saltarA(document.getElementById("v-expediente").getBoundingClientRect().top+window.scrollY);
 }
 function volverPx(){ if(history.state && history.state.px) history.back(); else cerrarDetallePx(); }
-function cerrarDetallePx(){ pxDetalle=false; notaEditId=null; comEditId=null; renderExpediente(); saltarA(pxScrollLista); }
+function cerrarDetallePx(){ if(vozNota && vozNota.id.startsWith("com-")) pararVozNota(true); pxDetalle=false; notaEditId=null; comEditId=null; renderExpediente(); saltarA(pxScrollLista); }
 window.addEventListener("popstate", ()=>{
   if(!pxDetalle) return;
   // Con una hoja abierta (por ejemplo, una nota a medio escribir) el gesto de regresar no cierra nada
@@ -1705,6 +1709,7 @@ async function marcarLeida(id, silencioso){
   if(!silencioso) toast("Marcada como leída ✓","ok");
 }
 async function agregarComentario(id){
+  if(vozNota && vozNota.id==="com-"+id) await pararVozNota();   // espera lo último dictado
   const inp=document.getElementById("com-"+id); const texto=(inp?inp.value:"").trim();
   if(!texto){ toast("Escribe un comentario","err"); return; }
   const {error}=await sb.from("comentarios").insert({nota_id:id, autor_id:estado.quien, texto});
@@ -2302,17 +2307,23 @@ function unirDictado(partes){
 // Si escribe a mano en el apartado que se está dictando, el dictado se detiene y queda lo que se ve
 function tecleoNota(id){ if(vozNota && vozNota.id===id) pararVozNota(true); }
 let vozPedida=null, guardandoNota=false;
-async function dictarApartado(id){
-  const SR=window.SpeechRecognition || window.webkitSpeechRecognition; if(!SR || guardandoNota) return;
+function dictarApartado(id){ if(guardandoNota) return;
+  return dictarEn(id, "mic-"+id, ()=>document.getElementById("modalNota").classList.contains("abierto") && !guardandoNota); }
+// Comentarios de una nota: el mismo dictado, en el campo del comentario
+function dictarComentario(nid){ return dictarEn("com-"+nid, "micc-"+nid, ()=>true); }
+// Un comentario dictado se corta si su campo desaparece (se redibujó, otro paciente, otra pestaña)
+function soltarVozComentario(){ if(vozNota && vozNota.id.startsWith("com-") && document.getElementById(vozNota.id)!==vozNota.ta) pararVozNota(true); }
+async function dictarEn(id, btnId, sigue){
+  const SR=window.SpeechRecognition || window.webkitSpeechRecognition; if(!SR) return;
   const era=vozNota && vozNota.id; vozPedida=id;
   // tocar otra vez el mismo 🎤 lo detiene; si se toca otro, empieza cuando el anterior termina (el último que se tocó)
-  if(era){ await pararVozNota(); if(era===id || vozPedida!==id || vozNota || guardandoNota) return; }
-  const ta=document.getElementById(id), btn=document.getElementById("mic-"+id);
-  if(!ta || !btn || !document.getElementById("modalNota").classList.contains("abierto")) return;
+  if(era){ await pararVozNota(); if(era===id || vozPedida!==id || vozNota || !sigue()) return; }
+  const ta=document.getElementById(id), btn=document.getElementById(btnId);
+  if(!ta || !btn || !sigue()) return;
   const r=new SR(), base=ta.value.trim();
   r.lang="es-MX"; r.continuous=true; r.interimResults=true;
-  const v={id, r}; vozNota=v; btn.classList.add("oyendo"); btn.textContent="⏹";
-  r.onresult=e=>{ const partes=[]; for(let i=0;i<e.results.length;i++) partes.push(e.results[i][0].transcript);
+  const v={id, r, ta}; vozNota=v; btn.classList.add("oyendo"); btn.textContent="⏹";
+  r.onresult=e=>{ if(!ta.isConnected){ pararVozNota(true); return; } const partes=[]; for(let i=0;i<e.results.length;i++) partes.push(e.results[i][0].transcript);
     ta.value=(base? base+" " : "")+unirDictado(partes); };
   v.fin=()=>{ if(v.hecho) return; v.hecho=true; r.onresult=null; if(vozNota===v) vozNota=null; btn.classList.remove("oyendo"); btn.textContent="🎤"; if(v.alTerminar) v.alTerminar(); };
   r.onend=v.fin;
