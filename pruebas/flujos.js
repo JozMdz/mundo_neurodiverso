@@ -18,8 +18,8 @@ async function abrir(browser, como, disp) {
   });
   page.errores = [];
   page.on('pageerror', e => page.errores.push(String(e)));
-  page.on('console', m => { if (m.type() === 'error') page.errores.push(m.text()); });
   page.on('dialog', d => d.accept());
+  page.on('console', m => { if (m.type() === 'error') page.errores.push(m.text()); });
   await page.goto('file://' + FILE + '?como=' + como);
   await page.waitForTimeout(700);
   return page;
@@ -827,6 +827,56 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     const r = d.getBoundingClientRect(); __desliza(300, 100, r.top + 40, '#scrollPrueba'); });
   ok(await vista() === 'cobros', 'dentro de algo que se desplaza de lado (como una tabla) no cambia de pestaña');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
+  console.log('Equipo, fecha de nacimiento y respaldo');
+  page = await abrir(browser, 'd1');
+  await page.evaluate(() => irA('equipo')); await page.waitForTimeout(300);
+  ok((await page.textContent('#equipoCard')).includes('@prueba.mx'), 'Dirección ve el correo de cada quien en Equipo');
+  await page.tap('#equipoCard button.add'); await page.waitForTimeout(200);
+  await page.fill('#psNombre', 'Psic. Diana López'); await page.fill('#psCorreo', 'diana@prueba.mx'); await page.fill('#psClave', 'corta');
+  await page.tap('#psGuardar'); await page.waitForTimeout(200);
+  ok((await page.textContent('#toast')).includes('8 caracteres') && await visible(page, '#modalPsic.abierto'), 'la contraseña temporal pide 8 caracteres');
+  await page.fill('#psClave', 'Temporal2026'); await page.tap('#psGuardar'); await page.waitForTimeout(400);
+  const nueva = await page.evaluate(() => { const f = window.__FN.find(x => x[1].accion === 'crear'); return f && f[1]; });
+  ok(nueva && nueva.correo === 'diana@prueba.mx' && nueva.clave === 'Temporal2026' && (await page.textContent('#equipoCard')).includes('Diana López')
+    && await page.evaluate(() => atienden().some(p => p.nombre.includes('Diana'))), 'agrega una psicóloga con su cuenta y ya se le puede agendar');
+  const idDiana = await page.evaluate(() => estado.psicologas.find(p => p.nombre.includes('Diana')).id);
+  await page.evaluate(id => menuPsic(id), idDiana); await page.waitForTimeout(150);
+  await page.tap('#accBotones .acc-btn >> text="✎ Nombre, teléfono, cédula y color"'); await page.waitForTimeout(150);
+  ok(!(await visible(page, '#psCuenta')) && await page.inputValue('#psNombre') === 'Psic. Diana López', 'editar trae sus datos (sin correo ni contraseña)');
+  await page.fill('#psTel', '833 111 2222'); await page.tap('#psGuardar'); await page.waitForTimeout(300);
+  ok(await page.evaluate(id => __DB.psicologas.find(p => p.id === id).telefono, idDiana) === '833 111 2222', 'guarda su teléfono');
+  await page.evaluate(id => menuPsic(id), idDiana); await page.tap('#accBotones .acc-btn >> text="🔑 Poner contraseña temporal"'); await page.waitForTimeout(150);
+  await page.fill('#datoValor', 'OtraClave2026'); await page.tap('#datoGuardar'); await page.waitForTimeout(250);
+  ok(await page.evaluate(id => { const b = window.__FN.at(-1)[1]; return b.accion === 'clave' && b.id === id && b.clave === 'OtraClave2026'; }, idDiana)
+    && !(await visible(page, '#modalDato.abierto')), 'pone una contraseña temporal');
+  await page.evaluate(id => menuPsic(id), idDiana); await page.tap('#accBotones .acc-btn >> text="⛔ Dar de baja"'); await page.waitForTimeout(400);
+  ok(await page.evaluate(id => !atienden().some(p => p.id === id) && psic(id).activa === false, idDiana) && (await page.textContent('#equipoCard')).includes('Dadas de baja'),
+    'dar de baja la quita de la agenda y la muestra aparte');
+  const sinBajaPropia = await page.evaluate(() => { menuPsic(estado.quien); return document.getElementById('accBotones').textContent.includes('Dar de baja'); });
+  ok(!sinBajaPropia, 'Dirección no puede darse de baja a sí misma');
+  await page.evaluate(() => cerrar('modalAcciones'));
+  ok(await ancho(page) <= 414, 'sin scroll horizontal en Equipo');
+  // Fecha de nacimiento
+  await page.evaluate(() => { irA('expediente'); seleccionarPx('p1'); abrirEditarPaciente('p1'); });
+  const hoyD = new Date(); const nac = (hoyD.getFullYear() - 8) + '-01-15';
+  await page.fill('#paNac', nac); await page.dispatchEvent('#paNac', 'change');
+  ok((await page.textContent('#paEdadTxt')).includes('años'), 'al poner la fecha de nacimiento dice la edad');
+  await page.tap('#paGuardar'); await page.waitForTimeout(300);
+  const pacNac = await page.evaluate(() => __DB.pacientes.find(p => p.id === 'p1'));
+  ok(pacNac.fecha_nacimiento === nac && (await page.textContent('.px-ficha-top')).includes((hoyD.getMonth() > 0 || hoyD.getDate() >= 15 ? 8 : 7) + ' años'), 'la guarda y la ficha calcula la edad');
+  // Respaldo
+  await page.evaluate(() => { window.__descarga = null; const c = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) window.__descarga = this.download; else c.call(this); }; navigator.canShare = undefined; });
+  await page.tap('#identidad'); await page.waitForTimeout(150);
+  ok((await page.textContent('#cuentaCuerpo')).includes('Aún no has descargado'), 'Mi cuenta de Dirección ofrece el respaldo');
+  await page.tap('#btnRespaldo'); await page.waitForTimeout(400);
+  ok((await page.evaluate(() => window.__descarga)) === 'respaldo-mundo-neurodiverso-' + await page.evaluate(() => hoyISO()) + '.json'
+    && (await page.textContent('#toast')).includes('registros') && (await page.textContent('#cuentaCuerpo')).includes('Último: hoy'), 'descarga el respaldo y recuerda cuándo');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+  page = await abrir(browser, 's1');
+  await page.evaluate(() => irA('equipo'));
+  await page.tap('#identidad'); await page.waitForTimeout(150);
+  ok(!(await page.textContent('#cuentaCuerpo')).includes('Respaldo') && !(await page.$('#equipoCard button.add')), 'una psicóloga no ve el respaldo ni puede agregar');
 
   console.log('Dirección en computadora');
   page = await abrir(browser, 'd1', { viewport: { width: 1280, height: 800 } });
