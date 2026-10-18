@@ -97,6 +97,14 @@
            updateUser: async(d)=>{ (window.__AUTH = window.__AUTH || []).push(['updateUser', d]); return {data:{}, error:null}; },
            resetPasswordForEmail: async(e, o)=>{ (window.__AUTH = window.__AUTH || []).push(['reset', e, o]); return {data:{}, error:null}; },
            onAuthStateChange: (fn)=>{ window.__authEvento = fn; return {data:{subscription:{unsubscribe(){}}}}; } },
+    // Función "equipo" de mentira: crea, lista y da de baja en la base falsa
+    functions:{ invoke: async (nombre, op) => { const body=(op||{}).body||{}; (window.__FN = window.__FN || []).push([nombre, body]);
+      if(window.__fnFalla) return {data:null, error:{message:"Failed to send a request to the Edge Function", context:null}};
+      if(body.accion==="listar") return {data:{lista: DB.psicologas.map(p=>({id:p.id, correo:p.id+"@prueba.mx", baja:p.activa===false}))}, error:null};
+      if(body.accion==="crear"){ const id="ps"+(nid++); DB.psicologas.push({id, nombre:body.nombre, color:body.color, telefono:body.telefono||null, cedula:body.cedula||null,
+        es_direccion:false, atiende:true, activa:true}); return {data:{ok:true, id}, error:null}; }
+      if(body.accion==="baja" || body.accion==="alta"){ const p=DB.psicologas.find(x=>x.id===body.id); if(p) p.activa = body.accion==="alta"; }
+      return {data:{ok:true}, error:null}; } },
     channel(){ const c={ on(){ return c; }, subscribe(){ return c; } }; return c; },
   };
   window.supabase={ createClient: ()=>cliente };

@@ -16,7 +16,8 @@ create table public.psicologas (
   telefono text,
   cedula text,
   creado_en timestamptz not null default now(),
-  atiende boolean not null default true                              -- false: cuenta de soporte, no da consulta
+  atiende boolean not null default true,                             -- false: cuenta de soporte, no da consulta
+  activa boolean not null default true                               -- false: dada de baja (función "equipo"), no entra
 );
 create table public.pacientes (
   id uuid primary key default gen_random_uuid(),
@@ -29,7 +30,8 @@ create table public.pacientes (
   pago_psicologa numeric check (pago_psicologa >= 0),                -- lo que le toca a la psicóloga por sesión; null = mitad de la tarifa
   asignada_a uuid references public.psicologas(id),
   creado_en timestamptz not null default now(),
-  activo boolean not null default true                               -- false: archivado
+  activo boolean not null default true,                              -- false: archivado
+  fecha_nacimiento date check (fecha_nacimiento is null or (fecha_nacimiento > date '1900-01-01'))
 );
 create table public.citas (
   id uuid primary key default gen_random_uuid(),

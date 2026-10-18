@@ -37,6 +37,8 @@ def como(uid, sql):
 # (qué, quién, sql, resultado esperado); "rechazado" = error o sin filas
 ATAQUES = [
     ("Psicóloga se vuelve Dirección", F, f"update psicologas set es_direccion=true where id='{F}' returning es_direccion", "rechazado"),
+    ("Psicóloga se reactiva o cambia su nombre", F, f"update psicologas set activa=true, nombre='Otra' where id='{F}' returning nombre", "rechazado"),
+    ("Psicóloga da de baja a otra", F, f"update psicologas set activa=false where id='{A}' returning activa", "rechazado"),
     ("Psicóloga marca su nota como revisada", F, f"update notas set revisada=true where id='{N1}' returning revisada", "rechazado"),
     ("Psicóloga cambia la autora de su nota", F, f"update notas set psicologa_id='{A}' where id='{N1}' returning psicologa_id", "rechazado"),
     ("Psicóloga cambia la fecha de su nota", F, f"update notas set fecha='2020-01-01' where id='{N1}' returning fecha", "rechazado"),
@@ -102,6 +104,8 @@ NORMAL = [
     ("Dirección emite una factura", D, f"update facturas set estado='emitida', fecha_emitida=current_date where id='{F1}' returning estado", "emitida"),
     ("Dirección marca una nota como revisada", D, f"update notas set revisada=true where id='{N1}' returning revisada", "t"),
     ("Dirección cambia si alguien atiende", D, f"update psicologas set atiende=false where id='{A}' returning atiende", "f"),
+    ("Dirección cambia el teléfono y color de una psicóloga", D, f"update psicologas set telefono='833 000 1111', color='#1BADE0' where id='{A}' returning telefono", "833 000 1111"),
+    ("Dirección pone la fecha de nacimiento de un paciente", D, f"update pacientes set fecha_nacimiento='2018-01-15' where id='{P1}' returning fecha_nacimiento", "2018-01-15"),
     ("SQL Editor de Supabase corrige un cobro validado", "", f"update pagos set monto=1 where id='{G2}' returning monto", "1"),
     ("Psicóloga marca 'no asistió' (queda por confirmar)", F, f"update citas set estado='no_asistio' where id='{C71}' returning coalesce(confirmada_por::text,'por confirmar') || ' ' || (marcada_por='{F}')::text", "por confirmar true"),
     ("Psicóloga corrige: sí asistió", F, f"update citas set estado='programada' where id='{C72}' returning estado", "programada"),

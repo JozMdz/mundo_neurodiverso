@@ -95,7 +95,15 @@ cobros (`validado`) y "no asistió" (`confirmada_por`) los valida Dirección al 
 (`verPorConfirmar`), que también le ofrece la hoja "Antes de salir".
 
 Mi cuenta (`abrirCuenta`): al tocar el nombre arriba se abre una hoja con apariencia (Automático / Claro / Oscuro),
-avisos en este teléfono, cambiar contraseña (`sb.auth.updateUser`), modo pruebas, actualizar la app y Salir.
+avisos en este teléfono, cambiar contraseña (`sb.auth.updateUser`), respaldo (solo Dirección), modo pruebas, actualizar
+la app y Salir. El respaldo (`descargarRespaldo`) baja un JSON con todas las tablas que ve Dirección (sin `push_subs` ni
+`avisos_enviados`); en el celular se abre "Compartir" para guardarlo en Archivos o Drive.
+
+Equipo (solo Dirección): agregar psicóloga, cambiar su correo, ponerle contraseña temporal y darla de baja o reactivarla
+pasan por la función `supabase/functions/equipo` (`llamarEquipo`), la única con la llave de servicio; nombre, teléfono,
+cédula y color se guardan directo en `psicologas` (RLS: solo Dirección). Una psicóloga dada de baja (`activa = false`,
+`sql/equipo.sql`) no entra, no aparece para agendar (`atienden`) y sus datos se quedan.
+Pacientes: `fecha_nacimiento` (`sql/equipo.sql`); la edad se calcula con `edadDe` / `edadTxt`. `edad` queda para los que no la tienen.
 "¿Olvidaste tu contraseña?" en la entrada manda un enlace al correo (`resetPasswordForEmail`, de vuelta a la misma
 página); al abrirlo, Supabase avisa `PASSWORD_RECOVERY` y se pide la contraseña nueva. Para que el enlace regrese a la app,
 la URL publicada debe estar en Supabase → Authentication → URL Configuration (Site URL y Redirect URLs).
