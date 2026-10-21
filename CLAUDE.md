@@ -57,11 +57,17 @@ Al tocar una cita se abre su hoja de opciones (`menuCita`): nota, cobro con la t
 Todo lo marcado queda **por confirmar** hasta que Dirección lo corrobora (aviso arriba de la agenda y
 `verPorConfirmar`), también lo que marca la directora. Solo Dirección cancela, reactiva, reagenda y cambia
 de día (campo Día en la hoja de cita). Canceladas y "no asistió" no piden nota ni cobro ni ocupan el horario.
-El corte de Cobros (`sesionesDe`) compara las sesiones dadas de la agenda con los cobros de cada paciente y avisa
-las que no tienen cobro.
-Lo que le toca a cada psicóloga sale de cada paciente (`pago_psicologa`, se captura al darlo de alta; vacío = mitad de
-la tarifa, `sql/pago-psicologa.sql`). El corte (`pagoPsicologa`) suma sus sesiones por paciente, le resta el efectivo
-que ella ya tiene y dice cuánto le paga Dirección o cuánto entrega ella.
+Corte de Cobros (`corteDe`, sesión por sesión): cada sesión dada de la agenda (ya terminó, o ya empezó y se cobró)
+se empareja con su cobro: primero el ligado a la cita (`pagos.cita_id`, de cualquier fecha o psicóloga; si es de otro
+periodo, la sesión sale pagada y el dinero cuenta en ese otro corte), luego uno sin cita del mismo paciente y día, y luego
+de otro día. Un cobro ligado a una sesión de otro periodo solo cuenta como dinero; uno sin cita y sin sesión cuenta como
+sesión dada. Lo acordado sale de cada paciente (`repartoPac`): `tarifa` (se cobra) y `pago_psicologa` (le toca; vacío =
+mitad, `sql/pago-psicologa.sql`); los pacientes de la directora son íntegros para Dirección. Dirección elige psicóloga con
+chips (`estado.cortePsic`, `verCortePsic`) o ve "Todas" resumidas; `resumenCorte` muestra asignado (se cobra / para la
+psicóloga / para el consultorio), lo cobrado (efectivo / a cuenta / falta por cobrar) y el saldo (le paga / ella entrega),
+y `detalleCorte` cada sesión con cuándo asistió y cuándo y cómo se pagó. La psicóloga ve su detalle sin tarifas ni montos
+que no sean efectivo (también en `menuCobro`). Periodos: hoy, semana (lunes a domingo), mes y rango. Excel exporta el
+corte sesión por sesión. `sesionesDe` (hoja de la cita) usa las mismas reglas.
 
 Se documenta al final de la jornada: al salir, si una psicóloga (o la directora) tiene sesiones de hoy sin documentar
 (`pendientesHoy`), la hoja "Antes de salir" las lista por paciente con Nota, Asistió (cobro) y No vino, y regresa a la

@@ -466,7 +466,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     await refrescar(); verCortePsic('s1');
     return { corte: document.getElementById('corte').innerText, filas: [...document.querySelectorAll('#detalleCorte .fila-corte')].map(x => x.innerText.replace(/\s+/g, ' ')) };
   }, nuevoPx.id);
-  ok(/Para la psicóloga\s*\$900/.test(extra.corte) && extra.filas.some(x => x.includes('Pago de la sesión del') && x.includes('ya contó')),
+  ok(/Para la psicóloga\s*\$900/.test(extra.corte) && extra.filas.some(x => x.includes('Pago de la sesión del') && x.includes('contó en ese periodo')),
     'un pago atrasado de otra semana no vuelve a contar como sesión; un cobro sin cita sí cuenta (600 + 300)');
   ok(extra.filas.some(x => x.includes('Cobro sin cita en la agenda')), 'el cobro sin cita se marca así en el detalle');
   ok(extra.filas.some(x => /Pagó \$290 en efectivo ese día/.test(x)), 'cada sesión dice cuánto, cómo y cuándo se pagó');
@@ -855,6 +855,52 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     const r = d.getBoundingClientRect(); __desliza(300, 100, r.top + 40, '#scrollPrueba'); });
   ok(await vista() === 'cobros', 'dentro de algo que se desplaza de lado (como una tabla) no cambia de pestaña');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
+  console.log('Corte: casos de la revisión');
+  const caso = await page.evaluate(async () => {
+    const hoy = hoyISO(), lun = mondayISO(hoy), antes = addDaysISO(lun, -2), ahora = ahoraHM();
+    __DB.citas = __DB.citas.filter(c => c.psicologa_id !== 's2'); __DB.pagos = __DB.pagos.filter(g => g.psicologa_id !== 's2');
+    // Sesión del sábado anterior pagada hoy desde su cita (ligada)
+    __DB.citas.push({ id: 'sab', fecha: antes, hora: '10:00:00', duracion: 60, psicologa_id: 's2', paciente_id: 'p3', estado: 'programada', confirmada_por: null });
+    __DB.pagos.push({ id: 'pSab', paciente_id: 'p3', psicologa_id: 's2', monto: 650, metodo: 'efectivo', validado: false, cita_id: 'sab', creado_en: new Date().toISOString() });
+    // Sesión de hoy que empezó hace 5 min y ya se cobró al llegar
+    const [hh, mm] = ahora.split(':').map(Number), ini = Math.max(0, hh * 60 + mm - 5), hIni = String(Math.floor(ini / 60)).padStart(2, '0') + ':' + String(ini % 60).padStart(2, '0');
+    __DB.citas.push({ id: 'curso', fecha: hoy, hora: hIni + ':00', duracion: 60, psicologa_id: 's2', paciente_id: 'p4', estado: 'programada', confirmada_por: null });
+    __DB.pagos.push({ id: 'pCurso', paciente_id: 'p4', psicologa_id: 's2', monto: 600, metodo: 'transferencia', validado: false, cita_id: 'curso', creado_en: new Date().toISOString() });
+    await refrescar();
+    const semAnt = corteDe('s2', { desde: addDaysISO(lun, -7), hasta: addDaysISO(lun, -1) }, estado.pagos.filter(g => g.fecha >= addDaysISO(lun, -7) && g.fecha <= addDaysISO(lun, -1)));
+    const r = { desde: lun, hasta: addDaysISO(lun, 6) }, estaSem = corteDe('s2', r, estado.pagos.filter(g => g.fecha >= r.desde && g.fecha <= r.hasta));
+    estado.cobrosPeriodo = { tipo: 'rango', desde: addDaysISO(lun, -7), hasta: addDaysISO(lun, -1) }; renderFiltroCobros(); verCortePsic('s2');
+    const filaAnt = [...document.querySelectorAll('#detalleCorte .fila-corte')].map(x => x.innerText.replace(/\s+/g, ' ')).join(' | ');
+    estado.cobrosPeriodo = { tipo: 'semana' }; renderFiltroCobros(); renderCobros();
+    const filaEsta = [...document.querySelectorAll('#detalleCorte .fila-corte')].map(x => x.innerText.replace(/\s+/g, ' ')).join(' | ');
+    return { semAnt: { falta: semAnt.t.faltaCobrar, sin: semAnt.sinCobro.length, ses: semAnt.t.sesiones, cobrado: semAnt.t.cobrado },
+      estaSem: { ses: estaSem.t.sesiones, dadas: estaSem.dadas.map(c => c.id) }, filaAnt, filaEsta };
+  });
+  ok(caso.semAnt.falta === 0 && caso.semAnt.sin === 0 && caso.semAnt.ses === 1 && caso.semAnt.cobrado === 0 && /Pagó \$650 en efectivo hoy · cuenta en el corte de ese periodo/.test(caso.filaAnt),
+    `una sesión pagada la semana siguiente no sale "Sin cobro" en su semana (${caso.filaAnt})`);
+  ok(/Pago de la sesión del .* · la sesión contó en ese periodo/.test(caso.filaEsta) && !/el Hoy|el Ayer|del Ayer|del Hoy/.test(caso.filaEsta + caso.filaAnt),
+    'en la semana del pago se explica de qué sesión es, sin "el Hoy"');
+  ok(caso.estaSem.dadas.includes('curso'), 'una sesión que ya empezó y ya se cobró cuenta como dada');
+  // La psicóloga no ve el monto de una transferencia en la hoja ⋯
+  const pp = await abrir(browser, 's1');
+  const sub = await pp.evaluate(async () => {
+    __DB.pagos.push({ id: 'trf', paciente_id: 'p2', psicologa_id: 's1', monto: 777, metodo: 'transferencia', validado: false, creado_en: new Date().toISOString() },
+                    { id: 'val', paciente_id: 'p2', psicologa_id: 's1', monto: 300, metodo: 'efectivo', validado: true, creado_en: new Date().toISOString() });
+    await refrescar(); menuCobro('trf'); const a = document.getElementById('accSub').textContent; cerrar('modalAcciones');
+    document.getElementById('accSub').textContent = ''; menuCobro('val'); return { a, val: document.getElementById('modalAcciones').classList.contains('abierto') };
+  });
+  ok(!sub.a.includes('$') && sub.a.includes('transferencia') && !sub.val, 'la psicóloga no ve el monto de una transferencia en ⋯, ni abre ⋯ de un cobro validado');
+  // "Cobro registrado ✓" lleva al corte de esa psicóloga, en la semana de la cita
+  const irCorte = await page.evaluate(async () => { estado.cortePsic = null; estado.cobrosPeriodo = { tipo: 'hoy' };
+    menuCita('sab'); const b = [...document.querySelectorAll('#accBotones .acc-btn')].find(x => x.textContent.includes('Cobro registrado')); b.click();
+    return { vista: document.body.dataset.vista, sel: estado.cortePsic, chip: (document.querySelector('#chipsCorte .on') || {}).textContent, fila: document.getElementById('detalleCorte').innerText.includes('Pagó') }; });
+  ok(irCorte.vista === 'cobros' && irCorte.sel === 's2' && /Andrea/.test(irCorte.chip) && irCorte.fila, '"Cobro registrado ✓" abre el corte de quien atendió, en la semana de la cita');
+  // CSV sin fórmulas
+  ok(await page.evaluate(() => csvCell('=HYPERLINK("x")').startsWith('"\'=') && csvCell(-300) === '-300' && csvCell('a,b') === '"a,b"'), 'el CSV no deja que un nombre se vuelva fórmula');
+  // Al salir, la siguiente cuenta empieza en "Todas"
+  ok(await page.evaluate(async () => { estado.cortePsic = 's2'; await cerrarSesion(); return estado.cortePsic === null; }), 'al salir se olvida la psicóloga elegida');
+  page = await abrir(browser, 'd1');
 
   console.log('Periodo del corte');
   const mes = await page.evaluate(() => { estado.cobrosPeriodo = { tipo: 'mes' }; return rangoCobros(); });
