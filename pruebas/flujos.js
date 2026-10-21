@@ -242,6 +242,8 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     dia: new Date(estado.fechaAgenda + 'T12:00:00').getDay(), dur: document.getElementById('cDur').value,
     chips: [...document.querySelectorAll('#cDias .dia-chip.on')].map(b => b.textContent), semanas: document.getElementById('cSemanas').value,
     voz: document.getElementById('cVoz').textContent }));
+  // Que Fernanda esté libre los jueves a las 17:00 (los datos de prueba cambian según la fecha de hoy)
+  await page.evaluate(async () => { __DB.citas = __DB.citas.filter(c => !(c.psicologa_id === 's1' && new Date(c.fecha + 'T12:00:00').getDay() === 4 && c.hora.startsWith('17'))); await refrescar(); });
   await dictar('Cita con Valentina el jueves a las 5');
   let hj = await hoja();
   ok(hj.abierta && hj.pac === 'p2' && hj.psic === 's1' && hj.hora === '17:00' && hj.dia === 4,
@@ -354,12 +356,13 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.tap('.ev[data-cita="manana1"]'); await page.waitForTimeout(250);
   bs = await botones();
   ok(!bs.includes('🚫 No asistió') && bs.includes('👤 Ver expediente'), 'una cita que no ha llegado no se puede marcar');
-  await page.evaluate(() => { cerrar('modalAcciones'); estado.cobrosPeriodo = { tipo: 'rango', desde: addDaysISO(hoyISO(), -7), hasta: hoyISO() }; });
+  await page.evaluate(() => { cerrar('modalAcciones'); estado.cobrosPeriodo = { tipo: 'rango', desde: addDaysISO(hoyISO(), -7), hasta: hoyISO() }; renderFiltroCobros(); renderCobros(); });
   await page.tap('nav.tabs button[data-vista=cobros]'); await page.waitForTimeout(200);
   let corte = await page.textContent('#corte');
-  ok(/sin cobro registrado/.test(corte) && corte.includes('Diego Sánchez Mora'), 'su corte avisa la sesión sin cobro (Diego)');
+  ok(/sin cobro registrado/.test(corte) && (await page.$$eval('#detalleCorte .fila-corte.sin', f => f.some(x => x.textContent.includes('Diego Sánchez Mora')))), 'su corte avisa la sesión sin cobro (Diego) y la marca en el detalle');
   ok(corte.includes('falta que Dirección lo confirme'), 'su corte avisa la inasistencia que falta confirmar');
-  await page.tap('#corte .falta:has-text("Diego") .rev-btn'); await page.waitForTimeout(250);
+  ok(!(await page.textContent('#detalleCorte')).includes('Se cobra'), 'la psicóloga no ve tarifas ni lo que le toca en el detalle');
+  await page.tap('#detalleCorte .fila-corte.sin:has-text("Diego") .rev-btn'); await page.waitForTimeout(250);
   ok(await page.inputValue('#pPaciente') === 'p9', '"Registrar" desde el corte abre el cobro de ese paciente');
   await page.evaluate(() => cerrar('modalPago'));
   ok(await ancho(page) <= 414, 'sin scroll horizontal en su corte');
@@ -411,17 +414,22 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(await page.evaluate(() => estado.fechaAgenda === addDaysISO(hoyISO(), 11)), 'la agenda se va al nuevo día para verla');
   await page.tap('nav.tabs button[data-vista=expediente]'); await page.waitForTimeout(200);
   ok(await page.$$eval('#listaPx .px-tag.gris', t => t.some(x => x.textContent === 'no asistió')), 'en "Hoy" del expediente se ve "no asistió" en vez de "falta nota"');
-  await page.evaluate(() => { estado.cobrosPeriodo = { tipo: 'rango', desde: addDaysISO(hoyISO(), -7), hasta: hoyISO() }; });
+  await page.evaluate(() => { estado.cobrosPeriodo = { tipo: 'rango', desde: addDaysISO(hoyISO(), -7), hasta: hoyISO() }; renderFiltroCobros(); renderCobros(); });
   await page.tap('nav.tabs button[data-vista=cobros]'); await page.waitForTimeout(200);
   corte = await page.textContent('#corte');
-  ok(corte.includes('Sesiones dadas (agenda)') && /sin cobro registrado/.test(corte), 'el corte de Dirección muestra sesiones de la agenda y las que no tienen cobro');
+  ok(corte.includes('Corte del periodo') && /Falta por cobrar/.test(corte) && await page.$$eval('#corte .fila-psic', f => f.length) >= 2, 'el corte de Dirección resume a cada psicóloga y lo que falta por cobrar');
+  await page.tap('#chipsCorte button:has-text("Fernanda")'); await page.waitForTimeout(200);
+  corte = await page.textContent('#corte');
+  ok(corte.includes('Fernanda') && corte.includes('Asignado') && corte.includes('Lo cobrado') && !(await visible(page, '#tablaCobros'))
+    && (await page.textContent('#detalleCorte .fila-corte.sin')).includes('Se cobra'), 'al elegir una psicóloga se ve solo su corte, con lo asignado y cada sesión');
+  await page.tap('#chipsCorte button:has-text("Todas")'); await page.waitForTimeout(150);
   ok(await ancho(page) <= 414, 'sin scroll horizontal en el corte');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
   console.log('Corte visto por soporte');
   page = await abrir(browser, 'd2');
   await page.evaluate(async () => { __DB.pagos.push({ id: 'gd1', paciente_id: 'p1', psicologa_id: 'd1', monto: 800, metodo: 'transferencia', validado: true, creado_en: new Date().toISOString() }); await refrescar(); irA('cobros'); });
-  const bloqueDir = await page.$$eval('#corte .psic', b => (b.find(x => x.textContent.includes('Laura Gómez')) || {}).textContent || '');
+  const bloqueDir = await page.$$eval('#corte .fila-psic', b => (b.find(x => x.textContent.includes('Laura Gómez')) || {}).textContent || '');
   ok(bloqueDir.includes('Dirección') && bloqueDir.includes('Íntegro para Dirección') && !(await page.textContent('#corte')).includes('Soporte Técnico'),
     'las sesiones de la directora salen con su nombre, no con el de quien mira');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
@@ -442,12 +450,32 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     __DB.citas.push(c('t1', id, '10:00:00'), c('t2', id, '11:00:00'), c('t3', 'p1', '12:00:00'));
     const g = (i, pac, m, met) => ({ id: i, paciente_id: pac, psicologa_id: 's1', monto: m, metodo: met, validado: true, creado_en: new Date(f + 'T13:00:00').toISOString() });
     __DB.pagos.push(g('q1', id, 290, 'efectivo'), g('q2', id, 290, 'transferencia'), g('q3', 'p1', 600, 'efectivo'));
-    estado.cobrosPeriodo = { tipo: 'rango', desde: f, hasta: f }; await refrescar(); irA('cobros');
-    return [...document.querySelectorAll('#corte .psic')].find(b => b.textContent.includes('Fernanda')).innerText;
+    estado.cobrosPeriodo = { tipo: 'rango', desde: f, hasta: f }; await refrescar(); irA('cobros'); verCortePsic('s1');
+    return document.getElementById('corte').innerText;
   }, nuevoPx.id);
-  ok(/Le toca \(3 sesiones\)\s*\$600/.test(corteDe), 'le toca 150 + 150 + 300 (mitad de la tarifa de quien no tiene monto) = $600');
+  ok(/Para la psicóloga\s*\$600/.test(corteDe) && /Se cobra a los papás\s*\$1,180/.test(corteDe) && /Para el consultorio\s*\$580/.test(corteDe),
+    'asignado: se cobra 290 + 290 + 600 = $1,180; le toca 150 + 150 + 300 (mitad) = $600; consultorio $580');
   ok(/Ella te entrega\s*\$290/.test(corteDe), 'si ella tiene $890 en efectivo y le tocan $600, ella entrega $290');
   ok(corteDe.includes('mitad de su tarifa'), 'avisa cuando un paciente no tiene capturado lo que le toca');
+  // Pago atrasado de una sesión de otro periodo (solo dinero) y cobro sin cita (cuenta como sesión)
+  const extra = await page.evaluate(async id => {
+    const f = addDaysISO(hoyISO(), -1), antes = addDaysISO(hoyISO(), -9);
+    __DB.citas.push({ id: 'vieja', fecha: antes, hora: '16:00:00', duracion: 60, psicologa_id: 's1', paciente_id: id, estado: 'programada', confirmada_por: null });
+    __DB.pagos.push({ id: 'q4', paciente_id: id, psicologa_id: 's1', monto: 290, metodo: 'transferencia', validado: false, cita_id: 'vieja', creado_en: new Date(f + 'T14:00:00').toISOString() },
+                    { id: 'q5', paciente_id: 'p1', psicologa_id: 's1', monto: 600, metodo: 'efectivo', validado: false, creado_en: new Date(f + 'T15:00:00').toISOString() });
+    await refrescar(); verCortePsic('s1');
+    return { corte: document.getElementById('corte').innerText, filas: [...document.querySelectorAll('#detalleCorte .fila-corte')].map(x => x.innerText.replace(/\s+/g, ' ')) };
+  }, nuevoPx.id);
+  ok(/Para la psicóloga\s*\$900/.test(extra.corte) && extra.filas.some(x => x.includes('Pago de la sesión del') && x.includes('ya contó')),
+    'un pago atrasado de otra semana no vuelve a contar como sesión; un cobro sin cita sí cuenta (600 + 300)');
+  ok(extra.filas.some(x => x.includes('Cobro sin cita en la agenda')), 'el cobro sin cita se marca así en el detalle');
+  ok(extra.filas.some(x => /Pagó \$290 en efectivo ese día/.test(x)), 'cada sesión dice cuánto, cómo y cuándo se pagó');
+  // Exportar el corte de la psicóloga, sesión por sesión
+  const csv = await page.evaluate(async () => { let txt = null; const B = window.Blob;
+    window.Blob = class extends B { constructor(p, o) { super(p, o); txt = p.join(''); } };
+    const c = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (!this.download) c.call(this); };
+    exportCobros(); window.Blob = B; return txt; });
+  ok(csv && csv.split('\r\n')[0].includes('Fecha sesion') && csv.includes('Le toca a la psicologa') && csv.split('\r\n').length >= 6, 'exportar baja el corte sesión por sesión');
   ok(await page.evaluate(() => { const t = document.querySelector('table.pagos'); return t.scrollWidth <= t.parentElement.clientWidth + 1; }) && await ancho(page) <= 414, 'los cobros se ven como tarjetas, sin desbordarse');
   await page.evaluate(() => { estado.fechaAgenda = addDaysISO(hoyISO(), -1); irA('agenda'); setVistaAgenda('dia'); });
   ok(await page.$eval('.ev[data-cita="t1"]', e => e.classList.contains('corta') && e.querySelector('.r').getBoundingClientRect().bottom <= e.getBoundingClientRect().bottom + 1),
@@ -827,6 +855,12 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     const r = d.getBoundingClientRect(); __desliza(300, 100, r.top + 40, '#scrollPrueba'); });
   ok(await vista() === 'cobros', 'dentro de algo que se desplaza de lado (como una tabla) no cambia de pestaña');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+
+  console.log('Periodo del corte');
+  const mes = await page.evaluate(() => { estado.cobrosPeriodo = { tipo: 'mes' }; return rangoCobros(); });
+  ok(mes.desde.endsWith('-01') && Number(mes.hasta.slice(8)) >= 28 && mes.desde.slice(0, 7) === mes.hasta.slice(0, 7), `"Mes" va del 1 al último día del mes (${mes.desde} a ${mes.hasta})`);
+  const sem = await page.evaluate(() => { estado.cobrosPeriodo = { tipo: 'semana' }; return rangoCobros(); });
+  ok(new Date(sem.desde + 'T12:00:00').getDay() === 1 && new Date(sem.hasta + 'T12:00:00').getDay() === 0, 'la semana va de lunes a domingo');
 
   console.log('Equipo, fecha de nacimiento y respaldo');
   page = await abrir(browser, 'd1');
