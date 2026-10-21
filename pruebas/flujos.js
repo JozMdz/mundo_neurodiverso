@@ -419,11 +419,15 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(await page.$$eval('#listaPx .px-tag.gris', t => t.some(x => x.textContent === 'no asistió')), 'en "Hoy" del expediente se ve "no asistió" en vez de "falta nota"');
   await page.evaluate(() => { estado.cobrosPeriodo = { tipo: 'rango', desde: addDaysISO(hoyISO(), -7), hasta: hoyISO() }; renderFiltroCobros(); renderCobros(); });
   await page.tap('nav.tabs button[data-vista=cobros]'); await page.waitForTimeout(200);
+  const chips = await page.$$eval('#chipsCorte button', b => b.map(x => x.textContent.trim()));
+  ok(chips.at(-1) === 'Todas' && await page.$eval('#chipsCorte button.on', b => b.textContent.trim()) === chips[0] && (await page.textContent('#corte')).includes('Le pagas'),
+    `"Todas" va al final y al entrar se ve la primera psicóloga (${chips.join(' · ')})`);
+  await page.tap('#chipsCorte button:has-text("Todas")'); await page.waitForTimeout(200);
   corte = await page.textContent('#corte');
-  ok(/en el consultorio/.test(corte) && /Falta cobrar/.test(corte) && /Se cobró/.test(corte) && await page.$$eval('#corte .fila-psic', f => f.length) >= 2, 'el corte de Dirección empieza por lo general: lo del consultorio y luego cada psicóloga');
+  ok(/en el consultorio/i.test(corte) && /Falta cobrar/.test(corte) && /Se cobró/.test(corte) && await page.$$eval('#corte .fila-psic', f => f.length) >= 2, 'el corte de Dirección empieza por lo general: lo del consultorio y luego cada psicóloga');
   await page.tap('#chipsCorte button:has-text("Fernanda")'); await page.waitForTimeout(200);
   corte = await page.textContent('#corte');
-  ok(corte.includes('Fernanda') && corte.includes('Se acordó cobrar') && corte.includes('Para Fernanda') && corte.includes('Para el consultorio') && !(await visible(page, '#tablaCobros'))
+  ok(corte.includes('Fernanda') && corte.includes('Se acordó cobrar por') && corte.includes('De eso ya se cobró') && corte.includes('para el consultorio') && !(await visible(page, '#tablaCobros'))
     && (await page.textContent('#detalleCorte .fila-corte.sin')).includes('Se acordó cobrar') && await page.$$eval('#detalleCorte .dc-tit b', b => b.every(x => /de [a-z]+$/.test(x.textContent))),
     'al elegir una psicóloga se ve solo su corte, con lo acordado y cada sesión agrupada por día');
   await page.tap('#chipsCorte button:has-text("Todas")'); await page.waitForTimeout(150);
@@ -432,7 +436,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
 
   console.log('Corte visto por soporte');
   page = await abrir(browser, 'd2');
-  await page.evaluate(async () => { __DB.pagos.push({ id: 'gd1', paciente_id: 'p1', psicologa_id: 'd1', monto: 800, metodo: 'transferencia', validado: true, creado_en: new Date().toISOString() }); await refrescar(); irA('cobros'); });
+  await page.evaluate(async () => { __DB.pagos.push({ id: 'gd1', paciente_id: 'p1', psicologa_id: 'd1', monto: 800, metodo: 'transferencia', validado: true, creado_en: new Date().toISOString() }); await refrescar(); irA('cobros'); verCortePsic('todas'); });
   const bloqueDir = await page.$$eval('#corte .fila-psic', b => (b.find(x => x.textContent.includes('Laura Gómez')) || {}).textContent || '');
   ok(bloqueDir.includes('Laura') && bloqueDir.includes('Todo es para Dirección') && !(await page.textContent('#corte')).includes('Soporte Técnico'),
     'las sesiones de la directora salen con su nombre, no con el de quien mira');
@@ -457,10 +461,10 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     estado.cobrosPeriodo = { tipo: 'rango', desde: f, hasta: f }; await refrescar(); irA('cobros'); verCortePsic('s1');
     return document.getElementById('corte').innerText;
   }, nuevoPx.id);
-  ok(/Para Fernanda\s*\$600/.test(corteDe) && /Se acordó cobrar\s*\$1,180/.test(corteDe) && /Para el consultorio\s*\$580/.test(corteDe),
-    'lo acordado: se cobra 290 + 290 + 600 = $1,180; para ella 150 + 150 + 300 (mitad) = $600; consultorio $580');
-  ok(/Fernanda te entrega\s*\$290/.test(corteDe) && /Cobró \$890 en efectivo/.test(corteDe) && /Le tocan \$600 por 3 sesiones/.test(corteDe),
-    'si ella tiene $890 en efectivo y le tocan $600, "Fernanda te entrega $290", con el porqué en renglones');
+  ok(/Se acordó cobrar por esas 3 sesiones\s*\$1,180/.test(corteDe) && /De eso ya se cobró\s*\$1,180/.test(corteDe) && /para el consultorio\s*\$580/.test(corteDe),
+    'lo acordado: se cobra 290 + 290 + 600 = $1,180, ya se cobró todo y al consultorio le quedan $580');
+  ok(/Fernanda te entrega\s*\$290/.test(corteDe) && /Cobró en efectivo\s*\$890/.test(corteDe) && /De eso se queda lo que le toca\s*\$600/.test(corteDe) && /Te entrega el resto\s*\$290/.test(corteDe),
+    'si ella cobró $890 en efectivo y le tocan $600: "Fernanda te entrega $290", paso a paso');
   ok(corteDe.includes('le toca la mitad'), 'avisa cuando un paciente no tiene capturado lo que le toca');
   // Pago atrasado de una sesión de otro periodo (solo dinero) y cobro sin cita (cuenta como sesión)
   const extra = await page.evaluate(async id => {
@@ -471,10 +475,10 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     await refrescar(); verCortePsic('s1');
     return { corte: document.getElementById('corte').innerText, filas: [...document.querySelectorAll('#detalleCorte .fila-corte')].map(x => x.innerText.replace(/\s+/g, ' ')) };
   }, nuevoPx.id);
-  ok(/Para Fernanda\s*\$900/.test(extra.corte) && extra.filas.some(x => x.includes('Pago de la sesión del') && x.includes('contó en ese periodo')),
+  ok(/se queda lo que le toca\s*\$900/.test(extra.corte) && !/20 oct · 20 oct/.test(extra.corte) && /Además llegaron pagos de sesiones de otros días\s*\$290/.test(extra.corte) && extra.filas.some(x => x.includes('Pago de la sesión del') && x.includes('contó en ese periodo')),
     'un pago atrasado de otra semana no vuelve a contar como sesión; un cobro sin cita sí cuenta (600 + 300)');
   ok(extra.filas.some(x => x.includes('pagó sin cita en la agenda') && x.includes('Cuenta como sesión')), 'el cobro sin cita se marca así en el detalle');
-  ok(extra.filas.some(x => /vino a las 10:00 💵 Efectivo \$290/.test(x) && /Fernanda \$150/.test(x) && /Consultorio \$140/.test(x)),
+  ok(extra.filas.some(x => /vino a las 10:00 💵 Efectivo \$290 lo tiene Fernanda/.test(x) && /Le toca a Fernanda \$150/.test(x) && /Al consultorio \$140/.test(x)),
     'cada sesión dice que vino, cómo y cuánto pagó, y cuánto es para ella y para el consultorio');
   // Exportar el corte de la psicóloga, sesión por sesión
   const csv = await page.evaluate(async () => { let txt = null; const B = window.Blob;

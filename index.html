@@ -475,16 +475,23 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   .corte .fp-falta{color:var(--alerta);}
   .corte .sal{font-size:13.5px; font-weight:800; color:var(--gris);}
   .corte .sal.pagas,.corte .sal.entrega{color:var(--morado-tx);} .corte .sal.dir{color:var(--ok);}
-  .corte .cuadros{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:4px;}
-  .corte .cuadro{background:var(--suave); border:1px solid var(--linea); border-radius:12px; padding:10px 12px; min-width:0;}
-  .corte .cuadro .l{font-size:12.5px; font-weight:800; color:var(--gris); display:flex; align-items:center; gap:5px;}
-  .corte .cuadro .l .pt{width:9px; height:9px; border-radius:50%; flex:none;}
-  .corte .cuadro .v{font-family:"Fredoka"; font-size:22px; font-weight:600; color:var(--tinta); margin-top:2px; overflow-wrap:anywhere;}
-  .corte .cuadro.cob .v{color:var(--ok);} .corte .cuadro.psi .v{color:var(--morado-tx);} .corte .cuadro.con .v{color:var(--cian);}
   .corte .accion-corte{padding:14px 16px; border-radius:14px; background:var(--lila); border:1px solid var(--lila-borde); margin-bottom:12px;}
   .corte .accion-corte .t{font-weight:800; font-size:16px;}
   .corte .accion-corte .v{font-family:"Fredoka"; font-size:34px; font-weight:600; color:var(--morado-tx); line-height:1.15;}
-  .corte .accion-corte .por{font-size:14.5px; color:var(--texto2); font-weight:600; margin-top:3px;}
+  .corte .accion-corte .pasos{margin-top:8px; border-top:1px solid var(--lila-borde); padding-top:6px;}
+  .corte .accion-corte .paso{display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:14.5px; color:var(--texto2); font-weight:600; padding:3px 0;}
+  .corte .accion-corte .paso b{font-size:16px; color:var(--tinta); white-space:nowrap;}
+  .corte .accion-corte .paso.fin{font-weight:800; color:var(--tinta); border-top:1px dashed var(--lila-borde); margin-top:3px; padding-top:6px;}
+  .corte .accion-corte .paso.fin b{color:var(--morado-tx); font-size:17px;}
+  .corte .accion-corte .paso.nota{color:var(--gris); font-size:14px;}
+  .corte .resumen-corte{background:var(--suave); border:1px solid var(--linea); border-radius:12px; padding:8px 12px;}
+  .corte .resumen-corte .tit{font-size:12px; font-weight:800; color:var(--gris); text-transform:uppercase; letter-spacing:.4px; padding:4px 0 2px;}
+  .corte .res-l{display:flex; align-items:baseline; gap:8px; padding:7px 0; border-top:1px solid var(--linea); font-size:14.5px; font-weight:700; color:var(--texto2);}
+  .corte .resumen-corte .tit + .res-l, .corte .resumen-corte > .res-l:first-child{border-top:none;}
+  .corte .res-l .ico{width:20px; flex:none; text-align:center;} .corte .res-l .txt{flex:1; min-width:0;}
+  .corte .res-l b{font-size:16px; color:var(--tinta); white-space:nowrap;}
+  .corte .res-l.cob b{color:var(--ok);} .corte .res-l.con b{color:var(--cian);} .corte .res-l.falta, .corte .res-l.falta b{color:var(--alerta);}
+  .corte .res-l.amb b{color:var(--amb);}
   .corte .accion-corte.mano,.corte .accion-corte.dir{background:var(--ok-suave); border-color:transparent;}
   .corte .sub-tit{padding:12px 18px 4px; font-size:12px; font-weight:800; color:var(--gris); text-transform:uppercase; letter-spacing:.4px; border-top:1px solid var(--linea);}
   .corte .sub-tit + button.fila-psic{border-top:none;}
@@ -1908,7 +1915,8 @@ function corteDeCita(citaId){ const c=estado.citas.find(x=>x.id===citaId); cerra
   const r=rangoCobros(); if(c.fecha<r.desde || c.fecha>r.hasta){ const lun=mondayISO(c.fecha); estado.cobrosPeriodo={tipo:"rango", desde:lun, hasta:addDaysISO(lun,6)}; }
   if(esAdmin()) estado.cortePsic=c.psic;
   irA("cobros"); renderFiltroCobros(); renderCobros(); saltarA(0); }
-function verCortePsic(id){ estado.cortePsic=id||null; renderCobros(); if(MOVIL.matches) saltarA(0); }
+function verCortePsic(id){ estado.cortePsic=id||"todas"; renderCobros(); if(MOVIL.matches) saltarA(0); }
+let corteSel=null;   // la psicóloga que se ve ahora en el corte (null = todas); la usa Excel
 function renderCobros(){
   const admin=esAdmin(), r=rangoCobros();
   document.getElementById("tituloCobros").textContent=admin?"Cobros y reparto":"Tus cobros y efectivo";
@@ -1916,12 +1924,15 @@ function renderCobros(){
   const enPeriodo=pagosVisibles().filter(g=>g.fecha>=r.desde && g.fecha<=r.hasta);
   // Psicólogas con algo en el periodo (cobros o sesiones dadas); la elegida se queda aunque no tenga nada
   const conAlgo=new Set(enPeriodo.map(g=>g.psic).concat(estado.citas.filter(c=>c.fecha>=r.desde && c.fecha<=r.hasta && c.estado!=="cancelada" && citaTermino(c)).map(c=>c.psic)));
-  if(admin && estado.cortePsic) conAlgo.add(estado.cortePsic);
+  if(admin && estado.cortePsic && estado.cortePsic!=="todas") conAlgo.add(estado.cortePsic);
   const ids=[...conAlgo].filter(id=>psic(id)).sort((a,b)=>(psic(b).admin?1:0)-(psic(a).admin?1:0) || corto(psic(a).nombre).localeCompare(corto(psic(b).nombre),"es"));
-  if(admin && estado.cortePsic && !psic(estado.cortePsic)) estado.cortePsic=null;
-  const sel= admin? estado.cortePsic : estado.quien;
-  document.getElementById("chipsCorte").innerHTML= admin && ids.length? `<button class="${!sel?"on":""}" onclick="verCortePsic(null)">Todas</button>`
-    + ids.map(id=>{ const p=psic(id); return `<button class="${sel===id?"on":""}" onclick="verCortePsic('${id}')"><span class="pt" style="background:${p.color}"></span>${esc(corto(p.nombre))}</button>`; }).join("") : "";
+  if(admin && estado.cortePsic && estado.cortePsic!=="todas" && !psic(estado.cortePsic)) estado.cortePsic=null;
+  // Primero la directora, luego las psicólogas y al final "Todas". Si no se ha elegido, se ve la primera.
+  const sel= !admin? estado.quien : estado.cortePsic==="todas"? null : (estado.cortePsic || ids[0] || null);
+  corteSel=sel;
+  document.getElementById("chipsCorte").innerHTML= admin && ids.length?
+    ids.map(id=>{ const p=psic(id); return `<button class="${sel===id?"on":""}" onclick="verCortePsic('${id}')"><span class="pt" style="background:${p.color}"></span>${esc(corto(p.nombre))}</button>`; }).join("")
+    + `<button class="${!sel?"on":""}" onclick="verCortePsic('todas')">Todas</button>` : "";
   const chipOn=document.querySelector("#chipsCorte .on");
   if(chipOn && MOVIL.matches){ const fila=chipOn.parentElement; fila.scrollLeft=Math.max(0, chipOn.offsetLeft-(fila.clientWidth-chipOn.offsetWidth)/2); }
   const pagos= sel? enPeriodo.filter(g=>g.psic===sel) : enPeriodo;
@@ -1966,19 +1977,19 @@ function renderCobros(){
     return `<button class="psic fila-psic" onclick="verCortePsic('${k.psicId}')"><span class="mini-color" style="background:${p.color}"></span>
       <span class="fp-txt"><b>${esc(corto(p.nombre))}</b>${accion}<span class="fp-sub">${plural(t.sesiones,"vino","vinieron")} · se cobró ${mxn(t.cobrado)}${t.faltaCobrar? ` · <span class="fp-falta">falta cobrar ${plural(k.sinCobro.length,"sesión","sesiones")}</span>` : ""}</span></span>
       <span class="flecha-eq">›</span></button>`; }).join("");
-  corte.innerHTML=`<div class="cab"><h3>${nombrePeriodo()} en el consultorio</h3><span>${rango}</span></div>
+  corte.innerHTML=`<div class="cab"><h3>${estado.cobrosPeriodo.tipo==="rango"? "En el consultorio" : nombrePeriodo()+" en el consultorio"}</h3><span>${rango}</span></div>
     <div class="psic">${nFalta? `<div class="corte-aviso">⚠ <b>Falta cobrar ${plural(nFalta,"sesión","sesiones")}</b> · ${mxn(falta)}</div>` : ""}
-      <div class="cuadros">${cuadro("✅ Vinieron", vinieron)}${noVinieron? cuadro("🚫 No vinieron", noVinieron) : ""}
-        ${cuadro("💵 Se cobró", mxn(cobrado), "cob")}${cuadro("🏠 Para el consultorio", mxn(consultorio), "con")}</div></div>
-    <div class="sub-tit">Con cada psicóloga · toca para ver su detalle</div>
+      <div class="resumen-corte">${lineaRes("✅", plural(vinieron,"paciente vino","pacientes vinieron"))}${noVinieron? lineaRes("🚫", plural(noVinieron,"no vino","no vinieron")) : ""}
+        ${lineaRes("💵", "Se cobró en total", mxn(cobrado), "cob")}${lineaRes("🏠", "Para el consultorio", mxn(consultorio), "con")}</div></div>
+    <div class="sub-tit">Qué hacer con cada una · toca para ver su detalle</div>
     ${filas || '<div class="psic"><div class="vacio"><b>Sin sesiones ni cobros en este periodo</b></div></div>'}
     ${pagas||entregan? `<div class="pie pie-todas">${pagas? renglonCorte("En total les pagas", mxn(pagas), "g") : ""}${entregan? renglonCorte("En total te entregan", mxn(entregan), "g") : ""}</div>` : ""}`;
 }
 // "Esta semana", "Hoy", "Este mes" o "Del 3 al 9 oct"
 function nombrePeriodo(){ const t=estado.cobrosPeriodo.tipo, r=rangoCobros();
   return t==="hoy"? "Hoy" : t==="semana"? "Esta semana" : t==="mes"? "Este mes" : `Del ${fmtDia(r.desde)} al ${fmtDia(r.hasta)}`; }
-// Un cuadro con una sola cifra y su nombre (fácil de leer)
-function cuadro(lbl, v, cls){ return `<div class="cuadro${cls?" "+cls:""}"><div class="l">${lbl}</div><div class="v num">${v}</div></div>`; }
+// Un renglón del resumen: qué es, en palabras, y una sola cifra a la derecha
+function lineaRes(ico, txt, monto, cls){ return `<div class="res-l${cls?" "+cls:""}"><span class="ico">${ico}</span><span class="txt">${txt}</span>${monto? `<b class="num">${monto}</b>` : ""}</div>`; }
 function nombreCorto(p){ return corto((p||{nombre:"—"}).nombre).split(" ")[0]; }
 function plural(n, uno, varios){ return n+" "+(n===1? uno : varios); }
 function renglonCorte(txt, n, cls){ return `<div class="reng${cls?" "+cls:""}"><span>${txt}</span><span class="num">${n}</span></div>`; }
@@ -2020,50 +2031,66 @@ function corteDe(psicId, r, pagos){
   const ses=filas.filter(x=>x.tipo==="sesion" || x.tipo==="suelto"), sinCobro=dadas.filter(c=>!cobroDe.has(c.id) && !fuera.has(c.id));
   const cobrado=suyos.reduce((a,g)=>a+g.monto,0), ef=suyos.filter(g=>g.metodo==="efectivo").reduce((a,g)=>a+g.monto,0);
   const asigCobro=ses.reduce((a,x)=>a+x.tarifa,0), asigPsic=ses.reduce((a,x)=>a+x.toca,0);
+  const faltaCobrar=sinCobro.reduce((a,c)=>a+repartoPac(c.pac, psicId).tarifa,0);
+  // Para el resumen: lo que ya pagaron por estas sesiones (aunque haya sido otro día), si pagaron menos o más de lo
+  // acordado, y los pagos que llegaron en este periodo pero son de sesiones de otro
+  const cobradoSes=ses.reduce((a,x)=>a+((x.g||x.gFuera||{}).monto||0),0), otros=filas.filter(x=>x.tipo==="aparte").reduce((a,x)=>a+x.g.monto,0);
   return {p, psicId, filas, dadas, noAsistio, porConf:noAsistio.filter(c=>!c.confirmadaPor), sinCobro, suyos,
     t:{sesiones:ses.length, mitad:ses.filter(x=>x.mitad).length, asigCobro, asigPsic, asigConsul:asigCobro-asigPsic,
-      cobrado, ef, cuenta:cobrado-ef, faltaCobrar:sinCobro.reduce((a,c)=>a+repartoPac(c.pac, psicId).tarifa,0), saldo:asigPsic-ef}};
+      cobrado, ef, cuenta:cobrado-ef, faltaCobrar, saldo:asigPsic-ef, cobradoSes, otros, dif:asigCobro-cobradoSes-faltaCobrar}};
 }
 // "hoy", "ayer" o "el lun 26 oct" (cuándo se pagó) y "de ayer" o "del lun 26 oct" (de qué sesión)
 function diaPagoTxt(iso){ const s=fechaCorta(iso,true); return /^(Hoy|Ayer)$/.test(s)? s.toLowerCase() : "el "+s.charAt(0).toLowerCase()+s.slice(1); }
 function sesionTxt(iso){ const s=fechaCorta(iso,true); return /^(Hoy|Ayer)$/.test(s)? "de "+s.toLowerCase() : "del "+s.charAt(0).toLowerCase()+s.slice(1); }
 // Para quien pregunta solo por las sesiones (hoja de la cita): mismas reglas que el corte
 function sesionesDe(psicId, r, pagos){ const k=corteDe(psicId, r, pagos); return {dadas:k.dadas, noAsistio:k.noAsistio, porConf:k.porConf, sinCobro:k.sinCobro}; }
-// Lo que hay que hacer con la psicóloga, en grande, y por qué: un renglón por cifra y sin restas
+// Lo que hay que hacer con la psicóloga, en grande, y abajo cómo sale, paso a paso, con el efectivo que ella tiene
 function accionCorte(k, ella){ const t=k.t, n=esc(nombreCorto(k.p)), ses=plural(t.sesiones,"sesión","sesiones");
-  const toca= ella? `Te tocan ${mxn(t.asigPsic)} por ${ses}.` : `Le tocan ${mxn(t.asigPsic)} por ${ses}.`;
-  if(t.saldo>0) return {cls:"pagas", t: ella? "💵 Dirección te paga" : `💵 Le pagas a ${n}`, v:mxn(t.saldo),
-    por:[toca, t.ef? (ella? `Ya tienes ${mxn(t.ef)} en efectivo.` : `Ya tiene ${mxn(t.ef)} en efectivo.`) : (ella? "No tienes efectivo del consultorio." : "No tiene efectivo del consultorio."),
-      t.ef? (ella? "Se te da lo que falta." : "Le das lo que falta.") : ""]};
-  if(t.saldo<0) return {cls:"entrega", t: ella? "💵 Entregas a Dirección" : `💵 ${n} te entrega`, v:mxn(-t.saldo),
-    por:[ella? `Cobraste ${mxn(t.ef)} en efectivo.` : `Cobró ${mxn(t.ef)} en efectivo.`, toca, "Lo demás es del consultorio."]};
-  return {cls:"mano", t:"✓ Están a mano", v:"", por: t.sesiones? [toca, ella? "Es lo mismo que tienes en efectivo." : "Es lo mismo que tiene en efectivo."] : ["No hubo sesiones en este periodo."]};
+  const tocan= ella? `Te tocan por ${ses}` : `Le tocan por ${ses}`;
+  if(t.saldo<0) return {cls:"entrega", t: ella? "💵 Entregas a Dirección" : `💵 ${n} te entrega`, v:mxn(-t.saldo), pasos:[
+    [ella? "Cobraste en efectivo" : "Cobró en efectivo", mxn(t.ef)],
+    [ella? "De eso te quedas lo que te toca" : "De eso se queda lo que le toca", mxn(t.asigPsic)],
+    [ella? "Entregas el resto" : "Te entrega el resto", mxn(-t.saldo), "fin"]]};
+  if(t.saldo>0) return {cls:"pagas", t: ella? "💵 Dirección te paga" : `💵 Le pagas a ${n}`, v:mxn(t.saldo), pasos: t.ef? [
+    [tocan, mxn(t.asigPsic)],
+    [ella? "Ya te quedaste del efectivo que cobraste" : "Ya se quedó del efectivo que cobró", mxn(t.ef)],
+    [ella? "Dirección te paga lo que falta" : "Le pagas lo que falta", mxn(t.saldo), "fin"]]
+    : [[tocan, mxn(t.asigPsic)], [ella? "No cobraste efectivo: Dirección te paga todo" : "No cobró efectivo: le pagas todo", "", "nota"]]};
+  return {cls:"mano", t:"✓ Están a mano", v:"", pasos: t.sesiones? [[tocan, mxn(t.asigPsic)],
+    [ella? "Es lo mismo que cobraste en efectivo y te quedas" : "Es lo mismo que cobró en efectivo y se queda", "", "nota"], ["No hay que pagar nada", "", "nota"]]
+    : [["No hubo sesiones en este periodo", "", "nota"]]};
 }
-function cajaAccion(a){ const por=(Array.isArray(a.por)? a.por : [a.por]).filter(Boolean);
-  return `<div class="accion-corte ${a.cls}"><div class="t">${a.t}</div>${a.v? `<div class="v num">${a.v}</div>` : ""}${por.map(x=>`<div class="por">${x}</div>`).join("")}</div>`; }
+function cajaAccion(a){
+  return `<div class="accion-corte ${a.cls}"><div class="t">${a.t}</div>${a.v? `<div class="v num">${a.v}</div>` : ""}
+    ${a.pasos && a.pasos.length? `<div class="pasos">${a.pasos.map(([txt,m,cls])=>`<div class="paso${cls?" "+cls:""}"><span>${txt}</span>${m? `<b class="num">${m}</b>` : ""}</div>`).join("")}</div>` : ""}</div>`; }
+function tituloResumen(){ const t=estado.cobrosPeriodo.tipo; return t==="hoy"? "Resumen de hoy" : t==="semana"? "Resumen de esta semana" : t==="mes"? "Resumen de este mes" : "Resumen del periodo"; }
 function avisosCorte(k, admin){
   return (k.sinCobro.length? `<div class="corte-aviso">⚠ <b>Falta cobrar ${plural(k.sinCobro.length,"sesión","sesiones")}</b>${admin? ` · ${mxn(k.t.faltaCobrar)}` : ""} · ${k.sinCobro.length===1? "está marcada" : "están marcadas"} en la lista</div>` : "")
     + (k.porConf.length? `<div class="corte-aviso amb"><span>🚫 <b>${k.porConf.length} no ${k.porConf.length===1?"vino":"vinieron"}</b> · ${admin? "por confirmar" : "falta que Dirección lo confirme"}</span>${admin? `<button class="rev-btn" onclick="verPorConfirmar()">Revisar</button>` : ""}</div>` : "");
 }
-// Resumen de una psicóloga para Dirección: qué hacer con ella y las cifras de su periodo, una por cuadro
-function resumenCorte(k, rango){ const t=k.t, p=k.p, yo=p.id===estado.quien, n=nombreCorto(p);
-  const a= p.admin? {cls:"dir", t:`🏠 Todo es para ${yo?"ti":"Dirección"}`, v:"", por:["Sus pacientes son de Dirección.", "No hay que repartir."]} : accionCorte(k, false);
-  return `<div class="cab"><h3><span class="mini-color" style="background:${p.color}"></span>${esc(corto(p.nombre))}</h3><span>${nombrePeriodo()} · ${rango}</span></div>
+// Resumen de una psicóloga para Dirección: arriba qué hacer con ella; luego el resumen en renglones que cuadran entre sí
+function resumenCorte(k, rango){ const t=k.t, p=k.p, yo=p.id===estado.quien, n=esc(nombreCorto(p));
+  const a= p.admin? {cls:"dir", t:`🏠 Todo es para ${yo?"ti":"Dirección"}`, v:"", pasos:[["Sus pacientes son de Dirección: no hay que repartir", "", "nota"]]} : accionCorte(k, false);
+  const ses=t.sesiones===1? "esa sesión" : `esas ${t.sesiones} sesiones`;
+  return `<div class="cab"><h3><span class="mini-color" style="background:${p.color}"></span>${esc(corto(p.nombre))}</h3><span>${estado.cobrosPeriodo.tipo==="rango"? rango : nombrePeriodo()+" · "+rango}</span></div>
     <div class="psic">${cajaAccion(a)}
       ${avisosCorte(k, true)}
-      <div class="cuadros">${cuadro("✅ Vinieron", t.sesiones)}${k.noAsistio.length? cuadro("🚫 No vinieron", k.noAsistio.length) : ""}
-        ${cuadro("📋 Se acordó cobrar", mxn(t.asigCobro))}${cuadro("💵 Se cobró", mxn(t.cobrado), "cob")}
-        ${p.admin? "" : cuadro(`<span class="pt" style="background:${p.color}"></span> Para ${esc(n)}`, mxn(t.asigPsic), "psi") + cuadro("🏠 Para el consultorio", mxn(t.asigConsul), "con")}</div>
-      ${t.mitad && !p.admin? `<div class="nota-corte">En ${plural(t.mitad,"sesión","sesiones")} a ${esc(n)} le toca la mitad, porque ese paciente no tiene capturado cuánto le toca.</div>` : ""}</div>`;
+      <div class="resumen-corte"><div class="tit">${tituloResumen()}</div>
+        ${lineaRes("✅", plural(t.sesiones,"paciente vino","pacientes vinieron"))}${k.noAsistio.length? lineaRes("🚫", plural(k.noAsistio.length,"no vino","no vinieron")) : ""}
+        ${t.sesiones? lineaRes("📋", `Se acordó cobrar por ${ses}`, mxn(t.asigCobro)) + lineaRes("💵", "De eso ya se cobró", mxn(t.cobradoSes), "cob") : ""}
+        ${t.faltaCobrar? lineaRes("⚠", `Falta cobrar (${plural(k.sinCobro.length,"sesión","sesiones")})`, mxn(t.faltaCobrar), "falta") : ""}
+        ${t.dif>0? lineaRes("↘", "Pagaron menos de lo acordado", mxn(t.dif), "amb") : t.dif<0? lineaRes("↗", "Pagaron más de lo acordado", mxn(-t.dif), "amb") : ""}
+        ${t.otros? lineaRes("➕", "Además llegaron pagos de sesiones de otros días", mxn(t.otros)) : ""}
+        ${!p.admin && t.sesiones? lineaRes("🏠", "De lo acordado, para el consultorio", mxn(t.asigConsul), "con") : ""}</div>
+      ${t.mitad && !p.admin? `<div class="nota-corte">En ${plural(t.mitad,"sesión","sesiones")} a ${n} le toca la mitad, porque ese paciente no tiene capturado cuánto le toca.</div>` : ""}</div>`;
 }
-// Resumen para la psicóloga: qué pacientes tuvo y cuánto recibe (no ve tarifas ni montos que no pasan por ella)
+// Resumen para la psicóloga: qué hacer con Dirección y cuántos pacientes tuvo (no ve tarifas ni montos que no pasan por ella)
 function resumenPsicologa(k, rango){ const t=k.t, a=accionCorte(k, true);
   const tit={hoy:"Tu día", semana:"Tu semana", mes:"Tu mes"}[estado.cobrosPeriodo.tipo]||"Tu periodo";
   return `<div class="cab"><h3>${tit}</h3><span>${rango}</span></div>
     <div class="psic">${cajaAccion(a)}
       ${avisosCorte(k, false)}
-      <div class="cuadros">${cuadro("✅ Vinieron", t.sesiones)}${k.noAsistio.length? cuadro("🚫 No vinieron", k.noAsistio.length) : ""}
-        ${cuadro("💰 Te tocan", mxn(t.asigPsic), "psi")}${cuadro("💵 Tienes en efectivo", mxn(t.ef), "cob")}</div></div>`;
+      <div class="resumen-corte">${lineaRes("✅", plural(t.sesiones,"paciente vino","pacientes vinieron"))}${k.noAsistio.length? lineaRes("🚫", plural(k.noAsistio.length,"no vino","no vinieron")) : ""}</div></div>`;
 }
 // Detalle día por día: quién vino, cómo y cuánto pagó, lo acordado y para quién es cada parte
 const ICONO_METODO={efectivo:"💵", transferencia:"🏦", tarjeta:"💳"};
@@ -2074,12 +2101,14 @@ function detalleCorte(k, admin){
   const n=esc(nombreCorto(k.p));
   const pago=(g, x)=>{ const verM=admin || g.metodo==="efectivo", metodo=g.metodo.charAt(0).toUpperCase()+g.metodo.slice(1);
     const otroDia= !(x.c && x.tipo==="sesion" && g.fecha===x.c.fecha);
+    const quien= g.metodo==="efectivo"? (g.psic===estado.quien? "lo tienes tú" : `lo tiene ${esc(nombreCorto(psic(g.psic)))}`)
+      : admin? "llegó a tu cuenta" : "a la cuenta del consultorio";
     return `<span class="pago-met ${esc(g.metodo)}">${ICONO_METODO[g.metodo]||"💵"} ${esc(metodo)}${verM? ` <b class="num">${mxn(g.monto)}</b>` : ""}</span>`
-      + (otroDia && x.tipo==="sesion"? `<span class="fc-cuando">pagó ${diaPagoTxt(g.fecha)}</span>` : "")
+      + `<span class="fc-cuando">${quien}${otroDia && x.tipo==="sesion"? ` · pagó ${diaPagoTxt(g.fecha)}` : ""}</span>`
       + `<span class="ec-val ${g.validado?"si":""}">${g.validado?"validado":"por validar"}</span>`; };
   const reparto=x=> !admin? `<div class="fc-reparto"><span class="rp psi">💰 Te toca <b class="num">${mxn(x.toca)}</b></span></div>`
     : x.dir? `<div class="fc-reparto"><span class="rp con">🏠 Todo para Dirección <b class="num">${mxn(x.tarifa)}</b></span></div>`
-    : `<div class="fc-reparto"><span class="rp psi"><span class="pt" style="background:${k.p.color}"></span>${n} <b class="num">${mxn(x.toca)}</b>${x.mitad?`<small> (mitad)</small>`:""}</span><span class="rp con">🏠 Consultorio <b class="num">${mxn(x.tarifa-x.toca)}</b></span></div>`;
+    : `<div class="fc-reparto"><span class="rp psi"><span class="pt" style="background:${k.p.color}"></span>Le toca a ${n} <b class="num">${mxn(x.toca)}</b>${x.mitad?`<small> (mitad)</small>`:""}</span><span class="rp con">🏠 Al consultorio <b class="num">${mxn(x.tarifa-x.toca)}</b></span></div>`;
   const fila=x=>{ const nom=esc((pac((x.c||x.g).pac)||{}).nombre||"—"), g=x.g, gf=x.gFuera;
     if(x.tipo==="noasis") return `<div class="fila-corte noasis"><div class="fc-top"><span class="fc-ico">🚫</span><b>${nom}</b><span class="fc-hora">no vino · ${x.c.hora}</span></div>
       <div class="fc-nota-gris">No se cobra${x.c.confirmadaPor? "" : " · falta confirmarlo"}</div></div>`;
@@ -2843,7 +2872,7 @@ function csvCell(v){ v=String(v==null?"":v); if(/^[=+\-@\t\r]/.test(v) && isNaN(
   return /[",\r\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; }
 function exportCobros(){ if(!esAdmin()) return; const r=rangoCobros();
   const enPeriodo=estado.pagos.filter(g=>g.fecha>=r.desde && g.fecha<=r.hasta);
-  const ids=estado.cortePsic? [estado.cortePsic] : [...new Set(enPeriodo.map(g=>g.psic).concat(estado.citas.filter(c=>c.fecha>=r.desde && c.fecha<=r.hasta).map(c=>c.psic)))].filter(id=>psic(id));
+  const ids=corteSel? [corteSel] : [...new Set(enPeriodo.map(g=>g.psic).concat(estado.citas.filter(c=>c.fecha>=r.desde && c.fecha<=r.hasta).map(c=>c.psic)))].filter(id=>psic(id));
   const head=["Psicologa","Fecha sesion","Hora sesion","Paciente","Que es","Se cobra (tarifa)","Le toca a la psicologa","Cobrado","Metodo","Fecha del cobro","Validado"];
   const tipo={sesion:"Sesion", suelto:"Cobro sin cita (cuenta como sesion)", aparte:"Cobro de otra sesion", noasis:"No asistio"};
   const filas=[];
@@ -2851,7 +2880,7 @@ function exportCobros(){ if(!esAdmin()) return; const r=rangoCobros();
     filas.push([corto(psic(id).nombre), c? c.fecha : "", c? c.hora : "", (pac((c||g).pac)||{}).nombre||"", x.tipo==="sesion" && !g? "Sesion sin cobro" : tipo[x.tipo],
       cuenta? x.tarifa : "", cuenta && !x.dir? x.toca : "", g? g.monto : "", g? g.metodo : "", g? g.fecha : "", g? (g.validado?"Si":"No") : ""]); }));
   const csv="\ufeff"+[head].concat(filas).map(f=>f.map(csvCell).join(",")).join("\r\n");
-  const nombre="corte_"+(estado.cortePsic? corto(psic(estado.cortePsic).nombre).replace(/\s+/g,"_")+"_" : "")+r.desde+"_a_"+r.hasta+".csv";
+  const nombre="corte_"+(corteSel? corto(psic(corteSel).nombre).replace(/\s+/g,"_")+"_" : "")+r.desde+"_a_"+r.hasta+".csv";
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"})); a.download=nombre; document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); toast("Corte exportado (CSV para Excel) ✓","ok"); }
 
