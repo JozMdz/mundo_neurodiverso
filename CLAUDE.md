@@ -63,12 +63,14 @@ periodo, la sesión sale pagada y el dinero cuenta en ese otro corte), luego uno
 de otro día. Un cobro ligado a una sesión de otro periodo solo cuenta como dinero; uno sin cita y sin sesión cuenta como
 sesión dada. Lo acordado sale de cada paciente (`repartoPac`): `tarifa` (se cobra) y `pago_psicologa` (le toca; vacío =
 mitad, `sql/pago-psicologa.sql`); los pacientes de la directora son íntegros para Dirección. Dirección elige psicóloga con
-chips (`estado.cortePsic`, `verCortePsic`) o ve "Todas" (lo del consultorio y qué hacer con cada psicóloga). Va de lo
-general a lo particular y pensado para leerse fácil (la directora tiene discalculia): arriba, en grande, qué hacer
-(`accionCorte`: "Le pagas a X $…" / "X te entrega $…", con el porqué en renglones de una cifra y sin restas); luego
-cuadros de una sola cifra (`cuadro`: vinieron, se acordó cobrar, se cobró, para ella, para el consultorio); y abajo
-`detalleCorte` día por día: quién vino y a qué hora, cómo y cuánto pagó, lo acordado y para quién es cada parte. Mantén
-ese estilo: una cifra por renglón o cuadro, palabras antes que signos. La psicóloga ve qué pacientes tuvo y cuánto le toca,
+chips (`estado.cortePsic`, `verCortePsic`): primero la directora, luego las psicólogas y al final "Todas" (lo del
+consultorio y qué hacer con cada una); sin elegir se ve la primera. Va de lo general a lo particular y pensado para
+leerse fácil (la directora tiene discalculia): arriba, en grande, qué hacer (`accionCorte` / `cajaAccion`: "Le pagas a X
+$…" / "X te entrega $…", y abajo paso a paso con el efectivo: cobró en efectivo → de eso se queda lo que le toca → te
+entrega el resto); luego el resumen en renglones que cuadran entre sí (`lineaRes`: vinieron, se acordó cobrar por esas
+sesiones, de eso ya se cobró, falta cobrar, pagaron menos/más, pagos de otros días, para el consultorio); y abajo
+`detalleCorte` día por día: quién vino y a qué hora, cómo pagó y quién tiene el dinero, lo acordado y cuánto le toca a
+ella y al consultorio. Mantén ese estilo: una cifra por renglón, palabras antes que signos, nada que haya que restar de cabeza. La psicóloga ve qué pacientes tuvo y cuánto le toca,
 sin tarifas, sin la parte del consultorio y sin montos que no sean efectivo (también en `menuCobro`). Periodos: hoy, semana (lunes a domingo), mes y rango. Excel exporta el
 corte sesión por sesión. `sesionesDe` (hoja de la cita) usa las mismas reglas.
 
