@@ -63,10 +63,13 @@ periodo, la sesión sale pagada y el dinero cuenta en ese otro corte), luego uno
 de otro día. Un cobro ligado a una sesión de otro periodo solo cuenta como dinero; uno sin cita y sin sesión cuenta como
 sesión dada. Lo acordado sale de cada paciente (`repartoPac`): `tarifa` (se cobra) y `pago_psicologa` (le toca; vacío =
 mitad, `sql/pago-psicologa.sql`); los pacientes de la directora son íntegros para Dirección. Dirección elige psicóloga con
-chips (`estado.cortePsic`, `verCortePsic`) o ve "Todas" resumidas; `resumenCorte` muestra asignado (se cobra / para la
-psicóloga / para el consultorio), lo cobrado (efectivo / a cuenta / falta por cobrar) y el saldo (le paga / ella entrega),
-y `detalleCorte` cada sesión con cuándo asistió y cuándo y cómo se pagó. La psicóloga ve su detalle sin tarifas ni montos
-que no sean efectivo (también en `menuCobro`). Periodos: hoy, semana (lunes a domingo), mes y rango. Excel exporta el
+chips (`estado.cortePsic`, `verCortePsic`) o ve "Todas" (lo del consultorio y qué hacer con cada psicóloga). Va de lo
+general a lo particular y pensado para leerse fácil (la directora tiene discalculia): arriba, en grande, qué hacer
+(`accionCorte`: "Le pagas a X $…" / "X te entrega $…", con el porqué en renglones de una cifra y sin restas); luego
+cuadros de una sola cifra (`cuadro`: vinieron, se acordó cobrar, se cobró, para ella, para el consultorio); y abajo
+`detalleCorte` día por día: quién vino y a qué hora, cómo y cuánto pagó, lo acordado y para quién es cada parte. Mantén
+ese estilo: una cifra por renglón o cuadro, palabras antes que signos. La psicóloga ve qué pacientes tuvo y cuánto le toca,
+sin tarifas, sin la parte del consultorio y sin montos que no sean efectivo (también en `menuCobro`). Periodos: hoy, semana (lunes a domingo), mes y rango. Excel exporta el
 corte sesión por sesión. `sesionesDe` (hoja de la cita) usa las mismas reglas.
 
 Se documenta al final de la jornada: al salir, si una psicóloga (o la directora) tiene sesiones de hoy sin documentar
