@@ -461,11 +461,14 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     estado.cobrosPeriodo = { tipo: 'rango', desde: f, hasta: f }; await refrescar(); irA('cobros'); verCortePsic('s1');
     return document.getElementById('corte').innerText;
   }, nuevoPx.id);
-  ok(/Se acordó cobrar por esas 3 sesiones\s*\$1,180/.test(corteDe) && /De eso ya se cobró\s*\$1,180/.test(corteDe) && /para el consultorio\s*\$580/.test(corteDe),
+  ok(/para el consultorio\s*\$580/.test(corteDe),
     'lo acordado: se cobra 290 + 290 + 600 = $1,180, ya se cobró todo y al consultorio le quedan $580');
   ok(/Fernanda te entrega\s*\$290/.test(corteDe) && /Cobró en efectivo\s*\$890/.test(corteDe) && /De eso se queda lo que le toca\s*\$600/.test(corteDe) && /Te entrega el resto\s*\$290/.test(corteDe),
     'si ella cobró $890 en efectivo y le tocan $600: "Fernanda te entrega $290", paso a paso');
-  ok(corteDe.includes('le toca la mitad'), 'avisa cuando un paciente no tiene capturado lo que le toca');
+  ok(!corteDe.includes('le toca la mitad') && /Se acordó cobrar por esas 3 sesiones\s*PRUEBA · 2 sesiones\s*\$580\s*Mateo\s*\$600\s*Total\s*\$1,180/.test(corteDe),
+    'lo acordado se desglosa por paciente (primer nombre) con su total, sin leyendas');
+  ok(/De eso ya se cobró\s*💵 Efectivo · lo tiene Fernanda\s*\$890\s*🏦 Transferencia · a tu cuenta\s*\$290\s*Total\s*\$1,180/.test(corteDe),
+    'lo cobrado se desglosa por forma de pago, y el efectivo es el mismo de arriba');
   // Pago atrasado de una sesión de otro periodo (solo dinero) y cobro sin cita (cuenta como sesión)
   const extra = await page.evaluate(async id => {
     const f = addDaysISO(hoyISO(), -1), antes = addDaysISO(hoyISO(), -9);
