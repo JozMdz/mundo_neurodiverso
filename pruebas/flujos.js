@@ -365,6 +365,9 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   const detPsic = await page.textContent('#detalleCorte');
   ok(!detPsic.includes('Se acordó cobrar') && !detPsic.includes('Consultorio') && detPsic.includes('Te toca') && /vino a las/.test(detPsic),
     'la psicóloga ve qué pacientes vinieron y cuánto le toca, pero no lo acordado ni la parte del consultorio');
+  ok(detPsic.includes('Efectivo') && !/(Efectivo|Transferencia|Tarjeta)\s*\$/.test(detPsic) && !/Cobraste|quedaste del efectivo/.test(corte)
+    && await page.$$eval('#corte .paso b', b => b.length <= 2 && b.every(x => x.closest('.paso.fin') || /^Te tocan/.test(x.parentElement.textContent))),
+    'tampoco ve lo que se cobró (ni en efectivo) junto a lo que le toca: solo lo suyo y lo que entrega o recibe');
   await page.tap('#detalleCorte .fila-corte.sin:has-text("Diego") .rev-btn'); await page.waitForTimeout(250);
   ok(await page.inputValue('#pPaciente') === 'p9', '"Registrar" desde el corte abre el cobro de ese paciente');
   await page.evaluate(() => cerrar('modalPago'));
@@ -427,7 +430,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(/en el consultorio/i.test(corte) && /Falta cobrar/.test(corte) && /Se cobró/.test(corte) && await page.$$eval('#corte .fila-psic', f => f.length) >= 2, 'el corte de Dirección empieza por lo general: lo del consultorio y luego cada psicóloga');
   await page.tap('#chipsCorte button:has-text("Fernanda")'); await page.waitForTimeout(200);
   corte = await page.textContent('#corte');
-  ok(corte.includes('Fernanda') && corte.includes('Se acordó cobrar por') && corte.includes('De eso ya se cobró') && corte.includes('para el consultorio') && !(await visible(page, '#tablaCobros'))
+  ok(corte.includes('Fernanda') && corte.includes('Se acordó cobrar por') && corte.includes('De eso ya se cobró') && !corte.includes('para el consultorio') && !(await visible(page, '#tablaCobros'))
     && (await page.textContent('#detalleCorte .fila-corte.sin')).includes('Se acordó cobrar') && await page.$$eval('#detalleCorte .dc-tit b', b => b.every(x => /de [a-z]+$/.test(x.textContent))),
     'al elegir una psicóloga se ve solo su corte, con lo acordado y cada sesión agrupada por día');
   await page.tap('#chipsCorte button:has-text("Todas")'); await page.waitForTimeout(150);
@@ -438,8 +441,11 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   page = await abrir(browser, 'd2');
   await page.evaluate(async () => { __DB.pagos.push({ id: 'gd1', paciente_id: 'p1', psicologa_id: 'd1', monto: 800, metodo: 'transferencia', validado: true, creado_en: new Date().toISOString() }); await refrescar(); irA('cobros'); verCortePsic('todas'); });
   const bloqueDir = await page.$$eval('#corte .fila-psic', b => (b.find(x => x.textContent.includes('Laura Gómez')) || {}).textContent || '');
-  ok(bloqueDir.includes('Laura') && bloqueDir.includes('Todo es para Dirección') && !(await page.textContent('#corte')).includes('Soporte Técnico'),
+  ok(bloqueDir.includes('Laura') && !bloqueDir.includes('Todo es para Dirección') && !(await page.textContent('#corte')).includes('Soporte Técnico'),
     'las sesiones de la directora salen con su nombre, no con el de quien mira');
+  await page.evaluate(() => verCortePsic('d1'));
+  ok(!(await page.textContent('#corte')).includes('para el consultorio') && !(await page.$('#corte .accion-corte')) && !(await page.textContent('#detalleCorte')).includes('Todo para Dirección'),
+    'en el corte de la directora no hay caja de qué hacer ni "Todo para Dirección" (se sobreentiende)');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
   console.log('Lo que le toca a la psicóloga');
@@ -461,8 +467,11 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     estado.cobrosPeriodo = { tipo: 'rango', desde: f, hasta: f }; await refrescar(); irA('cobros'); verCortePsic('s1');
     return document.getElementById('corte').innerText;
   }, nuevoPx.id);
-  ok(/para el consultorio\s*\$580/.test(corteDe),
-    'lo acordado: se cobra 290 + 290 + 600 = $1,180, ya se cobró todo y al consultorio le quedan $580');
+  const enOrden = corteDe.toLowerCase();
+  ok(!corteDe.includes('para el consultorio') && enOrden.indexOf('resumen del periodo') >= 0 && enOrden.indexOf('resumen del periodo') < enOrden.indexOf('fernanda te entrega'),
+    'primero el resumen y luego qué hacer con ella, sin "para el consultorio"');
+  ok(/Te entrega el resto\s*\$290\s*🏦 Ya tienes en tu cuenta \(transferencia\)\s*\$290/.test(corteDe),
+    'en la caja, aparte, lo que ya está en la cuenta de Dirección (transferencia y tarjeta)');
   ok(/Fernanda te entrega\s*\$290/.test(corteDe) && /Cobró en efectivo\s*\$890/.test(corteDe) && /De eso se queda lo que le toca\s*\$600/.test(corteDe) && /Te entrega el resto\s*\$290/.test(corteDe),
     'si ella cobró $890 en efectivo y le tocan $600: "Fernanda te entrega $290", paso a paso');
   ok(!corteDe.includes('le toca la mitad') && /Se acordó cobrar por esas 3 sesiones\s*PRUEBA · 2 sesiones\s*\$580\s*Mateo\s*\$600\s*Total\s*\$1,180/.test(corteDe),

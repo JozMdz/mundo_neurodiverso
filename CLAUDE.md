@@ -65,13 +65,17 @@ sesión dada. Lo acordado sale de cada paciente (`repartoPac`): `tarifa` (se cob
 mitad, `sql/pago-psicologa.sql`); los pacientes de la directora son íntegros para Dirección. Dirección elige psicóloga con
 chips (`estado.cortePsic`, `verCortePsic`): primero la directora, luego las psicólogas y al final "Todas" (lo del
 consultorio y qué hacer con cada una); sin elegir se ve la primera. Va de lo general a lo particular y pensado para
-leerse fácil (la directora tiene discalculia): arriba, en grande, qué hacer (`accionCorte` / `cajaAccion`: "Le pagas a X
-$…" / "X te entrega $…", y abajo paso a paso con el efectivo: cobró en efectivo → de eso se queda lo que le toca → te
-entrega el resto; en el corte de la directora no va esta caja); luego el resumen en renglones que cuadran entre sí (`lineaRes`: vinieron, se acordó cobrar por esas
-sesiones con su desglose por paciente y total, de eso ya se cobró con su desglose por forma de pago y total, falta cobrar, pagaron menos/más, pagos de otros días, para el consultorio); y abajo
-`detalleCorte` día por día: quién vino y a qué hora, cómo pagó y quién tiene el dinero, lo acordado y cuánto le toca a
-ella y al consultorio. Mantén ese estilo: una cifra por renglón, palabras antes que signos, nada que haya que restar de cabeza. La psicóloga ve qué pacientes tuvo y cuánto le toca,
-sin tarifas, sin la parte del consultorio y sin montos que no sean efectivo (también en `menuCobro`). Periodos: hoy, semana (lunes a domingo), mes y rango. Excel exporta el
+leerse fácil (la directora tiene discalculia): primero el resumen en renglones que cuadran entre sí (`lineaRes`: vinieron,
+se acordó cobrar por esas sesiones con su desglose por paciente y total, de eso ya se cobró con su desglose por forma de
+pago y total, falta cobrar, pagaron menos/más, pagos de otros días); luego, en grande, qué hacer (`accionCorte` /
+`cajaAccion`: "Le pagas a X $…" / "X te entrega $…", y abajo paso a paso con el efectivo: cobró en efectivo → de eso se
+queda lo que le toca → te entrega el resto; aparte, "Ya tienes en tu cuenta" con lo de transferencia y tarjeta, que la
+psicóloga no ve; en el corte de la directora no va esta caja); y abajo `detalleCorte` día por día: quién vino y a qué
+hora, cómo pagó y quién tiene el dinero, lo acordado y cuánto le toca a ella y al consultorio (en las sesiones de la
+directora no va reparto: todo es de Dirección). La parte del consultorio no va en los resúmenes. Mantén ese estilo: una cifra por renglón, palabras antes que signos, nada que haya que restar de cabeza. La psicóloga ve qué pacientes tuvo y cuánto le toca,
+sin tarifas, sin la parte del consultorio y sin lo que se cobró, ni en efectivo, para no ponerlo junto a lo que le toca
+(su caja: le tocan → se lo queda del efectivo → entrega el resto). El monto de un cobro suyo solo lo ve en `menuCobro`, para
+corregirlo, y ahí nunca el de transferencia o tarjeta. Periodos: hoy, semana (lunes a domingo), mes y rango. Excel exporta el
 corte sesión por sesión. `sesionesDe` (hoja de la cita) usa las mismas reglas.
 
 Se documenta al final de la jornada: al salir, si una psicóloga (o la directora) tiene sesiones de hoy sin documentar
