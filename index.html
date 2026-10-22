@@ -475,7 +475,7 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   .corte .fp-falta{color:var(--alerta);}
   .corte .sal{font-size:13.5px; font-weight:800; color:var(--gris);}
   .corte .sal.pagas,.corte .sal.entrega{color:var(--morado-tx);} .corte .sal.dir{color:var(--ok);}
-  .corte .accion-corte{padding:14px 16px; border-radius:14px; background:var(--lila); border:1px solid var(--lila-borde); margin-bottom:12px;}
+  .corte .accion-corte{padding:14px 16px; border-radius:14px; background:var(--lila); border:1px solid var(--lila-borde); margin-top:12px;}
   .corte .accion-corte .t{font-weight:800; font-size:16px;}
   .corte .accion-corte .v{font-family:"Fredoka"; font-size:34px; font-weight:600; color:var(--morado-tx); line-height:1.15;}
   .corte .accion-corte .pasos{margin-top:8px; border-top:1px solid var(--lila-borde); padding-top:6px;}
@@ -483,7 +483,9 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   .corte .accion-corte .paso b{font-size:16px; color:var(--tinta); white-space:nowrap;}
   .corte .accion-corte .paso.fin{font-weight:800; color:var(--tinta); border-top:1px dashed var(--lila-borde); margin-top:3px; padding-top:6px;}
   .corte .accion-corte .paso.fin b{color:var(--morado-tx); font-size:17px;}
-  .corte .accion-corte .paso.nota{color:var(--gris); font-size:14px;}
+  .corte .accion-corte .paso.aclara{color:var(--gris); font-size:14px;}
+  .corte .accion-corte .en-cuenta{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-top:10px; padding:9px 12px; border-radius:10px; background:var(--tarjeta); font-size:14.5px; font-weight:700; color:var(--texto2);}
+  .corte .accion-corte .en-cuenta span{min-width:0;} .corte .accion-corte .en-cuenta b{font-size:16px; color:var(--tinta); white-space:nowrap;}
   .corte .resumen-corte{background:var(--suave); border:1px solid var(--linea); border-radius:12px; padding:8px 12px;}
   .corte .resumen-corte .tit{font-size:12px; font-weight:800; color:var(--gris); text-transform:uppercase; letter-spacing:.4px; padding:4px 0 2px;}
   .corte .res-l{display:flex; align-items:baseline; gap:8px; padding:7px 0; border-top:1px solid var(--linea); font-size:14.5px; font-weight:700; color:var(--texto2);}
@@ -1972,10 +1974,10 @@ function renderCobros(){
   const ks=ids.map(id=>corteDe(id, r, enPeriodo));
   const suma=f=>ks.reduce((a,k)=>a+f(k),0);
   const vinieron=suma(k=>k.t.sesiones), noVinieron=suma(k=>k.noAsistio.length), cobrado=suma(k=>k.t.cobrado),
-    falta=suma(k=>k.t.faltaCobrar), nFalta=suma(k=>k.sinCobro.length), consultorio=suma(k=>k.t.asigConsul);
+    falta=suma(k=>k.t.faltaCobrar), nFalta=suma(k=>k.sinCobro.length);
   let pagas=0, entregan=0;
   const filas=ks.map(k=>{ const t=k.t, p=k.p; let accion;
-    if(p.admin) accion=`<span class="sal dir">Todo es para Dirección</span>`;
+    if(p.admin) accion="";   // lo de la directora es de Dirección: no hay nada que hacer
     else if(t.saldo>0){ pagas+=t.saldo; accion=`<span class="sal pagas">Le pagas <b>${mxn(t.saldo)}</b></span>`; }
     else if(t.saldo<0){ entregan+=-t.saldo; accion=`<span class="sal entrega">Te entrega <b>${mxn(-t.saldo)}</b></span>`; }
     else accion=`<span class="sal">Están a mano</span>`;
@@ -1985,7 +1987,7 @@ function renderCobros(){
   corte.innerHTML=`<div class="cab"><h3>${estado.cobrosPeriodo.tipo==="rango"? "En el consultorio" : nombrePeriodo()+" en el consultorio"}</h3><span>${rango}</span></div>
     <div class="psic">${nFalta? `<div class="corte-aviso">⚠ <b>Falta cobrar ${plural(nFalta,"sesión","sesiones")}</b> · ${mxn(falta)}</div>` : ""}
       <div class="resumen-corte">${lineaRes("✅", plural(vinieron,"paciente vino","pacientes vinieron"))}${noVinieron? lineaRes("🚫", plural(noVinieron,"no vino","no vinieron")) : ""}
-        ${lineaRes("💵", "Se cobró en total", mxn(cobrado), "cob")}${lineaRes("🏠", "Para el consultorio", mxn(consultorio), "con")}</div></div>
+        ${lineaRes("💵", "Se cobró en total", mxn(cobrado), "cob")}</div></div>
     <div class="sub-tit">Qué hacer con cada una · toca para ver su detalle</div>
     ${filas || '<div class="psic"><div class="vacio"><b>Sin sesiones ni cobros en este periodo</b></div></div>'}
     ${pagas||entregan? `<div class="pie pie-todas">${pagas? renglonCorte("En total les pagas", mxn(pagas), "g") : ""}${entregan? renglonCorte("En total te entregan", mxn(entregan), "g") : ""}</div>` : ""}`;
@@ -2051,30 +2053,35 @@ function sesionTxt(iso){ const s=fechaCorta(iso,true); return /^(Hoy|Ayer)$/.tes
 // Para quien pregunta solo por las sesiones (hoja de la cita): mismas reglas que el corte
 function sesionesDe(psicId, r, pagos){ const k=corteDe(psicId, r, pagos); return {dadas:k.dadas, noAsistio:k.noAsistio, porConf:k.porConf, sinCobro:k.sinCobro}; }
 // Lo que hay que hacer con la psicóloga, en grande, y abajo cómo sale, paso a paso, con el efectivo que ella tiene
-function accionCorte(k, ella){ const t=k.t, n=esc(nombreCorto(k.p)), ses=plural(t.sesiones,"sesión","sesiones");
+function accionCorte(k, ella){ const a=accionPasos(k, ella), t=k.t;
+  if(!ella && t.cuenta){ const met=["transferencia","tarjeta"].filter(m=>k.suyos.some(g=>g.metodo===m)).join(" y ");
+    a.cuenta=[`🏦 Ya tienes en tu cuenta (${met})`, mxn(t.cuenta)]; }
+  return a; }
+function accionPasos(k, ella){ const t=k.t, n=esc(nombreCorto(k.p)), ses=plural(t.sesiones,"sesión","sesiones");
   const tocan= ella? `Te tocan por ${ses}` : `Le tocan por ${ses}`;
-  if(t.saldo<0) return {cls:"entrega", t: ella? "💵 Entregas a Dirección" : `💵 ${n} te entrega`, v:mxn(-t.saldo), pasos:[
-    [ella? "Cobraste en efectivo" : "Cobró en efectivo", mxn(t.ef)],
-    [ella? "De eso te quedas lo que te toca" : "De eso se queda lo que le toca", mxn(t.asigPsic)],
-    [ella? "Entregas el resto" : "Te entrega el resto", mxn(-t.saldo), "fin"]]};
+  // A la psicóloga no se le pone lo que se cobró junto a lo que le toca: solo lo suyo y lo que entrega o recibe
+  if(t.saldo<0) return {cls:"entrega", t: ella? "💵 Entregas a Dirección" : `💵 ${n} te entrega`, v:mxn(-t.saldo), pasos: ella? [
+    [tocan, mxn(t.asigPsic)], ["Te lo quedas del efectivo que cobraste", "", "aclara"], ["Entregas el resto del efectivo", mxn(-t.saldo), "fin"]] : [
+    ["Cobró en efectivo", mxn(t.ef)], ["De eso se queda lo que le toca", mxn(t.asigPsic)], ["Te entrega el resto", mxn(-t.saldo), "fin"]]};
   if(t.saldo>0) return {cls:"pagas", t: ella? "💵 Dirección te paga" : `💵 Le pagas a ${n}`, v:mxn(t.saldo), pasos: t.ef? [
     [tocan, mxn(t.asigPsic)],
-    [ella? "Ya te quedaste del efectivo que cobraste" : "Ya se quedó del efectivo que cobró", mxn(t.ef)],
+    ella? ["Una parte ya la tienes del efectivo que cobraste", "", "aclara"] : ["Ya se quedó del efectivo que cobró", mxn(t.ef)],
     [ella? "Dirección te paga lo que falta" : "Le pagas lo que falta", mxn(t.saldo), "fin"]]
-    : [[tocan, mxn(t.asigPsic)], [ella? "No cobraste efectivo: Dirección te paga todo" : "No cobró efectivo: le pagas todo", "", "nota"]]};
+    : [[tocan, mxn(t.asigPsic)], [ella? "No cobraste efectivo: Dirección te paga todo" : "No cobró efectivo: le pagas todo", "", "aclara"]]};
   return {cls:"mano", t:"✓ Están a mano", v:"", pasos: t.sesiones? [[tocan, mxn(t.asigPsic)],
-    [ella? "Es lo mismo que cobraste en efectivo y te quedas" : "Es lo mismo que cobró en efectivo y se queda", "", "nota"], ["No hay que pagar nada", "", "nota"]]
-    : [["No hubo sesiones en este periodo", "", "nota"]]};
+    [ella? "Es lo mismo que cobraste en efectivo y te quedas" : "Es lo mismo que cobró en efectivo y se queda", "", "aclara"], ["No hay que pagar nada", "", "aclara"]]
+    : [["No hubo sesiones en este periodo", "", "aclara"]]};
 }
 function cajaAccion(a){
   return `<div class="accion-corte ${a.cls}"><div class="t">${a.t}</div>${a.v? `<div class="v num">${a.v}</div>` : ""}
-    ${a.pasos && a.pasos.length? `<div class="pasos">${a.pasos.map(([txt,m,cls])=>`<div class="paso${cls?" "+cls:""}"><span>${txt}</span>${m? `<b class="num">${m}</b>` : ""}</div>`).join("")}</div>` : ""}</div>`; }
+    ${a.pasos && a.pasos.length? `<div class="pasos">${a.pasos.map(([txt,m,cls])=>`<div class="paso${cls?" "+cls:""}"><span>${txt}</span>${m? `<b class="num">${m}</b>` : ""}</div>`).join("")}</div>` : ""}
+    ${a.cuenta? `<div class="en-cuenta"><span>${a.cuenta[0]}</span><b class="num">${a.cuenta[1]}</b></div>` : ""}</div>`; }
 function tituloResumen(){ const t=estado.cobrosPeriodo.tipo; return t==="hoy"? "Resumen de hoy" : t==="semana"? "Resumen de esta semana" : t==="mes"? "Resumen de este mes" : "Resumen del periodo"; }
 function avisosCorte(k, admin){
   return (k.sinCobro.length? `<div class="corte-aviso">⚠ <b>Falta cobrar ${plural(k.sinCobro.length,"sesión","sesiones")}</b>${admin? ` · ${mxn(k.t.faltaCobrar)}` : ""} · ${k.sinCobro.length===1? "está marcada" : "están marcadas"} en la lista</div>` : "")
     + (k.porConf.length? `<div class="corte-aviso amb"><span>🚫 <b>${k.porConf.length} no ${k.porConf.length===1?"vino":"vinieron"}</b> · ${admin? "por confirmar" : "falta que Dirección lo confirme"}</span>${admin? `<button class="rev-btn" onclick="verPorConfirmar()">Revisar</button>` : ""}</div>` : "");
 }
-// Resumen de una psicóloga para Dirección: arriba qué hacer con ella; luego el resumen en renglones que cuadran entre sí
+// Resumen de una psicóloga para Dirección: primero el resumen en renglones que cuadran entre sí y luego qué hacer con ella
 function resumenCorte(k, rango){ const t=k.t, p=k.p, yo=p.id===estado.quien, n=esc(nombreCorto(p));
   const ses=t.sesiones===1? "esa sesión" : `esas ${t.sesiones} sesiones`;
   // Desglose de lo acordado por paciente (primer nombre; si vino varias veces, una línea con cuántas)
@@ -2086,24 +2093,23 @@ function resumenCorte(k, rango){ const t=k.t, p=k.p, yo=p.id===estado.quien, n=e
   const cobradoM=[["💵 Efectivo · "+quienEf, porMet.efectivo], ["🏦 Transferencia · a tu cuenta", porMet.transferencia], ["💳 Tarjeta · a tu cuenta", porMet.tarjeta]]
     .filter(([,m])=>m).map(([txt,m])=>subRes(txt, mxn(m))).join("");
   return `<div class="cab"><h3><span class="mini-color" style="background:${p.color}"></span>${esc(corto(p.nombre))}</h3><span>${estado.cobrosPeriodo.tipo==="rango"? rango : nombrePeriodo()+" · "+rango}</span></div>
-    <div class="psic">${p.admin? "" : cajaAccion(accionCorte(k, false))}
-      ${avisosCorte(k, true)}
+    <div class="psic">${avisosCorte(k, true)}
       <div class="resumen-corte"><div class="tit">${tituloResumen()}</div>
         ${lineaRes("✅", plural(t.sesiones,"paciente vino","pacientes vinieron"))}${k.noAsistio.length? lineaRes("🚫", plural(k.noAsistio.length,"no vino","no vinieron")) : ""}
         ${t.sesiones? lineaRes("📋", `Se acordó cobrar por ${ses}`) + `<div class="res-sub">${acordado}${subRes("Total", mxn(t.asigCobro), "tot")}</div>`
           + lineaRes("💵", "De eso ya se cobró") + `<div class="res-sub">${cobradoM}${subRes("Total", mxn(t.cobradoSes), "tot cob")}</div>` : ""}
         ${t.faltaCobrar? lineaRes("⚠", `Falta cobrar (${plural(k.sinCobro.length,"sesión","sesiones")})`, mxn(t.faltaCobrar), "falta") : ""}
         ${t.dif>0? lineaRes("↘", "Pagaron menos de lo acordado", mxn(t.dif), "amb") : t.dif<0? lineaRes("↗", "Pagaron más de lo acordado", mxn(-t.dif), "amb") : ""}
-        ${t.otros? lineaRes("➕", "Además llegaron pagos de sesiones de otros días", mxn(t.otros)) : ""}
-        ${!p.admin && t.sesiones? lineaRes("🏠", "De lo acordado, para el consultorio", mxn(t.asigConsul), "con") : ""}</div></div>`;
+        ${t.otros? lineaRes("➕", "Además llegaron pagos de sesiones de otros días", mxn(t.otros)) : ""}</div>
+      ${p.admin? "" : cajaAccion(accionCorte(k, false))}</div>`;
 }
-// Resumen para la psicóloga: qué hacer con Dirección y cuántos pacientes tuvo (no ve tarifas ni montos que no pasan por ella)
+// Resumen para la psicóloga: cuántos pacientes tuvo y qué hacer con Dirección (no ve tarifas ni lo que se cobró)
 function resumenPsicologa(k, rango){ const t=k.t, a=accionCorte(k, true);
   const tit={hoy:"Tu día", semana:"Tu semana", mes:"Tu mes"}[estado.cobrosPeriodo.tipo]||"Tu periodo";
   return `<div class="cab"><h3>${tit}</h3><span>${rango}</span></div>
-    <div class="psic">${cajaAccion(a)}
-      ${avisosCorte(k, false)}
-      <div class="resumen-corte">${lineaRes("✅", plural(t.sesiones,"paciente vino","pacientes vinieron"))}${k.noAsistio.length? lineaRes("🚫", plural(k.noAsistio.length,"no vino","no vinieron")) : ""}</div></div>`;
+    <div class="psic">${avisosCorte(k, false)}
+      <div class="resumen-corte">${lineaRes("✅", plural(t.sesiones,"paciente vino","pacientes vinieron"))}${k.noAsistio.length? lineaRes("🚫", plural(k.noAsistio.length,"no vino","no vinieron")) : ""}</div>
+      ${cajaAccion(a)}</div>`;
 }
 // Detalle día por día: quién vino, cómo y cuánto pagó, lo acordado y para quién es cada parte
 const ICONO_METODO={efectivo:"💵", transferencia:"🏦", tarjeta:"💳"};
@@ -2112,7 +2118,7 @@ function diaTitulo(f){ const h=hoyISO(), l=fechaLarga(f).replace(",","");
 function detalleCorte(k, admin){
   if(!k.filas.length) return `<div class="detalle-corte"><div class="vacio"><b>Sin sesiones ni cobros en este periodo</b></div></div>`;
   const n=esc(nombreCorto(k.p));
-  const pago=(g, x)=>{ const verM=admin || g.metodo==="efectivo", metodo=g.metodo.charAt(0).toUpperCase()+g.metodo.slice(1);
+  const pago=(g, x)=>{ const verM=admin, metodo=g.metodo.charAt(0).toUpperCase()+g.metodo.slice(1);
     const otroDia= !(x.c && x.tipo==="sesion" && g.fecha===x.c.fecha);
     const quien= g.metodo==="efectivo"? (g.psic===estado.quien? "lo tienes tú" : `lo tiene ${esc(nombreCorto(psic(g.psic)))}`)
       : admin? "llegó a tu cuenta" : "a la cuenta del consultorio";
@@ -2120,7 +2126,7 @@ function detalleCorte(k, admin){
       + `<span class="fc-cuando">${quien}${otroDia && x.tipo==="sesion"? ` · pagó ${diaPagoTxt(g.fecha)}` : ""}</span>`
       + `<span class="ec-val ${g.validado?"si":""}">${g.validado?"validado":"por validar"}</span>`; };
   const reparto=x=> !admin? `<div class="fc-reparto"><span class="rp psi">💰 Te toca <b class="num">${mxn(x.toca)}</b></span></div>`
-    : x.dir? `<div class="fc-reparto"><span class="rp con">🏠 Todo para Dirección <b class="num">${mxn(x.tarifa)}</b></span></div>`
+    : x.dir? ""
     : `<div class="fc-reparto"><span class="rp psi"><span class="pt" style="background:${k.p.color}"></span>Le toca a ${n} <b class="num">${mxn(x.toca)}</b>${x.mitad?`<small> (mitad)</small>`:""}</span><span class="rp con">🏠 Al consultorio <b class="num">${mxn(x.tarifa-x.toca)}</b></span></div>`;
   const fila=x=>{ const nom=esc((pac((x.c||x.g).pac)||{}).nombre||"—"), g=x.g, gf=x.gFuera;
     if(x.tipo==="noasis") return `<div class="fila-corte noasis"><div class="fc-top"><span class="fc-ico">🚫</span><b>${nom}</b><span class="fc-hora">no vino · ${x.c.hora}</span></div>
