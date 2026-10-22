@@ -67,8 +67,8 @@ chips (`estado.cortePsic`, `verCortePsic`): primero la directora, luego las psic
 consultorio y qué hacer con cada una); sin elegir se ve la primera. Va de lo general a lo particular y pensado para
 leerse fácil (la directora tiene discalculia): arriba, en grande, qué hacer (`accionCorte` / `cajaAccion`: "Le pagas a X
 $…" / "X te entrega $…", y abajo paso a paso con el efectivo: cobró en efectivo → de eso se queda lo que le toca → te
-entrega el resto); luego el resumen en renglones que cuadran entre sí (`lineaRes`: vinieron, se acordó cobrar por esas
-sesiones, de eso ya se cobró, falta cobrar, pagaron menos/más, pagos de otros días, para el consultorio); y abajo
+entrega el resto; en el corte de la directora no va esta caja); luego el resumen en renglones que cuadran entre sí (`lineaRes`: vinieron, se acordó cobrar por esas
+sesiones con su desglose por paciente y total, de eso ya se cobró con su desglose por forma de pago y total, falta cobrar, pagaron menos/más, pagos de otros días, para el consultorio); y abajo
 `detalleCorte` día por día: quién vino y a qué hora, cómo pagó y quién tiene el dinero, lo acordado y cuánto le toca a
 ella y al consultorio. Mantén ese estilo: una cifra por renglón, palabras antes que signos, nada que haya que restar de cabeza. La psicóloga ve qué pacientes tuvo y cuánto le toca,
 sin tarifas, sin la parte del consultorio y sin montos que no sean efectivo (también en `menuCobro`). Periodos: hoy, semana (lunes a domingo), mes y rango. Excel exporta el
