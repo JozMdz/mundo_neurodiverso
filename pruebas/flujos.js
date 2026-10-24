@@ -452,14 +452,14 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   page = await abrir(browser, 'd1');
   await page.tap('nav.tabs button[data-vista=expediente]'); await page.tap('#btnNuevoPx'); await page.waitForTimeout(250);
   await page.selectOption('#paAsignada', 's1');
-  await page.fill('#paNombre', 'PRUEBA Haniel'); await page.fill('#paTarifa', '290'); await page.fill('#paPagoPsic', '150');
+  ok(!(await page.$('#paPagoPsic')) && (await page.textContent('#paPagoHint')).includes('Equipo'), 'en la ficha del paciente ya no se pone cuánto le toca a la psicóloga: va en Equipo');
+  await page.fill('#paNombre', 'PRUEBA Haniel'); await page.fill('#paTarifa', '290');
   await page.tap('#paGuardar'); await page.waitForTimeout(400);
   const nuevoPx = await page.evaluate(() => __DB.pacientes.find(p => p.nombre === 'PRUEBA Haniel'));
-  ok(nuevoPx && nuevoPx.tarifa === 290 && nuevoPx.pago_psicologa === 150, 'al dar de alta se guarda cuánto se cobra y cuánto le toca a la psicóloga');
-  // Semana sola de Fernanda: 2 sesiones de Haniel (le tocan 150 c/u) y 1 de Mateo sin monto capturado (mitad de 600)
+  ok(nuevoPx && nuevoPx.tarifa === 290 && nuevoPx.pago_psicologa === undefined, 'al dar de alta se guarda cuánto se cobra');
+  // Un día solo de Fernanda ($150 por sesión): 2 sesiones de Haniel ($290) y 1 de Mateo ($600)
   const corteDe = await page.evaluate(async id => {
     __DB.citas = __DB.citas.filter(c => c.psicologa_id !== 's1'); __DB.pagos = __DB.pagos.filter(g => g.psicologa_id !== 's1');
-    __DB.pacientes.find(p => p.id === 'p1').pago_psicologa = null;
     const f = addDaysISO(hoyISO(), -1), c = (i, pac, h) => ({ id: i, fecha: f, hora: h, duracion: 30, psicologa_id: 's1', paciente_id: pac, estado: 'programada', confirmada_por: null });
     __DB.citas.push(c('t1', id, '10:00:00'), c('t2', id, '11:00:00'), c('t3', 'p1', '12:00:00'));
     const g = (i, pac, m, met) => ({ id: i, paciente_id: pac, psicologa_id: 's1', monto: m, metodo: met, validado: true, creado_en: new Date(f + 'T13:00:00').toISOString() });
@@ -470,10 +470,10 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   const enOrden = corteDe.toLowerCase();
   ok(!corteDe.includes('para el consultorio') && enOrden.indexOf('resumen del periodo') >= 0 && enOrden.indexOf('resumen del periodo') < enOrden.indexOf('fernanda te entrega'),
     'primero el resumen y luego qué hacer con ella, sin "para el consultorio"');
-  ok(/Te entrega el resto\s*\$290\s*🏦 Ya tienes en tu cuenta \(transferencia\)\s*\$290/.test(corteDe),
+  ok(/Te entrega el resto\s*\$440\s*🏦 Ya tienes en tu cuenta \(transferencia\)\s*\$290/.test(corteDe),
     'en la caja, aparte, lo que ya está en la cuenta de Dirección (transferencia y tarjeta)');
-  ok(/Fernanda te entrega\s*\$290/.test(corteDe) && /Cobró en efectivo\s*\$890/.test(corteDe) && /De eso se queda lo que le toca\s*\$600/.test(corteDe) && /Te entrega el resto\s*\$290/.test(corteDe),
-    'si ella cobró $890 en efectivo y le tocan $600: "Fernanda te entrega $290", paso a paso');
+  ok(/Fernanda te entrega\s*\$440/.test(corteDe) && /Cobró en efectivo\s*\$890/.test(corteDe) && /De eso se queda lo que le toca\s*\$450/.test(corteDe) && /Te entrega el resto\s*\$440/.test(corteDe),
+    'si cobró $890 en efectivo y le tocan $450 (3 sesiones de $150, aunque las tarifas sean distintas): "Fernanda te entrega $440", paso a paso');
   ok(!corteDe.includes('le toca la mitad') && /Se acordó cobrar por esas 3 sesiones\s*PRUEBA · 2 sesiones\s*\$580\s*Mateo\s*\$600\s*Total\s*\$1,180/.test(corteDe),
     'lo acordado se desglosa por paciente (primer nombre) con su total, sin leyendas');
   ok(/De eso ya se cobró\s*💵 Efectivo · lo tiene Fernanda\s*\$890\s*🏦 Transferencia · a tu cuenta\s*\$290\s*Total\s*\$1,180/.test(corteDe),
@@ -487,11 +487,13 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     await refrescar(); verCortePsic('s1');
     return { corte: document.getElementById('corte').innerText, filas: [...document.querySelectorAll('#detalleCorte .fila-corte')].map(x => x.innerText.replace(/\s+/g, ' ')) };
   }, nuevoPx.id);
-  ok(/se queda lo que le toca\s*\$900/.test(extra.corte) && !/20 oct · 20 oct/.test(extra.corte) && /Además llegaron pagos de sesiones de otros días\s*\$290/.test(extra.corte) && extra.filas.some(x => x.includes('Pago de la sesión del') && x.includes('contó en ese periodo')),
-    'un pago atrasado de otra semana no vuelve a contar como sesión; un cobro sin cita sí cuenta (600 + 300)');
+  ok(/se queda lo que le toca\s*\$600/.test(extra.corte) && !/20 oct · 20 oct/.test(extra.corte) && /Además llegaron pagos de sesiones de otros días\s*\$290/.test(extra.corte) && extra.filas.some(x => x.includes('Pago de la sesión del') && x.includes('contó en ese periodo')),
+    'un pago atrasado de otra semana no vuelve a contar como sesión; un cobro sin cita sí cuenta (450 + 150)');
   ok(extra.filas.some(x => x.includes('pagó sin cita en la agenda') && x.includes('Cuenta como sesión')), 'el cobro sin cita se marca así en el detalle');
   ok(extra.filas.some(x => /vino a las 10:00 💵 Efectivo \$290 lo tiene Fernanda/.test(x) && /Le toca a Fernanda \$150/.test(x) && /Al consultorio \$140/.test(x)),
     'cada sesión dice que vino, cómo y cuánto pagó, y cuánto es para ella y para el consultorio');
+  ok(extra.filas.some(x => /Mateo/.test(x) && /vino a las 12:00/.test(x) && /Le toca a Fernanda \$150/.test(x) && /Al consultorio \$450/.test(x)),
+    'con un paciente de $600 también le tocan sus $150');
   // Exportar el corte de la psicóloga, sesión por sesión
   const csv = await page.evaluate(async () => { let txt = null; const B = window.Blob;
     window.Blob = class extends B { constructor(p, o) { super(p, o); txt = p.join(''); } };
@@ -666,14 +668,23 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   console.log('Paciente de la directora');
   page = await abrir(browser, 'd1');
   await page.evaluate(() => { irA('expediente'); abrirPaciente(); });
-  ok(await page.inputValue('#paAsignada') === 'd1' && !(await visible(page, '#paPagoCampo')) && (await page.textContent('#paPagoHint')).includes('no hay reparto'),
-    'al dar de alta un paciente suyo, la directora no captura "le toca a la psicóloga"');
-  await page.selectOption('#paAsignada', 's1');
-  ok(await visible(page, '#paPagoCampo'), 'si lo asigna a otra psicóloga, aparece el campo');
-  await page.fill('#paPagoPsic', '300');   // lo escribe y luego se lo asigna a ella: no debe guardarse
-  await page.selectOption('#paAsignada', 'd1'); await page.fill('#paNombre', 'PRUEBA Directora');
+  ok(await page.inputValue('#paAsignada') === 'd1' && !(await page.$('#paPagoPsic')), 'al dar de alta un paciente suyo, la directora solo pone lo que se cobra');
+  await page.fill('#paNombre', 'PRUEBA Directora'); await page.fill('#paTarifa', '700');
   await page.tap('#paGuardar'); await page.waitForTimeout(400);
-  ok(await page.evaluate(() => { const p = __DB.pacientes.find(x => x.nombre === 'PRUEBA Directora'); return p && p.asignada_a === 'd1' && p.pago_psicologa === null; }), 'se guarda sin monto para la psicóloga');
+  ok(await page.evaluate(() => { const p = __DB.pacientes.find(x => x.nombre === 'PRUEBA Directora'); return p && p.asignada_a === 'd1' && p.tarifa === 700; }), 'se guarda como paciente suyo');
+  // Si otra psicóloga cubre una sesión de un paciente de la directora, le toca lo suyo (Equipo), no la mitad
+  const cubierta = await page.evaluate(async () => {
+    const px = __DB.pacientes.find(x => x.nombre === 'PRUEBA Directora'), f = addDaysISO(hoyISO(), -1);
+    const c = (id, ps, h) => ({ id, fecha: f, hora: h, duracion: 60, psicologa_id: ps, paciente_id: px.id, estado: 'programada', confirmada_por: null });
+    __DB.citas.push(c('cu1', 's1', '15:00:00'), c('cu2', 's2', '16:00:00'), c('cu3', 's3', '17:00:00'), c('cu4', 'd1', '18:00:00'));
+    estado.cobrosPeriodo = { tipo: 'rango', desde: f, hasta: f }; await refrescar(); irA('cobros');
+    const fila = ps => { verCortePsic(ps); const e = [...document.querySelectorAll('#detalleCorte .fila-corte')].find(x => x.innerText.includes('PRUEBA Directora')); return e ? e.innerText.replace(/\s+/g, ' ') : ''; };
+    return { s1: fila('s1'), s2: fila('s2'), s3: fila('s3'), d1: fila('d1') };
+  });
+  ok(/Le toca a Fernanda \$150/.test(cubierta.s1) && /Al consultorio \$550/.test(cubierta.s1), 'si Fernanda ($150 por sesión) cubre a un paciente de la directora, le tocan sus $150');
+  ok(/Le toca a Andrea \$350/.test(cubierta.s2) && /Al consultorio \$350/.test(cubierta.s2), 'si lo cubre Andrea (50 %), le toca la mitad de los $700');
+  ok(/Le toca a Sofía \$350 \(mitad\)/.test(cubierta.s3), 'si a Sofía no se le ha puesto cuánto le toca, se toma la mitad y se marca');
+  ok(cubierta.d1.includes('PRUEBA Directora') && !/Le toca/.test(cubierta.d1), 'si la sesión la da la directora, todo es para Dirección');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
 
   console.log('Nota dictada, WhatsApp, historial y horarios libres');
@@ -797,7 +808,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(hist.some(x => /asistencia/i.test(x) && x.includes('2 sesiones · 2 faltas · falta seguido')) && !!(await page.$('.px-dato dd.falta-seguido')), 'y cuántas sesiones y faltas lleva, marcando si falta seguido');
   ok(await page.$eval('.px-dato a.wa', a => a.href) === 'https://wa.me/528331234567', 'junto al teléfono hay un enlace a su WhatsApp');
   const tels = await page.$$eval('.px-dato dd.tels a', l => l.map(a => a.getBoundingClientRect().height));
-  ok(tels.length === 2 && tels.every(h => h >= 44), 'llamar y WhatsApp son botones de 44 px');
+  ok(tels.length === 2 && tels.every(h => Math.round(h) >= 44), 'llamar y WhatsApp son botones de 44 px');
   const telLargo = await page.evaluate(async () => { __DB.pacientes.find(p => p.id === 'p1').telefono = '833 123 4567 (mamá) / 833 765 4321 (papá)'; await refrescar(); seleccionarPx('p1');
     const a = document.querySelector('.px-dato dd.tels a'); return { ancho: a.closest('.px-dato').classList.contains('ancho'), wa: !!document.querySelector('.px-dato a.wa'), alto: a.getBoundingClientRect().height }; });
   ok(telLargo.ancho && !telLargo.wa && telLargo.alto <= 70, `un teléfono largo sin WhatsApp usa todo el ancho (${telLargo.alto} px de alto)`);
@@ -934,17 +945,35 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   page = await abrir(browser, 'd1');
   await page.evaluate(() => irA('equipo')); await page.waitForTimeout(300);
   ok((await page.textContent('#equipoCard')).includes('@prueba.mx'), 'Dirección ve el correo de cada quien en Equipo');
+  const eqTxt = (await page.textContent('#equipoCard')).replace(/\s+/g, ' ');
+  ok(/Le toca \$150 por sesión/.test(eqTxt) && /Le toca 50 % de lo que se cobra/.test(eqTxt) && /Falta poner cuánto le toca/.test(eqTxt),
+    'en Equipo se ve cuánto le toca a cada una por sesión, y a quién le falta');
+  await page.evaluate(() => abrirPsic('s3'));
+  ok(await visible(page, '#psPagoCampo') && await page.inputValue('#psPagoValor') === '', 'la hoja de la psicóloga trae lo que le toca');
+  await page.tap('#psPagoTipo button[data-t=porcentaje]'); await page.fill('#psPagoValor', '120'); await page.tap('#psGuardar'); await page.waitForTimeout(200);
+  ok((await page.textContent('#toast')).includes('0 a 100') && !(await page.evaluate(() => __DB.reparto_psicologas.some(r => r.psicologa_id === 's3'))), 'no acepta un porcentaje mayor a 100');
+  await page.tap('#psPagoTipo button[data-t=fijo]'); await page.fill('#psPagoValor', '150'); await page.tap('#psGuardar'); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => { const r = __DB.reparto_psicologas.find(x => x.psicologa_id === 's3'); return !!r && r.tipo === 'fijo' && r.valor === 150 && repartoPac('p1', 's3').toca === 150; })
+    && (await page.textContent('#equipoCard')).includes('Le toca $150 por sesión'), 'Dirección le pone $150 por sesión desde Equipo y el corte lo usa');
+  await page.evaluate(() => abrirPsic('s2')); await page.fill('#psPagoValor', ''); await page.tap('#psGuardar'); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => !__DB.reparto_psicologas.some(r => r.psicologa_id === 's2') && repartoPac('p1', 's2').mitad), 'si lo deja vacío, se quita y se toma la mitad');
+  await page.evaluate(() => abrirPsic('d1'));
+  ok(!(await visible(page, '#psPagoCampo')), 'a la directora no se le pone cuánto le toca: lo suyo es de Dirección');
+  await page.evaluate(() => cerrar('modalPsic'));
   await page.tap('#equipoCard button.add'); await page.waitForTimeout(200);
   await page.fill('#psNombre', 'Psic. Diana López'); await page.fill('#psCorreo', 'diana@prueba.mx'); await page.fill('#psClave', 'corta');
   await page.tap('#psGuardar'); await page.waitForTimeout(200);
   ok((await page.textContent('#toast')).includes('8 caracteres') && await visible(page, '#modalPsic.abierto'), 'la contraseña temporal pide 8 caracteres');
-  await page.fill('#psClave', 'Temporal2026'); await page.tap('#psGuardar'); await page.waitForTimeout(400);
+  await page.fill('#psClave', 'Temporal2026'); await page.tap('#psPagoTipo button[data-t=porcentaje]'); await page.fill('#psPagoValor', '50');
+  await page.tap('#psGuardar'); await page.waitForTimeout(400);
   const nueva = await page.evaluate(() => { const f = window.__FN.find(x => x[1].accion === 'crear'); return f && f[1]; });
   ok(nueva && nueva.correo === 'diana@prueba.mx' && nueva.clave === 'Temporal2026' && (await page.textContent('#equipoCard')).includes('Diana López')
     && await page.evaluate(() => atienden().some(p => p.nombre.includes('Diana'))), 'agrega una psicóloga con su cuenta y ya se le puede agendar');
+  ok(await page.evaluate(() => { const id = estado.psicologas.find(p => p.nombre.includes('Diana')).id, r = estado.reparto[id]; return !!r && r.tipo === 'porcentaje' && r.valor === 50; }),
+    'al agregarla se guarda cuánto le toca');
   const idDiana = await page.evaluate(() => estado.psicologas.find(p => p.nombre.includes('Diana')).id);
   await page.evaluate(id => menuPsic(id), idDiana); await page.waitForTimeout(150);
-  await page.tap('#accBotones .acc-btn >> text="✎ Nombre, teléfono, cédula y color"'); await page.waitForTimeout(150);
+  await page.tap('#accBotones .acc-btn >> text="✎ Datos y lo que le toca por sesión"'); await page.waitForTimeout(150);
   ok(!(await visible(page, '#psCuenta')) && await page.inputValue('#psNombre') === 'Psic. Diana López', 'editar trae sus datos (sin correo ni contraseña)');
   await page.fill('#psTel', '833 111 2222'); await page.tap('#psGuardar'); await page.waitForTimeout(300);
   ok(await page.evaluate(id => __DB.psicologas.find(p => p.id === id).telefono, idDiana) === '833 111 2222', 'guarda su teléfono');
@@ -1024,6 +1053,39 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.evaluate(() => { cerrar('modalAcciones'); __DB.cierres[0].revisado_por = 'd1'; __DB.facturas.forEach(f => { f.estado = 'entregada'; }); return refrescar(); });
   m = await marcas(page);
   ok(m.fac === '' && m.eq === '', 'los números se quitan cuando se entregan las facturas y se revisa el cierre');
+  ok(await ancho(page) <= 414 && page.errores.length === 0, 'sin scroll horizontal ni errores ' + (page.errores.join(' | ') || ''));
+
+  console.log('Expediente de un paciente que se cubre');
+  page = await abrir(browser, 's1');
+  const cub = await page.evaluate(async () => {
+    const px = __DB.pacientes.find(p => p.asignada_a === 's2' && p.activo !== false && __DB.notas.some(n => n.paciente_id === p.id));
+    __DB.citas.push({ id: 'cb1', fecha: addDaysISO(hoyISO(), -1), hora: '16:00:00', duracion: 60, psicologa_id: 's1', paciente_id: px.id, estado: 'programada', confirmada_por: null });
+    __DB.notas.push({ id: 'ncb1', paciente_id: px.id, psicologa_id: 's1', texto: 'Lo cubrí: trabajamos rutinas.', revisada: false, vista_psic: true, creado_en: new Date().toISOString() });
+    await refrescar(); irA('expediente'); seleccionarPx(px.id);
+    return { id: px.id, ajenas: __DB.notas.filter(n => n.paciente_id === px.id && n.psicologa_id !== 's1').length,
+      notas: [...document.querySelectorAll('#expedienteDetalle article.nota')].map(n => n.innerText), aviso: (document.querySelector('#expedienteDetalle .px-cubre') || {}).innerText || '' };
+  });
+  ok(cub.ajenas > 0 && cub.notas.length === 1 && cub.notas[0].includes('Lo cubrí') && /Cubres a este paciente/.test(cub.aviso) && await visible(page, '#expedienteDetalle .px-notas-cab .btn'),
+    'quien cubre a un paciente ve sus datos y escribe y ve solo sus notas, no el historial');
+  const conAcceso = await page.evaluate(async id => { __DB.accesos_expediente = [{ paciente_id: id, psicologa_id: 's1' }]; await refrescar();
+    return { notas: document.querySelectorAll('#expedienteDetalle article.nota').length, aviso: !!document.querySelector('#expedienteDetalle .px-cubre') }; }, cub.id);
+  ok(conAcceso.notas === cub.ajenas + 1 && !conAcceso.aviso, 'con acceso de Dirección ve todo el historial');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+  page = await abrir(browser, 'd1');
+  await page.evaluate(async () => { __DB.citas.push({ id: 'cb2', fecha: addDaysISO(hoyISO(), -1), hora: '16:00:00', duracion: 60, psicologa_id: 's2', paciente_id: 'p1', estado: 'programada', confirmada_por: null });
+    await refrescar(); irA('expediente'); seleccionarPx('p1'); });
+  const verHist = () => page.evaluate(() => [...document.querySelectorAll('#expedienteDetalle .px-dato')].map(d => d.textContent.replace(/\s+/g, ' ')).find(t => t.includes('Ven todo su historial')) || '');
+  ok(/Ven todo su historial ?Fernanda Ruiz$/.test(await verHist()), 'Dirección ve en la ficha quién ve todo el historial (su psicóloga)');
+  await page.tap('#expedienteDetalle .px-acciones button:has-text("Historial")'); await page.waitForTimeout(200);
+  let filaAndrea = (await page.textContent('#accBotones .conf-fila:has-text("Andrea")')).replace(/\s+/g, ' ');
+  ok(/Es su psicóloga/.test(await page.textContent('#accBotones')) && /Lo ha cubierto \(1 cita\) · solo ve sus notas/.test(filaAndrea) && filaAndrea.includes('Dar acceso'),
+    'la hoja muestra que Andrea lo cubrió y solo ve sus notas');
+  await page.tap('#accBotones .conf-fila:has-text("Andrea") button'); await page.waitForTimeout(300);
+  filaAndrea = (await page.textContent('#accBotones .conf-fila:has-text("Andrea")')).replace(/\s+/g, ' ');
+  ok(await page.evaluate(() => __DB.accesos_expediente.some(a => a.paciente_id === 'p1' && a.psicologa_id === 's2')) && filaAndrea.includes('Ve todo su historial') && filaAndrea.includes('Quitar acceso')
+    && /Fernanda Ruiz · Andrea Torres/.test(await verHist()), 'Dirección le da acceso al historial y se ve en la ficha');
+  await page.tap('#accBotones .conf-fila:has-text("Andrea") button'); await page.waitForTimeout(300);
+  ok(!(await page.evaluate(() => __DB.accesos_expediente.some(a => a.paciente_id === 'p1' && a.psicologa_id === 's2'))), 'y se lo puede quitar');
   ok(await ancho(page) <= 414 && page.errores.length === 0, 'sin scroll horizontal ni errores ' + (page.errores.join(' | ') || ''));
 
   console.log('Dirección en computadora');

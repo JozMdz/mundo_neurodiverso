@@ -18,6 +18,7 @@ H, P, BD = os.environ.get("PGHOST", "/tmp/pg-consultorio"), os.environ.get("PGPO
 ID = lambda x: "00000000-0000-0000-0000-0000000000" + x
 D, J, F, A = ID("d1"), ID("d2"), ID("a1"), ID("a2")              # Dirección, soporte, Fernanda, Andrea
 P1, N1, N2, N3, N4 = ID("b1"), ID("e1"), ID("e2"), ID("e3"), ID("e4")
+P3 = ID("b3")                                                     # paciente de la directora; Andrea lo cubre con acceso
 G1, G2, F1, F2 = ID("f1"), ID("f2"), ID("c1"), ID("c2")
 # Citas: 71 programada, 72 no asistió por confirmar, 73 confirmada, 74 de Andrea, 75 de Fernanda en dos días
 C71, C72, C73, C74, C75 = (ID(x) for x in ("71", "72", "73", "74", "75"))
@@ -37,6 +38,14 @@ def como(uid, sql):
 # (qué, quién, sql, resultado esperado); "rechazado" = error o sin filas
 ATAQUES = [
     ("Psicóloga se vuelve Dirección", F, f"update psicologas set es_direccion=true where id='{F}' returning es_direccion", "rechazado"),
+    ("Psicóloga que cubre ve el historial de otra", A, f"select texto from notas where paciente_id='{P1}'", "rechazado"),
+    ("Psicóloga que cubre ve los comentarios del historial", A, f"select c.texto from comentarios c join notas n on n.id=c.nota_id where n.paciente_id='{P1}'", "rechazado"),
+    ("Psicóloga se da acceso al historial", A, f"insert into accesos_expediente(paciente_id,psicologa_id) values('{P1}','{A}') returning 'dado'", "rechazado"),
+    ("Psicóloga ve a quién más le dieron acceso", F, "select psicologa_id from accesos_expediente", "rechazado"),
+    ("Psicóloga ve cuánto le toca a otra", F, f"select tipo || ' ' || valor from reparto_psicologas where psicologa_id='{A}'", "rechazado"),
+    ("Psicóloga se sube lo que le toca", F, f"update reparto_psicologas set valor=500 where psicologa_id='{F}' returning valor", "rechazado"),
+    ("Psicóloga se pone otro reparto", A, f"insert into reparto_psicologas(psicologa_id,tipo,valor) values('{A}','fijo',999) on conflict (psicologa_id) do update set valor=999 returning valor", "rechazado"),
+    ("Psicóloga borra lo que le toca", F, f"delete from reparto_psicologas where psicologa_id='{F}' returning 'borrado'", "rechazado"),
     ("Psicóloga se reactiva o cambia su nombre", F, f"update psicologas set activa=true, nombre='Otra' where id='{F}' returning nombre", "rechazado"),
     ("Psicóloga da de baja a otra", F, f"update psicologas set activa=false where id='{A}' returning activa", "rechazado"),
     ("Psicóloga marca su nota como revisada", F, f"update notas set revisada=true where id='{N1}' returning revisada", "rechazado"),
@@ -106,6 +115,16 @@ NORMAL = [
     ("Dirección cambia si alguien atiende", D, f"update psicologas set atiende=false where id='{A}' returning atiende", "f"),
     ("Dirección cambia el teléfono y color de una psicóloga", D, f"update psicologas set telefono='833 000 1111', color='#1BADE0' where id='{A}' returning telefono", "833 000 1111"),
     ("Dirección pone la fecha de nacimiento de un paciente", D, f"update pacientes set fecha_nacimiento='2018-01-15' where id='{P1}' returning fecha_nacimiento", "2018-01-15"),
+    ("Psicóloga que cubre ve los datos del paciente", A, f"select nombre from pacientes where id='{P1}'", "Paciente de Fernanda"),
+    ("Psicóloga que cubre escribe su nota y la ve (solo la suya)", A, f"insert into notas(paciente_id,psicologa_id,texto) values('{P1}','{A}','cubrí'); select count(*) || ' ' || min(texto) from notas where paciente_id='{P1}'", "1 cubrí"),
+    ("Con acceso de Dirección ve el historial", A, f"select texto from notas where paciente_id='{P3}'", "Nota de la directora"),
+    ("La asignada sigue viendo todo su historial", F, f"select count(*) from notas where paciente_id='{P1}'", "3"),
+    ("Dirección da acceso al historial", D, f"insert into accesos_expediente(paciente_id,psicologa_id) values('{P1}','{A}') returning (otorgado_por='{D}')::text", "true"),
+    ("Dirección quita el acceso", D, f"delete from accesos_expediente where paciente_id='{P3}' and psicologa_id='{A}' returning 'quitado'", "quitado"),
+    ("Psicóloga ve cuánto le toca a ella", F, f"select tipo || ' ' || valor from reparto_psicologas", "fijo 150"),
+    ("Dirección ve lo de todas", D, f"select count(*) from reparto_psicologas", "2"),
+    ("Dirección cambia lo que le toca a una psicóloga", D, f"insert into reparto_psicologas(psicologa_id,tipo,valor) values('{A}','fijo',160) on conflict (psicologa_id) do update set tipo=excluded.tipo, valor=excluded.valor returning tipo || ' ' || valor", "fijo 160"),
+    ("La base no acepta un porcentaje mayor a 100", D, f"update reparto_psicologas set tipo='porcentaje', valor=120 where psicologa_id='{F}' returning valor", "rechazado"),
     ("SQL Editor de Supabase corrige un cobro validado", "", f"update pagos set monto=1 where id='{G2}' returning monto", "1"),
     ("Psicóloga marca 'no asistió' (queda por confirmar)", F, f"update citas set estado='no_asistio' where id='{C71}' returning coalesce(confirmada_por::text,'por confirmar') || ' ' || (marcada_por='{F}')::text", "por confirmar true"),
     ("Psicóloga corrige: sí asistió", F, f"update citas set estado='programada' where id='{C72}' returning estado", "programada"),
@@ -139,7 +158,7 @@ for archivo in ("pruebas/base/supabase-minimo.sql", "sql/esquema.sql", "pruebas/
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): sys.exit(f"{archivo} no cargó:\n{r}")
 fallas = correr("Con sql/esquema.sql")
-for archivo in ("sql/seguridad.sql", "sql/ajustes.sql", "sql/citas-estado.sql", "sql/pago-psicologa.sql", "sql/cierres-detalle.sql", "sql/avisos.sql", "sql/cobro-cita.sql"):
+for archivo in ("sql/seguridad.sql", "sql/ajustes.sql", "sql/citas-estado.sql", "sql/pago-psicologa.sql", "sql/cierres-detalle.sql", "sql/avisos.sql", "sql/cobro-cita.sql", "sql/equipo.sql", "sql/reparto.sql", "sql/acceso-expediente.sql"):
     r = psql(archivo=os.path.join(RAIZ, archivo))
     if r.startswith("ERROR"): print(f"\n✗ {archivo} no se puede volver a correr:\n{r}"); fallas += 1
 fallas += correr("Después de volver a correr los archivos de sql/")
