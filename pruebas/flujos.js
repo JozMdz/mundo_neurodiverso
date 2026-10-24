@@ -363,8 +363,8 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     'su corte avisa la sesión sin cobro (Diego), le dice cuánto le toca y la marca en el detalle');
   ok(corte.includes('falta que Dirección lo confirme'), 'su corte avisa la inasistencia que falta confirmar');
   const detPsic = await page.textContent('#detalleCorte');
-  ok(!detPsic.includes('Se acordó cobrar') && !detPsic.includes('Consultorio') && detPsic.includes('Te toca') && /vino a las/.test(detPsic),
-    'la psicóloga ve qué pacientes vinieron y cuánto le toca, pero no lo acordado ni la parte del consultorio');
+  ok(!detPsic.includes('Se acordó cobrar') && !detPsic.includes('Consultorio') && !detPsic.includes('Te toca') && /vino a las/.test(detPsic),
+    'en el detalle la psicóloga ve qué pacientes vinieron, sin lo acordado, la parte del consultorio ni "Te toca" (lo suyo va en la caja)');
   ok(detPsic.includes('Efectivo') && !/(Efectivo|Transferencia|Tarjeta)\s*\$/.test(detPsic) && !/Cobraste|quedaste del efectivo/.test(corte)
     && await page.$$eval('#corte .paso b', b => b.length <= 2 && b.every(x => x.closest('.paso.fin') || /^Te tocan/.test(x.parentElement.textContent))),
     'tampoco ve lo que se cobró (ni en efectivo) junto a lo que le toca: solo lo suyo y lo que entrega o recibe');
@@ -979,6 +979,52 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.evaluate(() => irA('equipo'));
   await page.tap('#identidad'); await page.waitForTimeout(150);
   ok(!(await page.textContent('#cuentaCuerpo')).includes('Respaldo') && !(await page.$('#equipoCard button.add')), 'una psicóloga no ve el respaldo ni puede agregar');
+
+  console.log('Pendientes en las pestañas');
+  // Una sesión de ayer sin cobro ni nota, otra con cobro y con nota escrita hoy, una de antes de PENDIENTES_DESDE y una futura
+  const escenario = async (pg) => pg.evaluate(async () => {
+    const ayer = addDaysISO(hoyISO(), -1), c = (id, f, pac) => ({ id, fecha: f, hora: '15:00:00', duracion: 60, psicologa_id: 's1', paciente_id: pac, estado: 'programada', confirmada_por: null });
+    __DB.citas = __DB.citas.filter(x => x.psicologa_id !== 's1'); __DB.pagos = __DB.pagos.filter(g => g.psicologa_id !== 's1'); __DB.notas = __DB.notas.filter(n => n.psicologa_id !== 's1');
+    __DB.citas.push(c('pe1', ayer, 'p1'), { ...c('pe2', ayer, 'p9'), hora: '17:00:00' }, c('pe3', addDaysISO(PENDIENTES_DESDE, -1), 'p1'), c('pe4', addDaysISO(hoyISO(), 2), 'p1'));
+    __DB.pagos.push({ id: 'pgpe2', paciente_id: 'p9', psicologa_id: 's1', monto: 600, metodo: 'efectivo', validado: false, cita_id: 'pe2', creado_en: new Date(ayer + 'T18:00:00').toISOString() });
+    __DB.notas.push({ id: 'ntpe2', paciente_id: 'p9', psicologa_id: 's1', texto: 'Se escribió al otro día', revisada: false, vista_psic: true, creado_en: new Date().toISOString() });
+    await refrescar(); irA('cobros'); });
+  const marcas = pg => pg.evaluate(() => ({ cob: badgeCob.textContent, exp: badgeExp.textContent, fac: badgeFac.textContent, eq: badgeEq.textContent,
+    avisos: notasConAviso().length, ac: avisoCobros.innerText.replace(/\s+/g, ' '), ae: avisoExp.innerText.replace(/\s+/g, ' ') }));
+  page = await abrir(browser, 's1');
+  await escenario(page);
+  let m = await marcas(page);
+  ok(m.cob === '1' && m.exp === String(m.avisos + 1) && /Falta el cobro de 1 sesión/.test(m.ac) && /Falta la nota de 1 sesión/.test(m.ae),
+    `la psicóloga ve en Cobros y Expediente lo que falta (la nota escrita al otro día cuenta; lo de antes de ${await page.evaluate(() => PENDIENTES_DESDE)} no) (${m.cob} · ${m.exp})`);
+  ok(m.fac === '' && m.eq === '', 'la psicóloga no tiene números en Facturas ni Equipo');
+  await page.tap('#avisoCobros .aviso-pendiente'); await page.waitForTimeout(250);
+  let lista = await page.$$eval('#accBotones .conf-fila', f => f.map(x => x.innerText.replace(/\s+/g, ' ')));
+  ok(await visible(page, '#modalAcciones.abierto') && lista.length === 1 && lista[0].includes('Mateo') && lista[0].includes('falta asistencia, cobro y nota')
+    && lista[0].includes('Nota') && lista[0].includes('Asistió') && lista[0].includes('No vino'), 'el aviso abre la lista de lo que falta, con Nota, Asistió y No vino');
+  await page.tap('#accBotones .conf-fila button:has-text("Asistió")'); await page.waitForTimeout(250);
+  await page.tap('#pGuardar'); await page.waitForTimeout(400);
+  m = await marcas(page); lista = await page.$$eval('#accBotones .conf-fila', f => f.map(x => x.innerText.replace(/\s+/g, ' ')));
+  ok(m.cob === '' && m.ac === '' && await visible(page, '#modalAcciones.abierto') && lista.length === 1 && lista[0].includes('falta nota') && !lista[0].includes('Asistió'),
+    'al registrar el cobro se quita de Cobros y regresa a la lista, donde solo falta la nota');
+  await page.tap('#accBotones .conf-fila button:has-text("Nota")'); await page.waitForTimeout(300);
+  await page.fill('#nTexto', 'Trabajamos rutinas.'); await page.tap('#nGuardar'); await page.waitForTimeout(400);
+  m = await marcas(page);
+  ok(m.exp === (m.avisos ? String(m.avisos) : '') && m.ae === '' && (await page.textContent('#toast')).includes('Todo registrado'), 'con la nota ya no falta nada y se avisa');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+  page = await abrir(browser, 'd1');
+  await escenario(page);
+  await page.evaluate(async () => { __DB.cierres.push({ id: 'ci1', psicologa_id: 's1', notas_pendientes: 1, cobros_pendientes: 1, detalle: [], revisado_por: null, creado_en: new Date().toISOString() }); await refrescar(); });
+  m = await marcas(page);
+  const nFac = await page.evaluate(() => estado.facturas.filter(f => f.estado !== 'entregada').length);
+  ok(Number(m.cob) >= 1 && m.fac === String(nFac) && m.eq === '1', `Dirección ve números en Cobros (de todas), Facturas por emitir o entregar y Equipo (cierres por revisar) (${m.cob} · ${m.fac} · ${m.eq})`);
+  await page.tap('#avisoCobros .aviso-pendiente'); await page.waitForTimeout(250);
+  lista = await page.$$eval('#accBotones .conf-fila', f => f.map(x => x.innerText.replace(/\s+/g, ' ')));
+  const deMateo = lista.find(x => x.includes('Mateo') && x.includes('Fernanda')) || '';
+  ok(deMateo.includes('Asistió') && deMateo.includes('No vino') && !deMateo.includes('Nota'), 'en la lista de Dirección sale de quién es cada sesión y la nota se la deja a la psicóloga');
+  await page.evaluate(() => { cerrar('modalAcciones'); __DB.cierres[0].revisado_por = 'd1'; __DB.facturas.forEach(f => { f.estado = 'entregada'; }); return refrescar(); });
+  m = await marcas(page);
+  ok(m.fac === '' && m.eq === '', 'los números se quitan cuando se entregan las facturas y se revisa el cierre');
+  ok(await ancho(page) <= 414 && page.errores.length === 0, 'sin scroll horizontal ni errores ' + (page.errores.join(' | ') || ''));
 
   console.log('Dirección en computadora');
   page = await abrir(browser, 'd1', { viewport: { width: 1280, height: 800 } });

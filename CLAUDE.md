@@ -83,6 +83,14 @@ Se documenta al final de la jornada: al salir, si una psicóloga (o la directora
 lista después de cada una (`seguirCierre`). Si sale así, el cierre guarda el detalle (`sql/cierres-detalle.sql`);
 en Equipo, Dirección ve qué faltó, si ya se registró después, y lo marca "✓ Revisado" para quitarlo de la lista.
 
+Números en las pestañas (`updateBadges`): lo que hay que revisar o registrar; se quitan solo cuando se hace, no al
+verlos. Agenda: por validar (Dirección). Expediente: notas por revisar o mensajes nuevos, más las notas que faltan.
+Cobros: sesiones sin cobro (Dirección, las de todas). Facturas: sin entregar (Dirección). Equipo: cierres por revisar.
+Lo que falta registrar sale de `pendientesSesiones`: sesiones ya dadas desde `PENDIENTES_DESDE` sin cobro (reglas del
+corte) o sin nota de quien la dio (una del mismo día o, si no, una posterior). Arriba de Cobros y del Expediente un aviso
+abre la hoja "Falta registrar" (`verPendientes`) con Nota, Asistió y No vino, y se regresa a ella después de cada una;
+Dirección no escribe la nota de otra psicóloga.
+
 Avisos al teléfono (push): la función `supabase/functions/avisar/index.ts` corre cada 5 min (`sql/avisos-programar.sql`)
 y manda, cifrados y con iniciales del paciente, el aviso de cada cita 30 min antes (a quien atiende y a Dirección, con
 el nombre de quien atiende), "Documenta tu día" después de la última cita de cada quien, y a Dirección inasistencias,
