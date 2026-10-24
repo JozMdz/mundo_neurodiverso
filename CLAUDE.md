@@ -117,6 +117,17 @@ tiene. Dirección ve el teléfono con enlace a WhatsApp y, en una cita que no ha
 "¿Dónde cabe?" (hoja de cita, solo Dirección): `huecosLibres` lista los horarios libres de la psicóloga elegida en los
 próximos días, dentro del `HORARIO` y con la duración de la cita; al tocar uno se llenan día y hora.
 
+Informes (solo Dirección, "📄 Hacer informe" en la ficha del paciente, `abrirInforme`): Informe psicológico, Reporte de
+avances o Constancia (`TIPOS_INFORME`, apartados en `AP_INFORME`, cada uno con 🎤). Trae los datos del paciente que ya
+tiene la app (solo se leen). **Nunca se manda a Supabase**: el borrador vive solo en ese aparato (`localStorage`
+"informe:<paciente>", se guarda al escribir, cada 3 s y al dejar la app) y se borra al terminar, al descartarlo o al salir
+(`borrarBorradoresInforme` en `cerrarSesion`). "Producir Word" arma el .docx ahí mismo (`armarDocx`, XML de Office en un zip
+sin comprimir, `zipSinComprimir`) y lo entrega con `entregarArchivo` (Compartir en celular y tablet; si no, descarga). El
+membrete (quien firma, cédulas, contacto, ciudad) también vive solo en el aparato (`membrete`, `abrirMembrete`; la primera
+vez toma lo de Equipo): sus datos no van en el código porque el repositorio es público. El Word lleva el logo de la entrada
+(`loginLogo`), la franja con los colores del árbol, el árbol tenue de fondo, tabla de datos, apartados (los vacíos no
+salen; un renglón con guion es viñeta), firma y pie con contacto y "Página X de Y".
+
 Cobro de la sesión (`sql/cobro-cita.sql`): al tocar una cita ya empezada, "✅ Asistió · registrar cobro" abre el cobro con la
 tarifa del paciente y lo liga a la cita (`pagos.cita_id`, uno por cita). Nada queda validado solo, ni lo de la directora:
 cobros (`validado`) y "no asistió" (`confirmada_por`) los valida Dirección al final del día en "Por validar"

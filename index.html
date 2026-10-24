@@ -288,6 +288,16 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   .px-dato dd{font-size:14.5px; font-weight:700; margin-top:1px; overflow-wrap:anywhere;}
   .px-dato a{font-weight:800; text-decoration:none;}
   .px-acciones{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px;}
+  .px-acciones .btn.ancho{flex-basis:100%;}
+  .modal.modal-ancho{max-width:760px; max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px); display:flex; flex-direction:column;}
+  .modal.modal-ancho .cuerpo{flex:1 1 auto; min-height:0; overflow-y:auto;}
+  .if-estado{font-size:12px; font-weight:700; color:var(--gris); margin-top:2px;}
+  .if-datos{border:1px solid var(--linea); border-radius:12px; padding:0 14px;}
+  .if-datos summary{min-height:44px; display:flex; align-items:center; font-weight:800; color:var(--texto2); cursor:pointer;}
+  .if-datos-campos{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:10px 12px; padding-bottom:14px;}
+  .if-texto{min-height:120px;}
+  .if-extra{display:flex; flex-wrap:wrap; gap:8px;} .if-extra .btn{flex:1 1 auto; min-height:44px;}
+  .btn.peligro{color:var(--alerta);}
   .px-cubre{margin-top:14px; padding:10px 12px; border-radius:var(--r-sm); background:var(--suave); color:var(--texto2); font-size:13.5px; font-weight:700;}
   .px-notas-cab{display:flex; align-items:center; gap:8px; margin:20px 0 10px 4px;}
   .px-notas-cab .btn{margin-left:auto;}
@@ -921,10 +931,31 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   <button class="btn fantasma" id="vozX" style="min-width:160px">Cancelar</button>
 </div>
 
+<div class="fondo-modal" id="modalInforme"><div class="modal modal-ancho">
+  <div class="cab"><h3>Informe</h3><div class="cab-sub" id="ifPara"></div><div class="if-estado" id="ifEstado"></div></div>
+  <div class="cuerpo" id="ifCuerpo"></div>
+  <div class="pie"><button class="btn fantasma" onclick="cerrar('modalInforme')">Cerrar</button>
+    <button class="btn" id="ifProducir" onclick="producirInforme()">Producir Word</button></div>
+</div></div>
+
 <div class="fondo-modal" id="modalAcciones"><div class="modal">
   <div class="cab"><h3 id="accTitulo">Opciones</h3><div class="cab-sub" id="accSub"></div></div>
   <div class="cuerpo"><div class="acc-lista" id="accBotones"></div></div>
   <div class="pie"><button class="btn fantasma" id="accCerrar" onclick="cerrar('modalAcciones')">Cancelar</button></div>
+</div></div>
+
+<div class="fondo-modal" id="modalMembrete"><div class="modal">
+  <div class="cab"><h3>Membrete del informe</h3><div class="cab-sub">Se guarda solo en este aparato</div></div>
+  <div class="cuerpo">
+    <div class="campo"><label for="mbNombre">Nombre como firmas</label><input id="mbNombre" placeholder="Ej. Mtra. Nombre Apellido"></div>
+    <div class="campo"><label for="mbLineas">Títulos y cédulas</label><textarea id="mbLineas" placeholder="Uno por renglón. Ej. Lic. en Psicología · Céd. Prof. 0000000"></textarea></div>
+    <div class="fila2"><div class="campo"><label for="mbTel">Teléfono</label><input type="tel" id="mbTel"></div>
+      <div class="campo"><label for="mbCorreo">Correo</label><input type="email" id="mbCorreo" autocomplete="off"></div></div>
+    <div class="campo"><label for="mbDir">Dirección del consultorio</label><input id="mbDir"></div>
+    <div class="campo"><label for="mbCiudad">Ciudad, para la fecha</label><input id="mbCiudad" placeholder="Ej. Altamira, Tamaulipas"></div>
+  </div>
+  <div class="pie"><button class="btn fantasma" onclick="cerrar('modalMembrete')">Cancelar</button>
+    <button class="btn" onclick="guardarMembrete()">Guardar</button></div>
 </div></div>
 
 <div class="fondo-modal" id="modalCuenta"><div class="modal">
@@ -1078,7 +1109,7 @@ async function loginEmail(){
   await entrar();
 }
 function mostrarLogin(){ document.getElementById("login").classList.remove("oculto"); document.getElementById("loginEmail").value=""; document.getElementById("loginPass").value=""; }
-async function cerrarSesion(){ await soltarAvisos(); await sb.auth.signOut(); estado.quien=null; estado.cortePsic=null; mostrarLogin(); }
+async function cerrarSesion(){ borrarBorradoresInforme(); await soltarAvisos(); await sb.auth.signOut(); estado.quien=null; estado.cortePsic=null; mostrarLogin(); }
 
 /* ---- Mi cuenta: apariencia, avisos, contraseña y ajustes de este teléfono ---- */
 let correoYo="";
@@ -1126,11 +1157,7 @@ async function descargarRespaldo(){ if(!esAdmin()) return;
     const datos={app:"Mundo Neurodiverso", creado:new Date().toISOString(), por:(viewer()||{}).nombre||"", tablas:{}};
     TABLAS_RESPALDO.forEach((t,k)=>{ datos.tablas[t]=res[k].data||[]; });
     const nombre=`respaldo-mundo-neurodiverso-${hoyISO()}.json`, archivo=new File([JSON.stringify(datos)], nombre, {type:"application/json"});
-    let listo=false;
-    if(MOVIL.matches && navigator.canShare && navigator.canShare({files:[archivo]})){   // celular: Guardar en Archivos / Drive
-      try{ await navigator.share({files:[archivo], title:nombre}); listo=true; }catch(e){ if(e && e.name==="AbortError") return; } }
-    if(!listo){ const a=document.createElement("a"); a.href=URL.createObjectURL(archivo); a.download=nombre; document.body.appendChild(a); a.click();
-      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+    if(!(await entregarArchivo(archivo))) return;   // celular o tablet: Guardar en Archivos / Drive
     try{ localStorage.setItem("ultimoRespaldo", hoyISO()); }catch(_){}
     const total=TABLAS_RESPALDO.reduce((n,t)=>n+datos.tablas[t].length,0);
     toast(`Respaldo listo ✓ ${total} registros. Guárdalo en un lugar seguro`,"ok");
@@ -1822,7 +1849,8 @@ function renderExpediente(){
     admin? `<div class="px-dato ancho"><dt>Ven todo su historial</dt><dd>${esc(quienesVenHistorial(p).map(x=>corto(x.nombre)).join(" · ")||"Solo Dirección")}</dd></div>` : "",
     admin&&tel? `<div class="px-dato ancho"><dt>Teléfono</dt><dd class="tels"><a href="tel:${esc(String(tel).replace(/[^\d+]/g,""))}">📞 ${esc(tel)}</a>${wa? `<a class="wa" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ""}</dd></div>` : "",
   ].join("");
-  const acciones = admin? `<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`
+  const acciones = admin? `<button class="btn fantasma ancho" onclick="abrirInforme('${p.id}')">📄 ${leerBorrador(p.id)? "Seguir el informe (borrador)" : "Hacer informe"}</button>`
+    + `<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`
     + (arch? `<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>` : `<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`)
     + `<button class="btn fantasma" onclick="menuHistorial('${p.id}')">🔓 Historial</button>` : "";
   cont.innerHTML=`
@@ -2329,6 +2357,8 @@ async function revisarCierre(id){ if(!esAdmin()) return;
 function opciones(arr,val,txt){ return arr.map(o=>`<option value="${o[val]}">${esc(o[txt])}</option>`).join(""); }
 function abrir(id){ document.getElementById(id).classList.add("abierto"); }
 function cerrar(id){ if(id==="modalNota"){ if(guardandoNota) return; pararVozNota(true); }   // mientras se guarda, la hoja se queda
+  if(id==="modalInforme" && document.getElementById(id).classList.contains("abierto")){ guardarBorrador(); pararVozNota(true);
+    document.getElementById(id).classList.remove("abierto"); renderExpediente(); return; }
   document.getElementById(id).classList.remove("abierto"); }
 // Psicóloga que proponen las hojas de cita y cobro: tú, si atiendes; si no, quien tiene más pacientes activos
 function psicPorDefecto(){
@@ -2640,6 +2670,256 @@ function cobroDesdeCita(id){
 }
 
 /* Nota de sesión con apartados (se guardan juntos en el texto de la nota, cada uno con su título) y dictado por voz */
+/* ---- Informes (solo Dirección) ----
+   El informe se escribe y se arma en Word en el mismo aparato: nunca se manda a Supabase. Mientras se escribe, el
+   borrador se guarda solo en este aparato (localStorage "informe:<paciente>") y se borra al terminar, al descartarlo
+   o al salir. El membrete (quien firma, cédulas y contacto) también se queda en el aparato: el repositorio es público. */
+const AP_INFORME={
+  motivo:{t:"Motivo de consulta", ph:"Por qué acude y quién lo refiere"},
+  antecedentes:{t:"Antecedentes relevantes", ph:"Desarrollo, salud, escuela y familia"},
+  instrumentos:{t:"Técnicas e instrumentos aplicados", ph:"Entrevista, observación, pruebas…"},
+  observaciones:{t:"Observaciones durante la evaluación", ph:"Cómo se presentó y cómo trabajó"},
+  resultados:{t:"Resultados", ph:"Lo que se encontró en cada área"},
+  conclusiones:{t:"Impresión diagnóstica y conclusiones", ph:""},
+  objetivos:{t:"Objetivos trabajados", ph:"Lo que se ha trabajado en las sesiones"},
+  avances:{t:"Avances observados", ph:""},
+  oportunidad:{t:"Áreas de oportunidad", ph:""},
+  recomendaciones:{t:"Recomendaciones", ph:"Para la familia y para la escuela"},
+  constancia:{t:"Texto de la constancia", ph:""},
+};
+const TIPOS_INFORME={
+  psicologico:{n:"Informe", titulo:"Informe psicológico", datos:true, ap:["motivo","antecedentes","instrumentos","observaciones","resultados","conclusiones","recomendaciones"]},
+  avances:{n:"Avances", titulo:"Reporte de avances", datos:true, ap:["motivo","objetivos","avances","oportunidad","recomendaciones"]},
+  constancia:{n:"Constancia", titulo:"Constancia", datos:false, ap:["constancia"]},
+};
+const DATOS_INFORME=[["nombre","Nombre"],["nac","Fecha de nacimiento"],["edad","Edad"],["escolaridad","Escolaridad"],
+  ["tutor","Madre, padre o tutor"],["inicio","Inicio de la atención"],["evaluacion","Fecha(s) de evaluación"]];
+const CLAVE_INFORME="informe:", DOCX="application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+let informePac=null, informeTipo="psicologico", informeUltimo="", informeArchivo=null, informeOculto={}, informeDatos={};
+function fechaTexto(iso){ return iso? new Date(iso+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"}) : ""; }
+function leerBorrador(pacId){ try{ const s=localStorage.getItem(CLAVE_INFORME+pacId); return s? JSON.parse(s) : null; }catch(_){ return null; } }
+function borrarBorrador(pacId){ try{ localStorage.removeItem(CLAVE_INFORME+pacId); }catch(_){} if(pacId===informePac) informeUltimo=""; }
+// Al salir se borran todos los borradores de este aparato
+function borrarBorradoresInforme(){ try{ Object.keys(localStorage).filter(k=>k.startsWith(CLAVE_INFORME)).forEach(k=>localStorage.removeItem(k)); }catch(_){}
+  informePac=null; informeUltimo=""; informeArchivo=null; }
+// Lo que ya sabe la app del paciente: solo se lee, para no tener que escribirlo
+function informeNuevo(p){ const nombre=p.nombre||"";
+  const fechas=estado.citas.filter(c=>c.pac===p.id && c.estado==="programada" && citaTermino(c)).map(c=>c.fecha)
+    .concat(estado.notas.filter(n=>n.pac===p.id).map(n=>n.fecha)).filter(Boolean).sort();
+  const inicio=fechas.length? fechaTexto(fechas[0]) : "", edad=edadTxt(p)||"";
+  return {tipo:"psicologico", titulo:TIPOS_INFORME.psicologico.titulo, dirigido:"", fecha:hoyISO(),
+    datos:{nombre, nac:p.nac? fechaTexto(p.nac) : "", edad, escolaridad:"", tutor:dato(p.tutor)||"", inicio, evaluacion:""},
+    ap:{motivo:dato(p.motivo)||"", constancia:`Por medio de la presente hago constar que ${nombre}${edad? `, de ${edad},` : ""} asiste a atención psicológica en este consultorio`
+      +`${inicio? ` desde el ${inicio}` : ""}.\n\nSe extiende la presente a petición del interesado, para los fines que le convengan.`}}; }
+function abrirInforme(pacId){ const p=pac(pacId); if(!esAdmin() || !p) return;
+  const guardado=leerBorrador(pacId);
+  informePac=pacId; informeArchivo=null; pintarInforme(guardado || informeNuevo(p));
+  informeUltimo=JSON.stringify(leerInforme());
+  document.getElementById("ifPara").textContent=p.nombre;
+  estadoInforme(guardado? "Seguiste el borrador guardado en este aparato" : "Se guarda solo en este aparato mientras escribes");
+  cerrar("modalAcciones"); abrir("modalInforme"); }
+function pintarInforme(d){ informeTipo=TIPOS_INFORME[d.tipo]? d.tipo : "psicologico"; const t=TIPOS_INFORME[informeTipo], voz=vozSoportada();
+  document.getElementById("ifCuerpo").innerHTML=
+      `<div class="campo"><label>Tipo</label><div class="seg-tema">${Object.entries(TIPOS_INFORME).map(([k,x])=>
+        `<button type="button" class="${k===informeTipo?"on":""}" onclick="tipoInforme('${k}')">${x.n}</button>`).join("")}</div></div>
+    <div class="campo"><label for="ifTitulo">Título</label><input id="ifTitulo" value="${esc(d.titulo||t.titulo)}"></div>
+    <div class="fila2"><div class="campo"><label for="ifFecha">Fecha</label><input type="date" id="ifFecha" value="${esc(d.fecha||hoyISO())}"></div>
+      <div class="campo"><label for="ifDirigido">Dirigido a</label><input id="ifDirigido" value="${esc(d.dirigido||"")}" placeholder="Opcional"></div></div>
+    ${t.datos? `<details class="if-datos" open><summary>Datos del paciente</summary><div class="if-datos-campos">${DATOS_INFORME.map(([k,l])=>
+      `<div class="campo"><label for="ifd-${k}">${l}</label><input id="ifd-${k}" value="${esc((d.datos||{})[k]||"")}"></div>`).join("")}</div></details>` : ""}
+    ${t.ap.map(k=>`<div class="campo"><div class="nota-lab"><label for="if-${k}">${AP_INFORME[k].t}</label>
+      ${voz? `<button type="button" class="mic-mini" id="mic-if-${k}" aria-label="Dictar: ${AP_INFORME[k].t}" onclick="dictarInforme('${k}')">🎤</button>` : ""}</div>
+      <textarea id="if-${k}" class="if-texto" placeholder="${esc(AP_INFORME[k].ph||"")}">${esc((d.ap||{})[k]||"")}</textarea></div>`).join("")}
+    <div class="if-extra"><button type="button" class="btn fantasma" onclick="abrirMembrete()">✎ Membrete: quien firma y contacto</button>
+      <button type="button" class="btn fantasma peligro" onclick="descartarInforme()">Descartar borrador</button></div>`;
+  // los apartados de otros tipos que ya se escribieron se conservan al cambiar de tipo
+  informeOculto={...(d.ap||{})}; t.ap.forEach(k=>delete informeOculto[k]); informeDatos={...(d.datos||{})}; }
+function leerInforme(){ const v=id=>{ const e=document.getElementById(id); return e? e.value : null; }, t=TIPOS_INFORME[informeTipo];
+  const datos={...informeDatos}; if(t.datos) DATOS_INFORME.forEach(([k])=>{ datos[k]=v("ifd-"+k)||""; });
+  const ap={...informeOculto}; t.ap.forEach(k=>{ ap[k]=v("if-"+k)||""; });
+  return {tipo:informeTipo, titulo:v("ifTitulo")||"", dirigido:v("ifDirigido")||"", fecha:v("ifFecha")||hoyISO(), datos, ap}; }
+function tipoInforme(k){ if(k===informeTipo) return; pararVozNota(true); const d=leerInforme();
+  if(!d.titulo.trim() || d.titulo===TIPOS_INFORME[informeTipo].titulo) d.titulo=TIPOS_INFORME[k].titulo;
+  d.tipo=k; pintarInforme(d); guardarBorrador(); }
+function dictarInforme(k){ return dictarEn("if-"+k, "mic-if-"+k, ()=>document.getElementById("modalInforme").classList.contains("abierto")); }
+// Se guarda al escribir, cada pocos segundos (lo dictado) y al dejar la app en segundo plano
+function guardarBorrador(){ if(!informePac || !document.getElementById("modalInforme").classList.contains("abierto")) return;
+  const d=leerInforme(), s=JSON.stringify(d); if(s===informeUltimo) return; informeUltimo=s;
+  try{ localStorage.setItem(CLAVE_INFORME+informePac, JSON.stringify({...d, guardado:new Date().toISOString()}));
+    estadoInforme("Guardado en este aparato · "+ahoraHM()); }catch(_){ estadoInforme("⚠ No se pudo guardar en este aparato: no cierres la app"); } }
+function estadoInforme(t){ document.getElementById("ifEstado").textContent=t; }
+let tGuardarInforme=null;
+document.getElementById("ifCuerpo").addEventListener("input", e=>{ if(e.target.tagName==="TEXTAREA") tecleoNota(e.target.id);
+  clearTimeout(tGuardarInforme); tGuardarInforme=setTimeout(guardarBorrador, 500); });
+setInterval(guardarBorrador, 3000);
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") guardarBorrador(); });
+function descartarInforme(){ if(!informePac || !confirm("¿Descartar este borrador? Se borra de este aparato.")) return;
+  pararVozNota(true); borrarBorrador(informePac); cerrar("modalInforme"); renderExpediente(); toast("Borrador descartado","ok"); }
+
+// Membrete: lo que sale arriba, en la firma y abajo del informe
+function membrete(){ let m=null; try{ m=JSON.parse(localStorage.getItem("membrete")||"null"); }catch(_){}
+  if(m) return {nombre:"", lineas:"", tel:"", correo:"", dir:"", ciudad:"", ...m};
+  const v=viewer()||{};   // la primera vez, lo que ya está en Equipo
+  return {nombre:v.nombre||"", lineas:v.cedula? "Cédula profesional "+v.cedula : "", tel:v.tel||"", correo:correoYo||"", dir:"", ciudad:""}; }
+function abrirMembrete(){ const m=membrete();
+  [["mbNombre","nombre"],["mbLineas","lineas"],["mbTel","tel"],["mbCorreo","correo"],["mbDir","dir"],["mbCiudad","ciudad"]].forEach(([id,k])=>{ document.getElementById(id).value=m[k]||""; });
+  abrir("modalMembrete"); }
+function guardarMembrete(){ const v=id=>document.getElementById(id).value.trim();
+  const m={nombre:v("mbNombre"), lineas:document.getElementById("mbLineas").value.split("\n").map(s=>s.trim()).filter(Boolean).join("\n"),
+    tel:v("mbTel"), correo:v("mbCorreo"), dir:v("mbDir"), ciudad:v("mbCiudad")};
+  if(!m.nombre){ toast("Escribe el nombre como firmas","err"); return; }
+  try{ localStorage.setItem("membrete", JSON.stringify(m)); }catch(_){ toast("No se pudo guardar en este aparato","err"); return; }
+  cerrar("modalMembrete"); toast("Membrete guardado en este aparato ✓","ok"); }
+
+// Producir el Word: se arma aquí mismo y se abre Compartir (Archivos, Drive, Word) o se descarga
+async function producirInforme(){ const b=document.getElementById("ifProducir"); if(!informePac || b.disabled) return;
+  await pararVozNota(); guardarBorrador();
+  const d=leerInforme(), t=TIPOS_INFORME[d.tipo], m=membrete();
+  if(!t.ap.some(k=>(d.ap[k]||"").trim())){ toast("Escribe al menos un apartado","err"); return; }
+  if(!m.nombre){ toast("Primero pon quién firma en el membrete","err"); abrirMembrete(); return; }
+  b.disabled=true; b.textContent="Armando…";
+  try{
+    const archivo=new File([armarDocx(d, m, await imagenesInforme())],
+      `${(d.titulo||t.titulo).trim()} - ${(d.datos.nombre||(pac(informePac)||{}).nombre||"").trim()} - ${d.fecha}.docx`.replace(/[\\/:*?"<>|]+/g,"").replace(/\s+/g," "), {type:DOCX});
+    informeArchivo=archivo;
+    const entregado=await entregarArchivo(archivo);
+    cerrar("modalInforme"); informeListo(entregado);
+  }catch(e){ toast("No se pudo armar el Word: "+(e && e.message || e),"err"); }
+  finally{ b.disabled=false; b.textContent="Producir Word"; } }
+function informeListo(entregado){ const pacId=informePac;
+  document.getElementById("accTitulo").textContent="Informe listo";
+  document.getElementById("accSub").textContent= entregado? "Guárdalo en Archivos o Drive, o ábrelo en Word. Después borra el borrador de este aparato."
+    : "No se guardó todavía. Vuelve a compartirlo para guardarlo.";
+  document.getElementById("accCerrar").textContent="Cerrar";
+  document.getElementById("accBotones").innerHTML=
+      `<button class="acc-btn" onclick="entregarArchivo(informeArchivo)">📤 Guardar o compartir el Word</button>`
+    + `<button class="acc-btn" onclick="abrirInforme('${pacId}')">✎ Seguir editando</button>`
+    + `<button class="acc-btn hecho" onclick="terminarInforme('${pacId}')">✓ Terminar y borrar el borrador</button>`;
+  abrir("modalAcciones"); }
+function terminarInforme(pacId){ borrarBorrador(pacId); informeArchivo=null; informePac=null; cerrar("modalAcciones"); renderExpediente();
+  toast("Listo ✓ El borrador se borró de este aparato","ok"); }
+// Entrega un archivo hecho en el aparato: en celular o tablet abre Compartir; si no, lo descarga
+async function entregarArchivo(archivo){ if(!archivo) return false;
+  if((MOVIL.matches || matchMedia("(pointer:coarse)").matches) && navigator.canShare && navigator.canShare({files:[archivo]})){
+    try{ await navigator.share({files:[archivo], title:archivo.name}); return true; }catch(e){ if(e && e.name==="AbortError") return false; } }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(archivo); a.download=archivo.name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 2000); return true; }
+
+// Logo para el membrete y el árbol tenue de fondo, del logo que ya trae la app (el de la entrada)
+let imgInforme=null;
+async function imagenesInforme(){ if(imgInforme) return imgInforme;
+  const img=document.getElementById("loginLogo"); await img.decode();
+  const W=img.naturalWidth, H=img.naturalHeight;
+  const png=(sx,sy,sw,sh,ancho,alfa)=>new Promise((ok,ko)=>{ const c=document.createElement("canvas"); c.width=ancho; c.height=Math.round(ancho*sh/sw);
+    const g=c.getContext("2d"); g.globalAlpha=alfa; g.drawImage(img,sx,sy,sw,sh,0,0,c.width,c.height);
+    c.toBlob(b=>b? b.arrayBuffer().then(a=>ok({d:new Uint8Array(a), w:c.width, h:c.height}),ko) : ko(new Error("sin imagen")),"image/png"); });
+  // el árbol ocupa la parte de arriba del logo (sin el texto)
+  imgInforme={logo:await png(0,0,W,H,700,1), marca:await png(Math.round(W*.197),0,Math.round(W*.606),Math.round(H*.787),900,.08)};
+  return imgInforme; }
+
+// Word (.docx) hecho a mano: XML de Office dentro de un zip sin comprimir
+function armarDocx(d, m, im){
+  const MOR="7A3B88", GRIS="6B6575", LINEA="E3DCE8", ANCHO=9632, LOGO=2100, CM=360000;
+  const x=s=>String(s==null?"":s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const NS=`xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"`;
+  // Texto con formato: b, caps, color, sz (medios puntos), font, esp (espacio entre letras); "\n" es salto de renglón
+  const run=(t,o={})=>{ const pr=(o.font? `<w:rFonts w:ascii="${o.font}" w:hAnsi="${o.font}" w:cs="${o.font}"/>` : "")+(o.b? "<w:b/><w:bCs/>" : "")+(o.caps? "<w:caps/>" : "")
+      +(o.color? `<w:color w:val="${o.color}"/>` : "")+(o.esp? `<w:spacing w:val="${o.esp}"/>` : "")+(o.sz? `<w:sz w:val="${o.sz}"/><w:szCs w:val="${o.sz}"/>` : "");
+    return String(t).split("\n").map((l,i)=>`<w:r>${pr? `<w:rPr>${pr}</w:rPr>` : ""}${i? "<w:br/>" : ""}<w:t xml:space="preserve">${x(l)}</w:t></w:r>`).join(""); };
+  const par=(runs,o={})=>`<w:p><w:pPr>${o.keep? "<w:keepNext/>" : ""}${o.borde? `<w:pBdr><w:${o.borde} w:val="single" w:sz="4" w:space="${o.bordeEsp||4}" w:color="${LINEA}"/></w:pBdr>` : ""}`
+    +`<w:spacing w:before="${o.antes||0}" w:after="${o.despues==null? 120 : o.despues}"${o.linea? ` w:line="${o.linea}" w:lineRule="${o.exacto? "exact" : "auto"}"` : ""}/>`
+    +`${o.ind? `<w:ind w:left="340" w:hanging="200"/>` : ""}${o.jc? `<w:jc w:val="${o.jc}"/>` : ""}${o.chico? `<w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr>` : ""}</w:pPr>${runs||""}</w:p>`;
+  const grafico=(rid,id,nombre,cx,cy)=>`<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${id}" name="${nombre}"/><pic:cNvPicPr/></pic:nvPicPr>`
+    +`<pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic>`;
+  const lCx=Math.round(3.3*CM), lCy=Math.round(lCx*im.logo.h/im.logo.w), mCx=Math.round(15*CM), mCy=Math.round(mCx*im.marca.h/im.marca.w);
+  const logo=`<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${lCx}" cy="${lCy}"/><wp:docPr id="1" name="Logo"/><wp:cNvGraphicFramePr/>${grafico("rIdLogo",1,"Logo",lCx,lCy)}</wp:inline></w:drawing></w:r>`;
+  const marca=`<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" behindDoc="1" locked="1" layoutInCell="1" allowOverlap="1">`
+    +`<wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:align>center</wp:align></wp:positionH><wp:positionV relativeFrom="page"><wp:align>center</wp:align></wp:positionV>`
+    +`<wp:extent cx="${mCx}" cy="${mCy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="2" name="Marca de agua"/><wp:cNvGraphicFramePr/>${grafico("rIdMarca",2,"Marca de agua",mCx,mCy)}</wp:anchor></w:drawing></w:r>`;
+  const sinMargen=`<w:tblCellMar><w:left w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar>`;
+  const celda=(ancho,contenido,extra)=>`<w:tc><w:tcPr><w:tcW w:w="${ancho}" w:type="dxa"/>${extra||""}</w:tcPr>${contenido}</w:tc>`;
+  const lineas=(m.lineas||"").split("\n").map(s=>s.trim()).filter(Boolean);
+  const COLORES=["8E499A","68B332","EE247A","1CB9E2","EF8122","F3EA5F"], franja=Math.floor(ANCHO/6);
+
+  // Encabezado: logo, quien firma y sus cédulas, y la franja de colores del árbol; el árbol tenue va detrás de cada hoja
+  const encabezado=`<w:hdr ${NS}><w:tbl><w:tblPr><w:tblW w:w="${ANCHO}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${sinMargen}</w:tblPr>`
+    +`<w:tblGrid><w:gridCol w:w="${LOGO}"/><w:gridCol w:w="${ANCHO-LOGO}"/></w:tblGrid><w:tr>`
+    +celda(LOGO, par(logo,{despues:0}), `<w:vAlign w:val="center"/>`)
+    +celda(ANCHO-LOGO, par(run(m.nombre,{font:"Cambria",b:true,sz:34,color:MOR}),{jc:"right",despues:40})
+      +(lineas.length? lineas.map(l=>par(run(l,{sz:17,color:GRIS}),{jc:"right",despues:0})).join("") : par("",{despues:0})), `<w:vAlign w:val="center"/>`)
+    +`</w:tr></w:tbl>${par("",{despues:0,linea:160,exacto:true,chico:true})}`
+    +`<w:tbl><w:tblPr><w:tblW w:w="${franja*6}" w:type="dxa"/><w:tblLayout w:type="fixed"/>${sinMargen}</w:tblPr><w:tblGrid>${COLORES.map(()=>`<w:gridCol w:w="${franja}"/>`).join("")}</w:tblGrid>`
+    +`<w:tr><w:trPr><w:trHeight w:val="57" w:hRule="exact"/></w:trPr>${COLORES.map(c=>celda(franja, par("",{despues:0,linea:40,exacto:true,chico:true}), `<w:shd w:val="clear" w:color="auto" w:fill="${c}"/>`)).join("")}</w:tr></w:tbl>`
+    +par(marca,{despues:0,linea:40,exacto:true,chico:true})+`</w:hdr>`;
+  // Pie: contacto y número de hoja
+  const pg=(campo)=>`<w:fldSimple w:instr=" ${campo} ">${run("1",{sz:15,color:GRIS})}</w:fldSimple>`;
+  const contacto=[m.tel? "Tel. "+m.tel : "", m.correo].filter(Boolean).join("   ·   ");
+  const pie=`<w:ftr ${NS}>`+(contacto? par(run(contacto,{sz:16,color:GRIS}),{jc:"center",borde:"top",bordeEsp:6,despues:0}) : "")
+    +(m.dir? par(run(m.dir,{sz:16,color:GRIS}),{jc:"center",despues:0,borde:contacto? "" : "top",bordeEsp:6}) : "")
+    +par(run("Página ",{sz:15,color:GRIS})+pg("PAGE")+run(" de ",{sz:15,color:GRIS})+pg("NUMPAGES"),{jc:"center",antes:60,despues:0})+`</w:ftr>`;
+
+  // Cuerpo: lugar y fecha, título, a quién va, datos del paciente, apartados y firma
+  const t=TIPOS_INFORME[d.tipo]||TIPOS_INFORME.psicologico;
+  const filas=t.datos? DATOS_INFORME.filter(([k])=>(d.datos[k]||"").trim()) : [];
+  const bordeDatos=`<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="${LINEA}"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="${LINEA}"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="${LINEA}"/></w:tblBorders>`;
+  const datos=filas.length? `<w:tbl><w:tblPr><w:tblW w:w="${ANCHO}" w:type="dxa"/>${bordeDatos}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="50" w:type="dxa"/><w:left w:w="110" w:type="dxa"/><w:bottom w:w="50" w:type="dxa"/><w:right w:w="110" w:type="dxa"/></w:tblCellMar></w:tblPr>`
+    +`<w:tblGrid><w:gridCol w:w="2900"/><w:gridCol w:w="${ANCHO-2900}"/></w:tblGrid>`
+    +filas.map(([k,l])=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${celda(2900, par(run(l,{b:true,sz:19,color:GRIS}),{despues:0}), `<w:shd w:val="clear" w:color="auto" w:fill="F7F3F9"/><w:vAlign w:val="center"/>`)}`
+      +celda(ANCHO-2900, par(run(d.datos[k].trim(),{sz:21}),{despues:0}), `<w:vAlign w:val="center"/>`)+`</w:tr>`).join("")+`</w:tbl>`+par("",{despues:80}) : "";
+  // Cada renglón es un párrafo (justificado); los que empiezan con guion o viñeta salen como lista
+  const parrafos=txt=>txt.trim().split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{ const v=l.match(/^[-•*]\s+(.*)$/);
+    return v? par(run("•  "+v[1]),{jc:"left",despues:60,linea:276,ind:true}) : par(run(l),{jc:"both",despues:140,linea:d.tipo==="constancia"? 360 : 276}); }).join("");
+  const apartados=t.ap.filter(k=>(d.ap[k]||"").trim()).map(k=>(k==="constancia"? "" : par(run(AP_INFORME[k].t,{b:true,caps:true,esp:10,sz:21,color:MOR}),{keep:true,antes:240,despues:100,borde:"bottom",bordeEsp:2}))
+    +parrafos(d.ap[k])).join("");
+  const firma=par(run("______________________________",{color:GRIS}),{jc:"center",antes:1100,despues:20,keep:true})
+    +par(run(m.nombre,{b:true}),{jc:"center",despues:0,keep:lineas.length>0})+lineas.map((l,i)=>par(run(l,{sz:18,color:GRIS}),{jc:"center",despues:0,keep:i<lineas.length-1})).join("");
+  const cuerpo=par(run((m.ciudad? m.ciudad+", a " : "")+fechaTexto(d.fecha)+".",{sz:20,color:GRIS}),{jc:"right",despues:240})
+    +par(run(d.titulo||t.titulo,{b:true,caps:true,esp:30,sz:30,color:MOR}),{jc:"center",antes:60,despues:280})
+    +(d.dirigido.trim()? par(run(d.dirigido.trim().replace(/[:.,;]*$/,":"),{b:true}),{despues:200}) : "")
+    +datos+apartados+firma;
+  const documento=`<w:document ${NS}><w:body>${cuerpo}<w:sectPr><w:headerReference w:type="default" r:id="rIdH"/><w:footerReference w:type="default" r:id="rIdF"/>`
+    +`<w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="2410" w:right="1304" w:bottom="1600" w:left="1304" w:header="567" w:footer="567" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:body></w:document>`;
+  const estilos=`<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:eastAsia="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>`
+    +`<w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="es-MX" w:eastAsia="en-US" w:bidi="ar-SA"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>`
+    +`<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/><w:rPr><w:color w:val="262626"/></w:rPr></w:style>`
+    +`<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/>`
+    +`<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style></w:styles>`;
+  const ajustes=`<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:zoom w:percent="100"/><w:defaultTabStop w:val="708"/><w:characterSpacingControl w:val="doNotCompress"/>`
+    +`<w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>`;
+  const REL="http://schemas.openxmlformats.org/officeDocument/2006/relationships/", rels=l=>`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
+    +l.map(([id,tipo,dest])=>`<Relationship Id="${id}" Type="${REL+tipo}" Target="${dest}"/>`).join("")+`</Relationships>`;
+  const CT="application/vnd.openxmlformats-officedocument.wordprocessingml.";
+  const tipos=`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`
+    +`<Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/>`
+    +[["document","document.main"],["styles","styles"],["settings","settings"],["header1","header"],["footer1","footer"]].map(([p,c])=>`<Override PartName="/word/${p}.xml" ContentType="${CT+c}+xml"/>`).join("")+`</Types>`;
+  const X=s=>new TextEncoder().encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n`+s);
+  return zipSinComprimir([
+    {n:"[Content_Types].xml", d:X(tipos)},
+    {n:"_rels/.rels", d:X(rels([["rId1","officeDocument","word/document.xml"]]))},
+    {n:"word/document.xml", d:X(documento)},
+    {n:"word/styles.xml", d:X(estilos)},
+    {n:"word/settings.xml", d:X(ajustes)},
+    {n:"word/header1.xml", d:X(encabezado)},
+    {n:"word/footer1.xml", d:X(pie)},
+    {n:"word/_rels/document.xml.rels", d:X(rels([["rIdS","styles","styles.xml"],["rIdC","settings","settings.xml"],["rIdH","header","header1.xml"],["rIdF","footer","footer1.xml"]]))},
+    {n:"word/_rels/header1.xml.rels", d:X(rels([["rIdLogo","image","media/logo.png"],["rIdMarca","image","media/marca.png"]]))},
+    {n:"word/media/logo.png", d:im.logo.d},
+    {n:"word/media/marca.png", d:im.marca.d},
+  ]); }
+const CRC32=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c= c&1? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(b){ let c=0xFFFFFFFF; for(let i=0;i<b.length;i++) c=CRC32[(c^b[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function zipSinComprimir(archivos){ const enc=new TextEncoder(), partes=[], central=[]; let off=0;
+  const h=new Date(), hora=(h.getHours()<<11)|(h.getMinutes()<<5)|(h.getSeconds()>>1), dia=((h.getFullYear()-1980)<<9)|((h.getMonth()+1)<<5)|h.getDate();
+  archivos.forEach(f=>{ const nb=enc.encode(f.n), crc=crc32(f.d), L=new DataView(new ArrayBuffer(30)), C=new DataView(new ArrayBuffer(46));
+    [[0,0x04034b50,4],[4,20,2],[6,0x0800,2],[8,0,2],[10,hora,2],[12,dia,2],[14,crc,4],[18,f.d.length,4],[22,f.d.length,4],[26,nb.length,2],[28,0,2]]
+      .forEach(([o,v,n])=>n===4? L.setUint32(o,v,true) : L.setUint16(o,v,true));
+    [[0,0x02014b50,4],[4,20,2],[6,20,2],[8,0x0800,2],[10,0,2],[12,hora,2],[14,dia,2],[16,crc,4],[20,f.d.length,4],[24,f.d.length,4],[28,nb.length,2],[42,off,4]]
+      .forEach(([o,v,n])=>n===4? C.setUint32(o,v,true) : C.setUint16(o,v,true));
+    partes.push(new Uint8Array(L.buffer), nb, f.d); central.push(new Uint8Array(C.buffer), nb); off+=30+nb.length+f.d.length; });
+  const tam=central.reduce((a,b)=>a+b.length,0), E=new DataView(new ArrayBuffer(22));
+  E.setUint32(0,0x06054b50,true); E.setUint16(8,archivos.length,true); E.setUint16(10,archivos.length,true); E.setUint32(12,tam,true); E.setUint32(16,off,true);
+  return new Blob([...partes, ...central, new Uint8Array(E.buffer)], {type:DOCX}); }
+
 const APARTADOS_NOTA=[
   {id:"nTexto", t:"Qué se trabajó", ph:"Actividades y objetivos de la sesión"},
   {id:"nConducta", t:"Conducta y respuesta", ph:"Cómo llegó, cómo se comportó y cómo respondió"},
