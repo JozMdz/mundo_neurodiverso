@@ -2,7 +2,7 @@
 --
 -- Reconstruida el 15 oct 2026 con sql/inventario.sql y sql/revisar.sql; ya incluye sql/seguridad.sql,
 -- sql/ajustes.sql, sql/citas-estado.sql, sql/pago-psicologa.sql,
--- sql/cierres-detalle.sql, sql/avisos.sql y sql/cobro-cita.sql (sql/avisos-programar.sql va aparte: necesita pg_cron). Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
+-- sql/cierres-detalle.sql, sql/avisos.sql, sql/cobro-cita.sql, sql/equipo.sql y sql/reparto.sql (sql/avisos-programar.sql va aparte: necesita pg_cron). Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
 -- (SQL Editor → pega todo → Run). Si cambias la base, actualiza este archivo para que siga siendo fiel.
 
 begin;
@@ -27,7 +27,7 @@ create table public.pacientes (
   telefono text,
   motivo text,
   tarifa numeric not null default 0,
-  pago_psicologa numeric check (pago_psicologa >= 0),                -- lo que le toca a la psicóloga por sesión; null = mitad de la tarifa
+  pago_psicologa numeric check (pago_psicologa >= 0),                -- ya no se usa: lo que le toca va por psicóloga (reparto_psicologas)
   asignada_a uuid references public.psicologas(id),
   creado_en timestamptz not null default now(),
   activo boolean not null default true,                              -- false: archivado
@@ -99,6 +99,14 @@ create table public.cierres (
   detalle jsonb not null default '[]'::jsonb,                        -- [{cita, pac, nota, cobro}] lo que quedó pendiente
   revisado_por uuid references public.psicologas(id),               -- Dirección que lo comprobó; null = por revisar
   revisado_en timestamptz
+);
+
+-- De sql/reparto.sql: lo que le toca a cada psicóloga por sesión, sea de quien sea el paciente. Sin fila = la mitad
+create table public.reparto_psicologas (
+  psicologa_id uuid primary key references public.psicologas(id) on delete cascade,
+  tipo text not null check (tipo in ('fijo', 'porcentaje')),          -- monto fijo por sesión o porcentaje de lo que se cobra
+  valor numeric not null check (valor >= 0 and (tipo <> 'porcentaje' or valor <= 100)),
+  actualizado_en timestamptz not null default now()
 );
 
 -- De sql/avisos.sql: teléfonos con avisos y avisos ya mandados (solo los usa la función "avisar")
@@ -364,10 +372,15 @@ alter table public.facturas    enable row level security;
 alter table public.cierres     enable row level security;
 alter table public.push_subs   enable row level security;
 alter table public.avisos_enviados enable row level security;
+alter table public.reparto_psicologas enable row level security;
 
 create policy p_psico_select on public.psicologas for select to authenticated using (true);
 create policy p_psico_insert on public.psicologas for insert to authenticated with check (es_direccion());
 create policy p_psico_update on public.psicologas for update to authenticated using (es_direccion()) with check (es_direccion());
+
+-- Cada psicóloga lee solo lo que le toca a ella; solo Dirección lo pone o lo cambia
+create policy p_rep_select on public.reparto_psicologas for select to authenticated using (es_direccion() or psicologa_id = auth.uid());
+create policy p_rep_write on public.reparto_psicologas for all to authenticated using (es_direccion()) with check (es_direccion());
 
 create policy p_pac_select on public.pacientes for select to authenticated using (es_direccion() or asignada_a = auth.uid()
   or exists (select 1 from public.citas c where c.paciente_id = pacientes.id and c.psicologa_id = auth.uid())
@@ -419,6 +432,6 @@ grant execute on function public.guardar_suscripcion(text, text, text), public.b
 
 -- ================= Tiempo real =================
 alter publication supabase_realtime add table public.psicologas, public.pacientes, public.citas, public.notas,
-  public.comentarios, public.pagos, public.facturas, public.cierres;
+  public.comentarios, public.pagos, public.facturas, public.cierres, public.reparto_psicologas;
 
 commit;

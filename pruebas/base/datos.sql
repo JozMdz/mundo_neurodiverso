@@ -35,3 +35,7 @@ insert into citas (id, fecha, hora, psicologa_id, paciente_id, estado, confirmad
 -- Un cierre de Fernanda con pendientes
 insert into cierres (psicologa_id, notas_pendientes, cobros_pendientes, detalle) values
   ('00000000-0000-0000-0000-0000000000a1', 1, 1, '[{"nota": true, "cobro": true}]');
+-- Lo que le toca a cada psicóloga por sesión: Fernanda $150 fijos, Andrea 50 %
+insert into reparto_psicologas (psicologa_id, tipo, valor) values
+  ('00000000-0000-0000-0000-0000000000a1', 'fijo', 150),
+  ('00000000-0000-0000-0000-0000000000a2', 'porcentaje', 50);

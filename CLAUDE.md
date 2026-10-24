@@ -61,8 +61,10 @@ Corte de Cobros (`corteDe`, sesión por sesión): cada sesión dada de la agenda
 se empareja con su cobro: primero el ligado a la cita (`pagos.cita_id`, de cualquier fecha o psicóloga; si es de otro
 periodo, la sesión sale pagada y el dinero cuenta en ese otro corte), luego uno sin cita del mismo paciente y día, y luego
 de otro día. Un cobro ligado a una sesión de otro periodo solo cuenta como dinero; uno sin cita y sin sesión cuenta como
-sesión dada. Lo acordado sale de cada paciente (`repartoPac`): `tarifa` (se cobra) y `pago_psicologa` (le toca; vacío =
-mitad, `sql/pago-psicologa.sql`); los pacientes de la directora son íntegros para Dirección. Dirección elige psicóloga con
+sesión dada. Lo acordado (`repartoPac`): se cobra la `tarifa` del paciente y a quien da la sesión le toca lo suyo, sea de
+quien sea el paciente (si cubre a otra o a la directora): `reparto_psicologas` (`sql/reparto.sql`), que Dirección pone en
+Equipo como monto fijo por sesión o porcentaje; sin ponerlo, la mitad. Lo que da la directora es íntegro para Dirección.
+`pacientes.pago_psicologa` ya no se usa. Dirección elige psicóloga con
 chips (`estado.cortePsic`, `verCortePsic`): primero la directora, luego las psicólogas y al final "Todas" (lo del
 consultorio y qué hacer con cada una); sin elegir se ve la primera. Va de lo general a lo particular y pensado para
 leerse fácil (la directora tiene discalculia): primero el resumen en renglones que cuadran entre sí (`lineaRes`: vinieron,
@@ -124,7 +126,8 @@ la app y Salir. El respaldo (`descargarRespaldo`) baja un JSON con todas las tab
 
 Equipo (solo Dirección): agregar psicóloga, cambiar su correo, ponerle contraseña temporal y darla de baja o reactivarla
 pasan por la función `supabase/functions/equipo` (`llamarEquipo`), la única con la llave de servicio; nombre, teléfono,
-cédula y color se guardan directo en `psicologas` (RLS: solo Dirección). Una psicóloga dada de baja (`activa = false`,
+cédula y color se guardan directo en `psicologas`, y lo que le toca por sesión en `reparto_psicologas` (RLS: solo
+Dirección; la lista muestra a quién le falta). Una psicóloga dada de baja (`activa = false`,
 `sql/equipo.sql`) no entra, no aparece para agendar (`atienden`) y sus datos se quedan.
 Pacientes: `fecha_nacimiento` (`sql/equipo.sql`); la edad se calcula con `edadDe` / `edadTxt`. `edad` queda para los que no la tienen.
 "¿Olvidaste tu contraseña?" en la entrada manda un enlace al correo (`resetPasswordForEmail`, de vuelta a la misma
@@ -150,6 +153,8 @@ Modo pruebas (solo Dirección y soporte, `pruebasActivo`): abrir la app con `?pr
   prueba lo que una psicóloga no debe poder hacer y lo que sí. Las instrucciones están al inicio del archivo.
 - `sql/citas-estado.sql` agrega el estado de las citas y su trigger (`proteger_citas`): la psicóloga solo marca si
   asistió a sus propias citas, desde el día de la cita, y no cambia lo que Dirección ya confirmó.
+- `sql/reparto.sql`: lo que le toca a cada psicóloga va en su propia tabla para que cada una lea solo lo suyo
+  (la tabla `psicologas` la leen todas). Solo Dirección lo escribe.
 - `sql/avisos.sql`: los teléfonos con avisos (`push_subs`) no los lee nadie desde la app; solo se registran o quitan
   con `guardar_suscripcion` / `borrar_suscripcion`, y solo servicios de avisos conocidos. La llave privada vive en los
   Secrets de Supabase, nunca en el repositorio.

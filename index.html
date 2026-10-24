@@ -315,6 +315,7 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   .seg-tema{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; background:var(--fondo); border:1px solid var(--linea); border-radius:var(--r-sm); padding:4px;}
   .seg-tema button{min-height:44px; border-radius:9px; background:none; color:var(--gris); font-weight:800; font-size:14px;}
   .seg-tema button.on{background:var(--tarjeta); color:var(--morado-tx); box-shadow:var(--sombra);}
+  .seg-pago{grid-template-columns:repeat(2,minmax(0,1fr)); margin-bottom:8px;}
   .fila-aj{display:flex; align-items:center; gap:12px; min-height:52px; padding:6px 6px 6px 14px; border:1px solid var(--linea); border-radius:var(--r-sm); background:var(--fondo);}
   .fila-aj .tx{flex:1; min-width:0; font-weight:800; font-size:15px;} .fila-aj .tx small{display:block; font-weight:700; font-size:12.5px; color:var(--gris);}
   .fila-aj .btn{flex:none; min-height:44px;}
@@ -560,6 +561,7 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   .equipo-card .miembro .av{width:40px; height:40px; border-radius:11px; color:#fff; display:grid; place-items:center; font-family:"Fredoka"; font-weight:600; flex:none;}
   .equipo-card .miembro b{font-size:15px;}
   .equipo-card .miembro .datos{font-size:12.5px; color:var(--gris); font-weight:600; margin-top:2px;}
+  .equipo-card .miembro .datos.falta-regla{color:var(--alerta); font-weight:800;}
   .equipo-card .miembro .tag{font-size:10.5px; color:var(--gris); font-weight:800; text-transform:uppercase; letter-spacing:.4px; margin-left:auto; align-self:flex-start; background:var(--fondo); padding:4px 9px; border-radius:999px;}
   .equipo-card .cierre-lista{margin-top:8px; display:flex; flex-direction:column; gap:6px;}
   .equipo-card .cierre-px{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13.5px; font-weight:700;}
@@ -857,12 +859,9 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
     </div>
     <div class="campo"><label>Tutor / contacto</label><input type="text" id="paTutor" placeholder="mamá: …"></div>
     <div class="campo"><label>Motivo de consulta</label><textarea id="paMotivo" placeholder="Motivo por el que acude…"></textarea></div>
-    <div class="campo" id="paAsignadaCampo"><label>Psicóloga asignada</label><select id="paAsignada" onchange="camposPaciente()"></select></div>
-    <div class="fila2" id="paDinero">
-      <div class="campo"><label>Se le cobra por sesión</label><input type="number" id="paTarifa" min="0" step="50" value="600" inputmode="numeric"></div>
-      <div class="campo" id="paPagoCampo"><label>Le toca a la psicóloga</label><input type="number" id="paPagoPsic" min="0" step="10" placeholder="la mitad" inputmode="numeric"></div>
-    </div>
-    <div id="paPagoHint" style="font-size:12.5px; color:var(--gris); font-weight:600; margin-top:-4px;">Lo que le toca a la psicóloga por cada sesión con este paciente. Si lo dejas vacío, se calcula la mitad de lo que se cobra.</div>
+    <div class="campo" id="paAsignadaCampo"><label>Psicóloga asignada</label><select id="paAsignada"></select></div>
+    <div class="campo"><label>Se le cobra por sesión</label><input type="number" id="paTarifa" min="0" step="50" value="600" inputmode="numeric">
+      <div class="hint-dias" id="paPagoHint">Lo que le toca a la psicóloga que da la sesión se pone en Equipo, para cada una.</div></div>
   </div>
   <div class="pie"><button class="btn fantasma" onclick="cerrar('modalPaciente')">Cancelar</button>
     <button class="btn" id="paGuardar" onclick="guardarPaciente()">Guardar paciente</button></div>
@@ -876,6 +875,10 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
       <div class="campo"><label>Teléfono</label><input type="tel" id="psTel" placeholder="833-000-0000"></div>
       <div class="campo"><label>Cédula profesional</label><input type="text" id="psCedula" placeholder="00000000"></div>
     </div>
+    <div class="campo" id="psPagoCampo"><label for="psPagoValor">Le toca por cada sesión que da</label>
+      <div class="seg-tema seg-pago" id="psPagoTipo"><button type="button" data-t="fijo" onclick="tipoPago('fijo')">Monto fijo</button><button type="button" data-t="porcentaje" onclick="tipoPago('porcentaje')">Porcentaje</button></div>
+      <input type="number" id="psPagoValor" min="0" step="10" inputmode="decimal">
+      <div class="hint-dias" id="psPagoHint"></div></div>
     <div id="psCuenta">
       <div class="campo"><label>Correo (para iniciar sesión)</label><input type="email" id="psCorreo" autocomplete="off" placeholder="nombre@mundoneurodiverso.mx"></div>
       <div class="campo"><label>Contraseña temporal</label><input type="text" id="psClave" autocomplete="off" placeholder="Mínimo 8 caracteres">
@@ -970,7 +973,7 @@ const sb = supabase.createClient(
   configPendiente() ? "public-anon-placeholder"         : SUPABASE_ANON_KEY
 );
 const estado = {
-  psicologas:[], pacientes:[], citas:[], notas:[], pagos:[], facturas:[], cierres:[],
+  psicologas:[], pacientes:[], citas:[], notas:[], pagos:[], facturas:[], cierres:[], reparto:{},
   fechaAgenda:hoyISO(), quien:null, filtroPx:"activos", vistaAgenda:"dia",
   cobrosPeriodo:{tipo:"semana", desde:hoyISO(), hasta:hoyISO()}, cortePsic:null,
 };
@@ -1018,7 +1021,7 @@ async function reactivarPaciente(id){ if(!esAdmin()) return; const {error}=await
 /* ---- LOGIN ---- */
 function renderLoginAccts(){ const el=document.getElementById("loginAccts"); if(el) el.innerHTML=""; }
 async function cargarTodo(){
-  const [ps,pac,cit,nts,pgs,fac,cie] = await Promise.all([
+  const [ps,pac,cit,nts,pgs,fac,cie,rep] = await Promise.all([
     sb.from("psicologas").select("*"),
     sb.from("pacientes").select("*"),
     sb.from("citas").select("*"),
@@ -1026,9 +1029,10 @@ async function cargarTodo(){
     sb.from("pagos").select("*"),
     sb.from("facturas").select("*"),
     sb.from("cierres").select("*").order("creado_en",{ascending:false}),
+    sb.from("reparto_psicologas").select("*"),
   ]);
   estado.psicologas=(ps.data||[]).map(r=>({id:r.id,nombre:r.nombre,color:r.color,admin:r.es_direccion,atiende:r.atiende!==false,activa:r.activa!==false,tel:r.telefono,cedula:r.cedula}));
-  estado.pacientes=(pac.data||[]).map(r=>({id:r.id,nombre:r.nombre,edad:r.edad,nac:r.fecha_nacimiento||null,tutor:r.tutor,tel:r.telefono,motivo:r.motivo,tarifa:Number(r.tarifa)||0,pagoPsic:r.pago_psicologa==null? null : Number(r.pago_psicologa),asignada:r.asignada_a,activo:r.activo!==false}));
+  estado.pacientes=(pac.data||[]).map(r=>({id:r.id,nombre:r.nombre,edad:r.edad,nac:r.fecha_nacimiento||null,tutor:r.tutor,tel:r.telefono,motivo:r.motivo,tarifa:Number(r.tarifa)||0,asignada:r.asignada_a,activo:r.activo!==false}));
   estado.citas=(cit.data||[]).map(r=>({id:r.id,fecha:r.fecha,hora:(r.hora||"").slice(0,5),dur:r.duracion,psic:r.psicologa_id,pac:r.paciente_id,
     estado:r.estado||"programada",confirmadaPor:r.confirmada_por||null}));
   estado.notas=(nts.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,pac:r.paciente_id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,texto:r.texto,revisada:r.revisada,vistaPsic:r.vista_psic!==false,
@@ -1037,11 +1041,13 @@ async function cargarTodo(){
   estado.facturas=(fac.data||[]).map(r=>({id:r.id,pac:r.paciente_id,monto:Number(r.monto)||0,estado:r.estado,solicitadaPor:r.solicitada_por,solicitada:r.fecha_solicitada,emitida:r.fecha_emitida,entregada:r.fecha_entregada}));
   estado.cierres=(cie.data||[]).map(r=>{ const _t=localFH(r.creado_en,r.fecha,r.hora); return {id:r.id,psic:r.psicologa_id,fecha:_t.f,hora:_t.h,notas:r.notas_pendientes,cobros:r.cobros_pendientes,
     detalle:Array.isArray(r.detalle)? r.detalle : [],revisado:!!r.revisado_por}; });
+  // Lo que le toca a cada psicóloga por sesión (sql/reparto.sql). Cada psicóloga solo recibe lo suyo
+  estado.reparto={}; (rep.data||[]).forEach(r=>{ estado.reparto[r.psicologa_id]={tipo:r.tipo, valor:Number(r.valor)||0}; });
 }
 async function refrescar(){ await cargarTodo(); render(); }
 let _suscrito=false;
 function suscribir(){ if(_suscrito) return; _suscrito=true;
-  ["pacientes","citas","notas","comentarios","pagos","facturas","cierres","psicologas"].forEach(t=>{
+  ["pacientes","citas","notas","comentarios","pagos","facturas","cierres","psicologas","reparto_psicologas"].forEach(t=>{
     sb.channel("rt-"+t).on("postgres_changes",{event:"*",schema:"public",table:t}, async ()=>{ await cargarTodo(); render(); }).subscribe();
   });
 }
@@ -1103,7 +1109,7 @@ function renderCuenta(){ const v=viewer(); if(!v) return;
 }
 // Respaldo: Dirección descarga todo en un archivo (lo que le deja ver la base, que para Dirección es todo).
 // No incluye los teléfonos con avisos ni el registro de avisos enviados.
-const TABLAS_RESPALDO=["psicologas","pacientes","citas","notas","comentarios","pagos","facturas","cierres"];
+const TABLAS_RESPALDO=["psicologas","reparto_psicologas","pacientes","citas","notas","comentarios","pagos","facturas","cierres"];
 function textoUltimoRespaldo(){ let u=null; try{ u=localStorage.getItem("ultimoRespaldo"); }catch(_){}
   if(!u) return "Aún no has descargado uno en este teléfono";
   const d=Math.round((new Date(hoyISO()+"T12:00:00")-new Date(u+"T12:00:00"))/86400000);
@@ -2044,11 +2050,12 @@ function lineaRes(ico, txt, monto, cls){ return `<div class="res-l${cls?" "+cls:
 function nombreCorto(p){ return corto((p||{nombre:"—"}).nombre).split(" ")[0]; }
 function plural(n, uno, varios){ return n+" "+(n===1? uno : varios); }
 function renglonCorte(txt, n, cls){ return `<div class="reng${cls?" "+cls:""}"><span>${txt}</span><span class="num">${n}</span></div>`; }
-// Lo acordado por paciente: lo que se cobra y lo que le toca a la psicóloga (si no se capturó, la mitad).
-// Las sesiones de Dirección son íntegras para ella.
-function repartoPac(pacId, psicId){ const p=pac(pacId)||{}, t=p.tarifa||0;
+// Lo acordado por sesión: se cobra la tarifa del paciente y a quien da la sesión le toca lo suyo, sea de quien sea el
+// paciente (Equipo: monto fijo o porcentaje; si no se ha puesto, la mitad). Lo de la directora es íntegro para Dirección.
+function repartoPac(pacId, psicId){ const t=(pac(pacId)||{}).tarifa||0, r=estado.reparto[psicId];
   if((psic(psicId)||{}).admin) return {tarifa:t, toca:0, mitad:false, dir:true};
-  return {tarifa:t, toca: p.pagoPsic!=null? p.pagoPsic : Math.round(t/2), mitad:p.pagoPsic==null, dir:false}; }
+  return {tarifa:t, toca: !r? Math.round(t/2) : r.tipo==="fijo"? r.valor : Math.round(t*r.valor/100), mitad:!r, dir:false}; }
+function reglaTxt(r){ return r.tipo==="fijo"? `${mxn(r.valor)} por sesión` : `${r.valor} % de lo que se cobra en cada sesión`; }
 // Corte de una psicóloga en el periodo, sesión por sesión. Cada sesión dada espera un cobro: primero el ligado a la
 // cita, luego uno sin cita del mismo paciente y día, y luego cualquiera sin cita del mismo paciente (si pagó otro día).
 // Los cobros que sobran: si son de una sesión de otro periodo (pago atrasado o adelantado) solo cuentan como dinero;
@@ -2254,7 +2261,9 @@ function renderEquipo(){ const adm=esAdmin();
       <span class="av" style="background:${p.color}">${esc(iniciales(p.nombre))}</span>
       <div style="flex:1; min-width:0"><b>${esc(p.nombre)}</b>
         <div class="datos">📞 ${esc(p.tel||"—")}${p.admin?"":` · céd. ${esc(p.cedula||"—")}`}</div>
-        ${adm && correosEquipo[p.id]? `<div class="datos">✉️ ${esc(correosEquipo[p.id])}</div>` : ""}</div>
+        ${adm && correosEquipo[p.id]? `<div class="datos">✉️ ${esc(correosEquipo[p.id])}</div>` : ""}
+        ${adm && !p.admin? (estado.reparto[p.id]? `<div class="datos">💰 Le toca ${reglaTxt(estado.reparto[p.id])}</div>`
+          : `<div class="datos falta-regla">⚠ Falta poner cuánto le toca por sesión (mientras, se toma la mitad)</div>`) : ""}</div>
       <span class="tag">${p.activa===false? "Baja" : p.admin?(p.atiende===false?"Soporte":"Dirección"):"Psicóloga"}</span>${adm?`<span class="flecha-eq">›</span>`:""}</div>`;
   const activas=estado.psicologas.filter(p=>p.activa!==false), bajas=estado.psicologas.filter(p=>p.activa===false);
   document.getElementById("equipoCard").innerHTML=activas.map(fila).join("")
@@ -2740,12 +2749,12 @@ function abrirPaciente(){
   document.getElementById("paTituloModal").textContent="Nuevo paciente";
   document.getElementById("paGuardar").textContent="Guardar paciente";
   document.getElementById("paNombre").value=""; document.getElementById("paNac").value=""; pacEdadAntes=null; textoEdadPac();
-  document.getElementById("paTel").value=""; document.getElementById("paTutor").value=""; document.getElementById("paMotivo").value=""; document.getElementById("paTarifa").value=600; document.getElementById("paPagoPsic").value="";
+  document.getElementById("paTel").value=""; document.getElementById("paTutor").value=""; document.getElementById("paMotivo").value=""; document.getElementById("paTarifa").value=600;
   const campo=document.getElementById("paAsignadaCampo");
   if(esAdmin()){ campo.style.display=""; document.getElementById("paAsignada").innerHTML=opciones(atienden(),"id","nombre");
     document.getElementById("paAsignada").value=psicPorDefecto(); }
   else campo.style.display="none";
-  camposPaciente(); abrir("modalPaciente");
+  abrir("modalPaciente");
 }
 function abrirEditarPaciente(id){
   if(!esAdmin()) return;
@@ -2759,19 +2768,11 @@ function abrirEditarPaciente(id){
   document.getElementById("paTutor").value=(p.tutor&&p.tutor!=="—")?p.tutor:"";
   document.getElementById("paMotivo").value=(p.motivo&&p.motivo!=="—")?p.motivo:"";
   document.getElementById("paTarifa").value=p.tarifa||0;
-  document.getElementById("paPagoPsic").value=p.pagoPsic==null? "" : p.pagoPsic;
   const campo=document.getElementById("paAsignadaCampo"); campo.style.display="";
   document.getElementById("paAsignada").innerHTML=opciones(atienden(),"id","nombre");
   if(p.asignada) document.getElementById("paAsignada").value=p.asignada;
-  camposPaciente(); abrir("modalPaciente");
+  abrir("modalPaciente");
 }
-// Si el paciente es de Dirección (la directora), todo lo cobrado es para ella: no hay "le toca a la psicóloga"
-function pacienteDeDireccion(){ const s=document.getElementById("paAsignada"); return !!(esAdmin() && s.value && (psic(s.value)||{}).admin); }
-function camposPaciente(){ const dir=pacienteDeDireccion();
-  document.getElementById("paPagoCampo").style.display=dir?"none":"";
-  document.getElementById("paPagoHint").textContent= dir? "Paciente de Dirección: todo lo que se cobra es para ella, no hay reparto."
-    : "Lo que le toca a la psicóloga por cada sesión con este paciente. Si lo dejas vacío, se calcula la mitad de lo que se cobra.";
-  document.getElementById("paDinero").style.gridTemplateColumns= dir? "minmax(0,1fr)" : ""; }
 let pacEdadAntes=null;
 function textoEdadPac(){ const f=document.getElementById("paNac").value, t=document.getElementById("paEdadTxt");
   t.textContent= f? (f>hoyISO()? "La fecha no puede ser futura" : "Tiene "+(edadTxt({nac:f})||"—"))
@@ -2784,8 +2785,6 @@ async function guardarPaciente(){
   const datos={ nombre, fecha_nacimiento:nac, edad: nac? edadDe({nac}) : pacEdadAntes,
     telefono:document.getElementById("paTel").value.trim()||null, tutor:document.getElementById("paTutor").value.trim()||null,
     motivo:document.getElementById("paMotivo").value.trim()||null, tarifa:+document.getElementById("paTarifa").value||0 };
-  const pp=document.getElementById("paPagoPsic").value.trim();
-  if(esAdmin()) datos.pago_psicologa= pp==="" || pacienteDeDireccion()? null : Math.max(0,+pp);
   if(esAdmin()) datos.asignada_a=document.getElementById("paAsignada").value;
   if(pacienteEditId){
     const {error}=await sb.from("pacientes").update(datos).eq("id",pacienteEditId);
@@ -2827,30 +2826,52 @@ function abrirPsic(id){ if(!esAdmin()) return; const p=id? psic(id) : null; psEd
   document.getElementById("psCuenta").style.display=p? "none" : "";
   document.getElementById("psNombre").value=p? p.nombre : ""; document.getElementById("psTel").value=p? p.tel||"" : "";
   document.getElementById("psCedula").value=p? p.cedula||"" : ""; document.getElementById("psCorreo").value=""; document.getElementById("psClave").value="";
+  const r=p? estado.reparto[p.id] : null;
+  document.getElementById("psPagoCampo").style.display= p && p.admin? "none" : "";   // lo de la directora es de Dirección
+  document.getElementById("psPagoValor").value= r? r.valor : ""; tipoPago(r? r.tipo : "fijo");
   coloresPsic(p && p.color); cerrar("modalAcciones"); abrir("modalPsic"); }
+// Lo que le toca: un monto fijo por sesión (ej. $150) o un porcentaje de lo que se cobra (ej. 50 %)
+let psPagoTipo="fijo";
+function tipoPago(t){ psPagoTipo=t; document.querySelectorAll("#psPagoTipo button").forEach(b=>b.classList.toggle("on", b.dataset.t===t));
+  const i=document.getElementById("psPagoValor"); i.placeholder= t==="fijo"? "Ej. 150" : "Ej. 50"; i.max= t==="fijo"? "" : "100";
+  document.getElementById("psPagoHint").textContent= (t==="fijo"? "Pesos por cada sesión que dé, sea de quien sea el paciente."
+    : "Porcentaje de lo que se cobra en cada sesión que dé (50 = la mitad).") + " Si lo dejas vacío, se toma la mitad."; }
+function valorPago(){ const v=document.getElementById("psPagoValor").value.trim();
+  if(v==="") return {ok:true, valor:null};
+  const n=+v; return {ok: isFinite(n) && n>=0 && (psPagoTipo!=="porcentaje" || n<=100), valor:n}; }
+async function guardarReparto(id){ const {valor}=valorPago();
+  if(valor==null) return estado.reparto[id]? (await sb.from("reparto_psicologas").delete().eq("psicologa_id",id)).error : null;
+  return (await sb.from("reparto_psicologas").upsert({psicologa_id:id, tipo:psPagoTipo, valor, actualizado_en:new Date().toISOString()}, {onConflict:"psicologa_id"})).error; }
 function elegirColor(c){ psColorSel=c; document.querySelectorAll("#psColores .sw").forEach(s=>s.classList.toggle("sel", s.dataset.c===c)); }
 async function guardarPsic(){ if(!esAdmin()) return;
   const nombre=document.getElementById("psNombre").value.trim(), tel=document.getElementById("psTel").value.trim(), ced=document.getElementById("psCedula").value.trim();
   if(!nombre){ toast("Escribe el nombre","err"); return; }
+  const conPago=document.getElementById("psPagoCampo").style.display!=="none";
+  if(conPago && !valorPago().ok){ toast(psPagoTipo==="porcentaje"? "El porcentaje va de 0 a 100" : "Revisa el monto por sesión","err"); return; }
   const g=document.getElementById("psGuardar"); g.disabled=true;
   try{
     if(psEditId){
       const {error}=await sb.from("psicologas").update({nombre, telefono:tel||null, cedula:ced||null, color:psColorSel}).eq("id",psEditId);
       if(error){ toast("No se pudo guardar: "+error.message,"err"); return; }
-      cerrar("modalPsic"); await refrescar(); toast("Datos guardados ✓","ok"); return; }
+      const e2=conPago? await guardarReparto(psEditId) : null;
+      cerrar("modalPsic"); await refrescar();
+      if(e2){ toast("Se guardaron sus datos, pero no lo que le toca: "+e2.message,"err"); return; }
+      toast("Datos guardados ✓","ok"); return; }
     const correo=document.getElementById("psCorreo").value.trim(), clave=document.getElementById("psClave").value;
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)){ toast("Escribe su correo","err"); return; }
     if(clave.length<8){ toast("La contraseña temporal debe tener al menos 8 caracteres","err"); return; }
     const r=await llamarEquipo({accion:"crear", nombre, correo, clave, telefono:tel, cedula:ced, color:psColorSel});
     if(r.error){ toast(r.error,"err"); return; }
+    const nueva=(r.data||{}).id, e2=nueva? await guardarReparto(nueva) : null;
     cerrar("modalPsic"); await refrescar(); cargarCorreosEquipo();
+    if(e2){ toast("Se creó su cuenta, pero no se guardó lo que le toca: "+e2.message,"err"); return; }
     toast(`Cuenta creada ✓ Dale a ${corto(nombre)} su correo y la contraseña temporal`,"ok");
   } finally { g.disabled=false; } }
 function menuPsic(id){ if(!esAdmin()) return; const p=psic(id); if(!p) return; const yo=id===estado.quien;
   document.getElementById("accTitulo").textContent=p.nombre;
   document.getElementById("accSub").textContent=correosEquipo[id]||"";
   const b=[], boton=(txt,fn,cls)=>`<button class="acc-btn${cls?" "+cls:""}" onclick="${fn}">${txt}</button>`;
-  b.push(boton("✎ Nombre, teléfono, cédula y color", `abrirPsic('${id}')`));
+  b.push(boton(p.admin? "✎ Nombre, teléfono, cédula y color" : "✎ Datos y lo que le toca por sesión", `abrirPsic('${id}')`));
   b.push(boton("✉️ Cambiar correo de entrada", `cuentaPsic('${id}','correo')`));
   b.push(boton("🔑 Poner contraseña temporal", `cuentaPsic('${id}','clave')`));
   if(!yo && !p.admin) b.push(p.activa===false? boton("↩︎ Reactivar: que pueda volver a entrar", `bajaPsic('${id}',false)`)

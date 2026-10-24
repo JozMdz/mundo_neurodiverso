@@ -54,7 +54,9 @@
   const pagos=[]; let gk=1;
   citas.filter(c=>c.fecha<=dia(0) && c.estado==="programada").forEach((c,i)=>{ if(i%4!==3) pagos.push({id:"g"+(gk++), paciente_id:c.paciente_id, psicologa_id:c.psicologa_id, monto:600, metodo:["efectivo","transferencia","tarjeta"][i%3], validado:i%2===0, fecha:c.fecha, hora:c.hora.slice(0,5), creado_en:new Date(c.fecha+"T"+c.hora).toISOString()}); });
   const facturas=[{id:"f1", paciente_id:"p2", monto:1200, estado:"solicitada", solicitada_por:"s1", fecha_solicitada:dia(-2)}, {id:"f2", paciente_id:"p4", monto:600, estado:"emitida", solicitada_por:"s2", fecha_solicitada:dia(-6), fecha_emitida:dia(-1)}];
-  const DB={psicologas:P, pacientes, citas, notas, comentarios, pagos, facturas, cierres:[]};
+  // Lo que le toca a cada psicóloga por sesión: Fernanda $150 fijos, Andrea 50 %, Sofía sin poner (se toma la mitad)
+  const reparto_psicologas=[{psicologa_id:"s1", tipo:"fijo", valor:150}, {psicologa_id:"s2", tipo:"porcentaje", valor:50}];
+  const DB={psicologas:P, pacientes, citas, notas, comentarios, pagos, facturas, cierres:[], reparto_psicologas};
   window.__DB=DB;
   let uid = (new URLSearchParams(location.search)).get("como") || window.__COMO || "d1";
   let nid=1000;
@@ -66,6 +68,7 @@
       eq(c,v){ st.filtros.push([c,v]); return b; },
       update(p){ st.op="update"; st.patch=p; return b; },
       insert(d){ st.op="insert"; st.datos=d; return b; },
+      upsert(d, o){ st.op="upsert"; st.datos=d; st.clave=(o||{}).onConflict||"id"; return b; },
       delete(){ st.op="delete"; return b; },
       then(ok,ko){ return Promise.resolve(run()).then(ok,ko); },
     };
@@ -84,6 +87,7 @@
           if(tabla==="cierres" && p.revisado_por) p.revisado_por=uid;   // como proteger_cierres
           Object.assign(r,p); }); return {data:null, error:null}; }
       if(st.op==="delete"){ for(let i=t.length-1;i>=0;i--) if(match(t[i])) t.splice(i,1); if(tabla==="notas") for(let i=DB.comentarios.length-1;i>=0;i--) if(!DB.notas.some(n=>n.id===DB.comentarios[i].nota_id)) DB.comentarios.splice(i,1); return {data:null, error:null}; }
+      if(st.op==="upsert"){ (Array.isArray(st.datos)?st.datos:[st.datos]).forEach(d=>{ const r=t.find(x=>x[st.clave]===d[st.clave]); if(r) Object.assign(r,d); else t.push({...d}); }); return {data:null, error:null}; }
       if(st.op==="insert"){ const arr=(Array.isArray(st.datos)?st.datos:[st.datos]).map(d=>({id:"m"+(nid++), creado_en:new Date().toISOString(), ...(tabla==="citas"? {estado:"programada", marcada_por:null, marcada_en:null, confirmada_por:null} : {}), ...d})); t.push(...arr); return {data: st.single? arr[0] : arr, error:null}; }
     }
     return b;
