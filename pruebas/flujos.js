@@ -93,7 +93,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
     'el gesto de regresar no cierra una nota a medio escribir');
   await page.evaluate(() => cerrar('modalNota'));
   // archivar
-  await page.tap('.px-acciones .btn >> nth=1'); await page.waitForTimeout(300);
+  await page.tap('.px-acciones .btn:has-text("Archivar")'); await page.waitForTimeout(300);
   ok(await visible(page, '.px-col-detalle') && (await page.textContent('.px-ficha-top h3')).includes('archivado'), 'al archivar se queda en el expediente con "Reactivar"');
   await page.goBack(); await page.waitForTimeout(250);
   ok(await page.$$eval('.px-filtros button', b => b.some(x => x.textContent.startsWith('Archivados'))), 'aparece el filtro "Archivados"');
@@ -1087,6 +1087,64 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.tap('#accBotones .conf-fila:has-text("Andrea") button'); await page.waitForTimeout(300);
   ok(!(await page.evaluate(() => __DB.accesos_expediente.some(a => a.paciente_id === 'p1' && a.psicologa_id === 's2'))), 'y se lo puede quitar');
   ok(await ancho(page) <= 414 && page.errores.length === 0, 'sin scroll horizontal ni errores ' + (page.errores.join(' | ') || ''));
+
+  console.log('Informes');
+  page = await abrir(browser, 'd1');
+  await page.evaluate(() => { localStorage.removeItem('membrete'); irA('expediente'); seleccionarPx('p1'); });
+  await page.tap('#expedienteDetalle .px-acciones button:has-text("Hacer informe")'); await page.waitForTimeout(200);
+  ok(await visible(page, '#modalInforme.abierto') && await page.inputValue('#ifd-nombre') === 'Mateo Hernández Ríos' && (await page.inputValue('#if-motivo')).length > 0
+    && await page.inputValue('#ifd-edad') !== '' && await page.inputValue('#ifd-tutor') !== '', 'el informe trae los datos del paciente que ya tiene la app');
+  await page.fill('#ifd-escolaridad', '2.º de primaria'); await page.fill('#if-resultados', 'Atención sostenida de 8 a 10 minutos.\n- Lenguaje acorde a su edad');
+  await page.waitForTimeout(700);
+  ok(await page.evaluate(() => { const b = JSON.parse(localStorage.getItem('informe:p1') || 'null'); return !!b && b.datos.escolaridad === '2.º de primaria' && b.ap.resultados.startsWith('Atención'); }),
+    'el borrador se guarda en este aparato mientras escribe');
+  await page.tap('#modalInforme .pie button:has-text("Cerrar")'); await page.waitForTimeout(150);
+  ok((await page.textContent('#expedienteDetalle .px-acciones')).includes('Seguir el informe'), 'la ficha avisa que hay un borrador');
+  await page.reload(); await page.waitForTimeout(700);
+  await page.evaluate(() => { irA('expediente'); seleccionarPx('p1'); abrirInforme('p1'); });
+  ok(await page.inputValue('#ifd-escolaridad') === '2.º de primaria' && (await page.textContent('#ifEstado')).includes('borrador'), 'si la app se cierra, al volver sigue el borrador');
+  const antesInf = await page.evaluate(() => JSON.stringify(__DB));
+  await page.tap('#ifCuerpo .seg-tema button:has-text("Constancia")'); await page.waitForTimeout(100);
+  ok(await page.inputValue('#ifTitulo') === 'Constancia' && (await page.inputValue('#if-constancia')).includes('Mateo Hernández Ríos') && !(await page.$('#ifd-nombre')),
+    'la constancia trae su texto con el nombre del paciente');
+  await page.tap('#ifCuerpo .seg-tema button:has-text("Informe")'); await page.waitForTimeout(100);
+  ok((await page.inputValue('#if-resultados')).startsWith('Atención') && await page.inputValue('#ifTitulo') === 'Informe psicológico' && await page.inputValue('#ifd-escolaridad') === '2.º de primaria',
+    'al regresar de tipo, lo escrito sigue ahí');
+  await page.tap('#ifCuerpo button:has-text("Membrete")'); await page.waitForTimeout(150);
+  ok(await visible(page, '#modalMembrete.abierto') && await page.inputValue('#mbNombre') === 'Mtra. Laura Gómez' && (await page.inputValue('#mbLineas')).includes('1111'),
+    'el membrete empieza con lo que ya está en Equipo');
+  await page.fill('#mbNombre', 'Mtra. Prueba Uno'); await page.fill('#mbLineas', 'Lic. en Psicología · Céd. Prof. 0000001\n\n Maestría · Céd. Prof. 0000002 ');
+  await page.fill('#mbCorreo', 'contacto@ejemplo.mx'); await page.fill('#mbCiudad', 'Ciudad Ejemplo'); await page.tap('#modalMembrete .pie .btn:not(.fantasma)'); await page.waitForTimeout(150);
+  ok(await page.evaluate(() => { const m = JSON.parse(localStorage.getItem('membrete')); return m.nombre === 'Mtra. Prueba Uno' && m.lineas === 'Lic. en Psicología · Céd. Prof. 0000001\nMaestría · Céd. Prof. 0000002'; })
+    && await visible(page, '#modalInforme.abierto'), 'el membrete se guarda en este aparato y se regresa al informe');
+  const docx = await page.evaluate(async () => {
+    let f = null; window.entregarArchivo = async a => { f = a; return true; };
+    await producirInforme();
+    const b = new Uint8Array(await f.arrayBuffer()), dv = new DataView(b.buffer), partes = {};
+    for (let o = 0; o + 4 <= b.length && dv.getUint32(o, true) === 0x04034b50;) {   // el zip va sin comprimir: cada archivo trae su encabezado
+      const tam = dv.getUint32(o + 18, true), ln = dv.getUint16(o + 26, true), lx = dv.getUint16(o + 28, true), ini = o + 30 + ln + lx;
+      const n = new TextDecoder().decode(b.subarray(o + 30, o + 30 + ln)), d = b.subarray(ini, ini + tam);
+      partes[n] = n.endsWith('.png') ? d.length : new TextDecoder().decode(d); o = ini + tam; }
+    const malos = Object.entries(partes).filter(([, t]) => typeof t === 'string' && new DOMParser().parseFromString(t, 'application/xml').querySelector('parsererror')).map(([n]) => n);
+    return { nombre: f.name, tipo: f.type, partes: Object.keys(partes), malos, doc: partes['word/document.xml'] || '', hdr: partes['word/header1.xml'] || '', ftr: partes['word/footer1.xml'] || '',
+      logo: partes['word/media/logo.png'], marca: partes['word/media/marca.png'], hoy: hoyISO(), listo: document.getElementById('modalAcciones').classList.contains('abierto') && document.getElementById('accTitulo').textContent };
+  });
+  ok(docx.nombre === `Informe psicológico - Mateo Hernández Ríos - ${docx.hoy}.docx` && /wordprocessingml/.test(docx.tipo), `produce un Word con nombre claro (${docx.nombre})`);
+  ok(docx.malos.length === 0 && ['[Content_Types].xml', '_rels/.rels', 'word/document.xml', 'word/styles.xml', 'word/header1.xml', 'word/footer1.xml'].every(n => docx.partes.includes(n)) && docx.logo > 1000 && docx.marca > 1000,
+    'el Word trae todas sus partes bien formadas, con el logo y el árbol de fondo ' + docx.malos.join(', '));
+  ok(docx.doc.includes('Mateo Hernández Ríos') && docx.doc.includes('2.º de primaria') && docx.doc.includes('Atención sostenida') && docx.doc.includes('•  Lenguaje') && !docx.doc.includes('Antecedentes relevantes')
+    && docx.doc.includes('Ciudad Ejemplo, a '), 'lleva lo escrito; los apartados vacíos no salen y los guiones salen como viñetas');
+  ok(docx.hdr.includes('Mtra. Prueba Uno') && docx.hdr.includes('0000002') && docx.ftr.includes('PAGE') && docx.ftr.includes('contacto@ejemplo.mx') && docx.ftr.includes('833-111-0000'), 'el membrete va arriba y el contacto y el número de hoja abajo');
+  ok(docx.listo === 'Informe listo', 'al producirlo ofrece guardarlo otra vez, seguir editando o terminar');
+  ok(await page.evaluate(a => JSON.stringify(__DB) === a, antesInf) && !(await page.evaluate(() => (window.__RPC || []).length)), 'nada del informe se manda a Supabase');
+  await page.tap('#accBotones .acc-btn:has-text("Terminar")'); await page.waitForTimeout(150);
+  ok(await page.evaluate(() => localStorage.getItem('informe:p1') === null) && (await page.textContent('#expedienteDetalle .px-acciones')).includes('Hacer informe'), 'al terminar se borra el borrador del aparato');
+  await page.evaluate(async () => { localStorage.setItem('informe:p2', '{"tipo":"psicologico"}'); await cerrarSesion(); });
+  ok(await page.evaluate(() => localStorage.getItem('informe:p2') === null && !!localStorage.getItem('membrete')), 'al salir se borran los borradores (el membrete se queda)');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+  page = await abrir(browser, 's1');
+  await page.evaluate(() => { irA('expediente'); seleccionarPx('p1'); });
+  ok(!(await page.$('#expedienteDetalle button:has-text("informe")')), 'las psicólogas no hacen informes');
 
   console.log('Dirección en computadora');
   page = await abrir(browser, 'd1', { viewport: { width: 1280, height: 800 } });
