@@ -1,14 +1,14 @@
 # Identidad de Mundo Neurodiverso
 
-Archivos editables del logo, tal como los entregó la diseñadora (Adobe Illustrator, noviembre 2025).
-Son el punto de partida para todo lo que lleve la marca: la app, los íconos y los informes en Word.
-Este repositorio es público y GitHub Pages publica estos archivos; aquí solo va la marca, nunca datos de pacientes.
+Las versiones del logo en imagen, tal como las entregó la diseñadora (noviembre 2025). Son el punto de partida
+para todo lo que lleve la marca: la app, los íconos y los informes en Word.
+
+Este repositorio es público y GitHub Pages publica estos archivos. Por eso aquí solo van las imágenes: los
+originales editables (Illustrator y PDF en vectores) no se suben, se guardan aparte. Nunca van datos de pacientes.
 
 ## Archivos (`editables/`)
 
-- `Mundo Neurodiverso.ai`: el original editable, con las 20 mesas de trabajo. Se abre en Illustrator.
-- `Mundo Neurodiverso.pdf`: las mismas 20 mesas de trabajo, una por página, en vectores.
-- `Mundo Neurodiverso_ARTBOARDnn.png`: cada mesa de trabajo en PNG con fondo transparente (unos 1180 px de ancho).
+`Mundo Neurodiverso_ARTBOARDnn.png`: cada versión (mesa de trabajo) en PNG con fondo transparente, de unos 1180 px de ancho.
 
 | Mesa | Qué es |
 |---|---|
@@ -48,4 +48,4 @@ Este repositorio es público y GitHub Pages publica estos archivos; aquí solo v
 Son casi los mismos de `:root` en `index.html` (`--morado`, `--verde`, `--rosa`, `--cian`, `--naranja`, `--amarillo`).
 La letra del texto es redondeada, como Fredoka, la de los títulos de la app.
 
-Si la diseñadora manda una versión nueva, reemplaza los archivos de `editables/` con los mismos nombres.
+Si la diseñadora manda una versión nueva, reemplaza los PNG de `editables/` con los mismos nombres (sin el .ai ni el PDF).
