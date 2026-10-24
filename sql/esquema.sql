@@ -2,7 +2,7 @@
 --
 -- Reconstruida el 15 oct 2026 con sql/inventario.sql y sql/revisar.sql; ya incluye sql/seguridad.sql,
 -- sql/ajustes.sql, sql/citas-estado.sql, sql/pago-psicologa.sql,
--- sql/cierres-detalle.sql, sql/avisos.sql, sql/cobro-cita.sql, sql/equipo.sql y sql/reparto.sql (sql/avisos-programar.sql va aparte: necesita pg_cron). Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
+-- sql/cierres-detalle.sql, sql/avisos.sql, sql/cobro-cita.sql, sql/equipo.sql, sql/reparto.sql y sql/acceso-expediente.sql (sql/avisos-programar.sql va aparte: necesita pg_cron). Sirve de referencia y para recrear la base en un proyecto nuevo de Supabase
 -- (SQL Editor → pega todo → Run). Si cambias la base, actualiza este archivo para que siga siendo fiel.
 
 begin;
@@ -109,6 +109,15 @@ create table public.reparto_psicologas (
   actualizado_en timestamptz not null default now()
 );
 
+-- De sql/acceso-expediente.sql: a quién le dio Dirección acceso al historial de un paciente que no es suyo
+create table public.accesos_expediente (
+  paciente_id uuid not null references public.pacientes(id) on delete cascade,
+  psicologa_id uuid not null references public.psicologas(id) on delete cascade,
+  otorgado_por uuid references public.psicologas(id) default auth.uid(),
+  creado_en timestamptz not null default now(),
+  primary key (paciente_id, psicologa_id)
+);
+
 -- De sql/avisos.sql: teléfonos con avisos y avisos ya mandados (solo los usa la función "avisar")
 create table public.push_subs (
   endpoint text primary key,
@@ -141,11 +150,12 @@ language sql stable security definer set search_path to 'public' as $$
   select coalesce((select es_direccion from public.psicologas where id = auth.uid()), false);
 $$;
 
--- Pacientes de la usuaria: asignados a ella o con alguna cita con ella
+-- Pacientes cuyo historial ve la usuaria (notas y comentarios): asignados a ella o con acceso que le dio Dirección.
+-- Si solo lo cubre (tiene una cita con él), ve sus datos y sus propias notas, no el historial
 create function public.mi_paciente(pid uuid) returns boolean
 language sql stable security definer set search_path to 'public' as $$
   select exists (select 1 from public.pacientes p where p.id = pid and p.asignada_a = auth.uid())
-      or exists (select 1 from public.citas c where c.paciente_id = pid and c.psicologa_id = auth.uid());
+      or exists (select 1 from public.accesos_expediente a where a.paciente_id = pid and a.psicologa_id = auth.uid());
 $$;
 
 -- Nota escrita por Dirección: le aparece como mensaje nuevo a la psicóloga
@@ -373,6 +383,7 @@ alter table public.cierres     enable row level security;
 alter table public.push_subs   enable row level security;
 alter table public.avisos_enviados enable row level security;
 alter table public.reparto_psicologas enable row level security;
+alter table public.accesos_expediente enable row level security;
 
 create policy p_psico_select on public.psicologas for select to authenticated using (true);
 create policy p_psico_insert on public.psicologas for insert to authenticated with check (es_direccion());
@@ -381,6 +392,10 @@ create policy p_psico_update on public.psicologas for update to authenticated us
 -- Cada psicóloga lee solo lo que le toca a ella; solo Dirección lo pone o lo cambia
 create policy p_rep_select on public.reparto_psicologas for select to authenticated using (es_direccion() or psicologa_id = auth.uid());
 create policy p_rep_write on public.reparto_psicologas for all to authenticated using (es_direccion()) with check (es_direccion());
+
+-- Acceso al historial: cada psicóloga ve los suyos; solo Dirección los da o los quita
+create policy p_acc_select on public.accesos_expediente for select to authenticated using (es_direccion() or psicologa_id = auth.uid());
+create policy p_acc_write on public.accesos_expediente for all to authenticated using (es_direccion()) with check (es_direccion());
 
 create policy p_pac_select on public.pacientes for select to authenticated using (es_direccion() or asignada_a = auth.uid()
   or exists (select 1 from public.citas c where c.paciente_id = pacientes.id and c.psicologa_id = auth.uid())
@@ -432,6 +447,6 @@ grant execute on function public.guardar_suscripcion(text, text, text), public.b
 
 -- ================= Tiempo real =================
 alter publication supabase_realtime add table public.psicologas, public.pacientes, public.citas, public.notas,
-  public.comentarios, public.pagos, public.facturas, public.cierres, public.reparto_psicologas;
+  public.comentarios, public.pagos, public.facturas, public.cierres, public.reparto_psicologas, public.accesos_expediente;
 
 commit;

@@ -39,3 +39,13 @@ insert into cierres (psicologa_id, notas_pendientes, cobros_pendientes, detalle)
 insert into reparto_psicologas (psicologa_id, tipo, valor) values
   ('00000000-0000-0000-0000-0000000000a1', 'fijo', 150),
   ('00000000-0000-0000-0000-0000000000a2', 'porcentaje', 50);
+-- Paciente de la directora (b3) y coberturas de Andrea: 76 cubre a b1 (de Fernanda), 77 cubre a b3 con acceso al historial
+insert into pacientes (id, nombre, asignada_a) values
+  ('00000000-0000-0000-0000-0000000000b3', 'Paciente de la directora', '00000000-0000-0000-0000-0000000000d1');
+insert into notas (id, paciente_id, psicologa_id, texto, revisada) values
+  ('00000000-0000-0000-0000-0000000000e5', '00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-0000000000d1', 'Nota de la directora', true);
+insert into citas (id, fecha, hora, psicologa_id, paciente_id, estado, confirmada_por) values
+  ('00000000-0000-0000-0000-000000000076', current_date - 1, '17:00', '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000b1', 'programada', null),
+  ('00000000-0000-0000-0000-000000000077', current_date - 1, '18:00', '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000b3', 'programada', null);
+insert into accesos_expediente (paciente_id, psicologa_id, otorgado_por) values
+  ('00000000-0000-0000-0000-0000000000b3', '00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-0000000000d1');

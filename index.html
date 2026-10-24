@@ -288,6 +288,7 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   .px-dato dd{font-size:14.5px; font-weight:700; margin-top:1px; overflow-wrap:anywhere;}
   .px-dato a{font-weight:800; text-decoration:none;}
   .px-acciones{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px;}
+  .px-cubre{margin-top:14px; padding:10px 12px; border-radius:var(--r-sm); background:var(--suave); color:var(--texto2); font-size:13.5px; font-weight:700;}
   .px-notas-cab{display:flex; align-items:center; gap:8px; margin:20px 0 10px 4px;}
   .px-notas-cab .btn{margin-left:auto;}
   .px-notas-cab h3{font-size:17px;} .px-notas-cab span{font-size:13px; color:var(--gris); font-weight:800;}
@@ -973,7 +974,7 @@ const sb = supabase.createClient(
   configPendiente() ? "public-anon-placeholder"         : SUPABASE_ANON_KEY
 );
 const estado = {
-  psicologas:[], pacientes:[], citas:[], notas:[], pagos:[], facturas:[], cierres:[], reparto:{},
+  psicologas:[], pacientes:[], citas:[], notas:[], pagos:[], facturas:[], cierres:[], reparto:{}, accesos:[],
   fechaAgenda:hoyISO(), quien:null, filtroPx:"activos", vistaAgenda:"dia",
   cobrosPeriodo:{tipo:"semana", desde:hoyISO(), hasta:hoyISO()}, cortePsic:null,
 };
@@ -1021,7 +1022,7 @@ async function reactivarPaciente(id){ if(!esAdmin()) return; const {error}=await
 /* ---- LOGIN ---- */
 function renderLoginAccts(){ const el=document.getElementById("loginAccts"); if(el) el.innerHTML=""; }
 async function cargarTodo(){
-  const [ps,pac,cit,nts,pgs,fac,cie,rep] = await Promise.all([
+  const [ps,pac,cit,nts,pgs,fac,cie,rep,acc] = await Promise.all([
     sb.from("psicologas").select("*"),
     sb.from("pacientes").select("*"),
     sb.from("citas").select("*"),
@@ -1030,6 +1031,7 @@ async function cargarTodo(){
     sb.from("facturas").select("*"),
     sb.from("cierres").select("*").order("creado_en",{ascending:false}),
     sb.from("reparto_psicologas").select("*"),
+    sb.from("accesos_expediente").select("*"),
   ]);
   estado.psicologas=(ps.data||[]).map(r=>({id:r.id,nombre:r.nombre,color:r.color,admin:r.es_direccion,atiende:r.atiende!==false,activa:r.activa!==false,tel:r.telefono,cedula:r.cedula}));
   estado.pacientes=(pac.data||[]).map(r=>({id:r.id,nombre:r.nombre,edad:r.edad,nac:r.fecha_nacimiento||null,tutor:r.tutor,tel:r.telefono,motivo:r.motivo,tarifa:Number(r.tarifa)||0,asignada:r.asignada_a,activo:r.activo!==false}));
@@ -1043,11 +1045,13 @@ async function cargarTodo(){
     detalle:Array.isArray(r.detalle)? r.detalle : [],revisado:!!r.revisado_por}; });
   // Lo que le toca a cada psicóloga por sesión (sql/reparto.sql). Cada psicóloga solo recibe lo suyo
   estado.reparto={}; (rep.data||[]).forEach(r=>{ estado.reparto[r.psicologa_id]={tipo:r.tipo, valor:Number(r.valor)||0}; });
+  // A quién le dio Dirección acceso al historial de un paciente que no es suyo (sql/acceso-expediente.sql)
+  estado.accesos=(acc.data||[]).map(r=>({pac:r.paciente_id, psic:r.psicologa_id}));
 }
 async function refrescar(){ await cargarTodo(); render(); }
 let _suscrito=false;
 function suscribir(){ if(_suscrito) return; _suscrito=true;
-  ["pacientes","citas","notas","comentarios","pagos","facturas","cierres","psicologas","reparto_psicologas"].forEach(t=>{
+  ["pacientes","citas","notas","comentarios","pagos","facturas","cierres","psicologas","reparto_psicologas","accesos_expediente"].forEach(t=>{
     sb.channel("rt-"+t).on("postgres_changes",{event:"*",schema:"public",table:t}, async ()=>{ await cargarTodo(); render(); }).subscribe();
   });
 }
@@ -1109,7 +1113,7 @@ function renderCuenta(){ const v=viewer(); if(!v) return;
 }
 // Respaldo: Dirección descarga todo en un archivo (lo que le deja ver la base, que para Dirección es todo).
 // No incluye los teléfonos con avisos ni el registro de avisos enviados.
-const TABLAS_RESPALDO=["psicologas","reparto_psicologas","pacientes","citas","notas","comentarios","pagos","facturas","cierres"];
+const TABLAS_RESPALDO=["psicologas","reparto_psicologas","pacientes","accesos_expediente","citas","notas","comentarios","pagos","facturas","cierres"];
 function textoUltimoRespaldo(){ let u=null; try{ u=localStorage.getItem("ultimoRespaldo"); }catch(_){}
   if(!u) return "Aún no has descargado uno en este teléfono";
   const d=Math.round((new Date(hoyISO()+"T12:00:00")-new Date(u+"T12:00:00"))/86400000);
@@ -1687,6 +1691,30 @@ function filtrarPx(f){ estado.filtroPx=f; renderExpediente(); }
 const gruposPx=new Set(); let gruposPxListo=false;
 function toggleGrupoPx(id){ if(gruposPx.has(id)) gruposPx.delete(id); else gruposPx.add(id); renderExpediente(); }
 
+// Historial del paciente: lo ve Dirección, su psicóloga asignada y a quien Dirección le dé acceso. Quien solo lo cubre
+// (tiene una cita con él) ve sus datos y sus propias notas
+function veHistorial(p){ return esAdmin() || p.asignada===estado.quien || estado.accesos.some(a=>a.pac===p.id && a.psic===estado.quien); }
+function quienesVenHistorial(p){ return estado.psicologas.filter(x=>!x.admin && x.activa!==false && (x.id===p.asignada || estado.accesos.some(a=>a.pac===p.id && a.psic===x.id))); }
+function menuHistorial(pacId){ const p=pac(pacId); if(!esAdmin() || !p) return;
+  document.getElementById("accTitulo").textContent="Quién ve su historial";
+  document.getElementById("accSub").textContent="Su psicóloga lo ve siempre. Quien solo lo cubre ve sus propias notas, a menos que le des acceso.";
+  document.getElementById("accCerrar").textContent="Listo";
+  const sesiones=id=>estado.citas.filter(c=>c.pac===pacId && c.psic===id && c.estado!=="cancelada").length;
+  const otras=atienden().filter(x=>!x.admin && x.id!==p.asignada).sort((a,b)=>sesiones(b.id)-sesiones(a.id));
+  const asig=psic(p.asignada);
+  document.getElementById("accBotones").innerHTML=(asig && !asig.admin? `<div class="conf-fila"><b>${esc(corto(asig.nombre))}</b><span class="cuando" style="color:var(--ok)">Es su psicóloga · ve todo</span></div>` : "")
+    + otras.map(x=>{ const on=estado.accesos.some(a=>a.pac===pacId && a.psic===x.id), n=sesiones(x.id);
+      return `<div class="conf-fila"><b>${esc(corto(x.nombre))}</b>
+        <span class="cuando">${on? "Ve todo su historial" : n? `Lo ha cubierto (${plural(n,"cita","citas")}) · solo ve sus notas` : "No lo ve"}</span>
+        <div class="conf-acc"><button class="btn${on?" fantasma":""}" onclick="accesoHistorial('${pacId}','${x.id}',${!on})">${on? "Quitar acceso" : "Dar acceso"}</button></div></div>`; }).join("")
+    || `<div class="vacio">No hay otras psicólogas</div>`;
+  abrir("modalAcciones"); }
+async function accesoHistorial(pacId, psicId, dar){ if(!esAdmin()) return;
+  const {error}= dar? await sb.from("accesos_expediente").insert({paciente_id:pacId, psicologa_id:psicId})
+    : await sb.from("accesos_expediente").delete().eq("paciente_id",pacId).eq("psicologa_id",psicId);
+  if(error){ toast("No se pudo: "+error.message,"err"); return; }
+  await refrescar(); menuHistorial(pacId);
+  toast(dar? `${corto((psic(psicId)||{}).nombre||"")} ya ve su historial ✓` : "Acceso quitado ✓","ok"); }
 function renderExpediente(){
   const admin=esAdmin();
   const visibles=pacientesVisibles();
@@ -1774,7 +1802,9 @@ function renderExpediente(){
   const borradores={}; cont.querySelectorAll("input[id^='com'], textarea[id^='notaedit-']").forEach(el=>borradores[el.id]=el.value);
   const foco=cont.contains(document.activeElement)? document.activeElement.id : null;
 
-  const notas=estado.notas.filter(n=>n.pac===p.id).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+  // Si solo lo cubre, ve sus propias notas; el historial, con acceso de Dirección (la base hace cumplir lo mismo)
+  const historial=veHistorial(p);
+  const notas=estado.notas.filter(n=>n.pac===p.id && (historial || n.psic===estado.quien)).sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));
   const ps=psic(p.asignada), tel=dato(p.tel);
   const meta=[edadTxt(p), dato(p.tutor)? esc(p.tutor) : null].filter(Boolean).join(" · ");
   // Historial en la agenda: próxima cita, sesiones dadas y faltas (para ver quién falta seguido)
@@ -1789,10 +1819,12 @@ function renderExpediente(){
     `<div class="px-dato"><dt>${admin? "Próxima cita" : "Tu próxima cita"}</dt><dd>${prox? fechaCorta(prox.fecha,true)+" · "+prox.hora+(proxPs? " · "+esc(corto(proxPs.nombre)) : "") : "Sin agendar"}</dd></div>`,
     `<div class="px-dato"><dt>${admin? "Asistencia" : "Tus sesiones"}</dt><dd${faltaSeguido?' class="falta-seguido"':''}>${dadas} ${dadas===1?"sesión":"sesiones"} · ${faltas} ${faltas===1?"falta":"faltas"}${faltaSeguido?" · falta seguido":""}</dd></div>`,
     `<div class="px-dato"><dt>Notas</dt><dd>${notas.length}</dd></div>`,
+    admin? `<div class="px-dato ancho"><dt>Ven todo su historial</dt><dd>${esc(quienesVenHistorial(p).map(x=>corto(x.nombre)).join(" · ")||"Solo Dirección")}</dd></div>` : "",
     admin&&tel? `<div class="px-dato ancho"><dt>Teléfono</dt><dd class="tels"><a href="tel:${esc(String(tel).replace(/[^\d+]/g,""))}">📞 ${esc(tel)}</a>${wa? `<a class="wa" href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>` : ""}</dd></div>` : "",
   ].join("");
   const acciones = admin? `<button class="btn fantasma" onclick="abrirEditarPaciente('${p.id}')">Editar</button>`
-    + (arch? `<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>` : `<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`) : "";
+    + (arch? `<button class="btn verde" onclick="reactivarPaciente('${p.id}')">Reactivar</button>` : `<button class="btn fantasma" onclick="archivarPaciente('${p.id}')">Archivar</button>`)
+    + `<button class="btn fantasma" onclick="menuHistorial('${p.id}')">🔓 Historial</button>` : "";
   cont.innerHTML=`
     <div class="px-barra"><button class="px-volver" onclick="volverPx()"><svg viewBox="0 0 12 20" width="12" height="20" aria-hidden="true"><path d="M10 2 2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Pacientes</button><b>${esc(p.nombre)}</b></div>
     <div class="px-ficha">
@@ -1801,6 +1833,7 @@ function renderExpediente(){
           <div class="meta">${meta||"Sin datos capturados"}</div></div></div>
       <dl class="px-datos">${datos}</dl>
       ${acciones? `<div class="px-acciones">${acciones}</div>` : ""}
+      ${!historial? `<div class="px-cubre">Cubres a este paciente: aquí ves solo tus notas. Su historial lo ve su psicóloga; si lo necesitas, pídele acceso a Dirección.</div>` : ""}
     </div>
     <div class="px-notas-cab"><h3>Notas de sesión</h3><span>${notas.length||""}</span>
       ${puedeNota? `<button class="btn" onclick="abrirNota()">+ Nota de sesión</button>` : ""}</div>

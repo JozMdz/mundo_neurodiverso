@@ -100,7 +100,9 @@ cierres y un resumen al cerrar. Cada quien los activa o apaga en su teléfono de
 Las llaves y la instalación están en `supabase/functions/avisar/LEEME.md`. `node pruebas/avisos.js` prueba reglas y cifrado.
 
 Expediente: Dirección ve a los pacientes agrupados por psicóloga (`gruposPx`, cada grupo se abre y se cierra); al buscar
-o filtrar, la lista es directa. Facturas: la psicóloga solo avisa que un paciente la pidió (monto 0 = por definir);
+o filtrar, la lista es directa. El historial (las notas) lo ven Dirección, la psicóloga asignada y a quien Dirección le
+dé acceso con "🔓 Historial" (`menuHistorial`, `accesos_expediente`, `sql/acceso-expediente.sql`). Quien solo cubre a un
+paciente (tiene una cita con él) ve sus datos y escribe y ve sus propias notas (`veHistorial`); lo hace cumplir `mi_paciente`. Facturas: la psicóloga solo avisa que un paciente la pidió (monto 0 = por definir);
 Dirección pone el monto antes de emitirla.
 
 Notas de sesión: se escriben en apartados (`APARTADOS_NOTA`: Qué se trabajó, Conducta y respuesta, Plan para la
@@ -153,6 +155,8 @@ Modo pruebas (solo Dirección y soporte, `pruebasActivo`): abrir la app con `?pr
   prueba lo que una psicóloga no debe poder hacer y lo que sí. Las instrucciones están al inicio del archivo.
 - `sql/citas-estado.sql` agrega el estado de las citas y su trigger (`proteger_citas`): la psicóloga solo marca si
   asistió a sus propias citas, desde el día de la cita, y no cambia lo que Dirección ya confirmó.
+- `sql/acceso-expediente.sql`: `mi_paciente` (notas y comentarios) es asignado a ella o con acceso de Dirección; tener una
+  cita con el paciente ya no basta para ver su historial.
 - `sql/reparto.sql`: lo que le toca a cada psicóloga va en su propia tabla para que cada una lea solo lo suyo
   (la tabla `psicologas` la leen todas). Solo Dirección lo escribe.
 - `sql/avisos.sql`: los teléfonos con avisos (`push_subs`) no los lee nadie desde la app; solo se registran o quitan

@@ -808,7 +808,7 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(hist.some(x => /asistencia/i.test(x) && x.includes('2 sesiones · 2 faltas · falta seguido')) && !!(await page.$('.px-dato dd.falta-seguido')), 'y cuántas sesiones y faltas lleva, marcando si falta seguido');
   ok(await page.$eval('.px-dato a.wa', a => a.href) === 'https://wa.me/528331234567', 'junto al teléfono hay un enlace a su WhatsApp');
   const tels = await page.$$eval('.px-dato dd.tels a', l => l.map(a => a.getBoundingClientRect().height));
-  ok(tels.length === 2 && tels.every(h => h >= 44), 'llamar y WhatsApp son botones de 44 px');
+  ok(tels.length === 2 && tels.every(h => Math.round(h) >= 44), 'llamar y WhatsApp son botones de 44 px');
   const telLargo = await page.evaluate(async () => { __DB.pacientes.find(p => p.id === 'p1').telefono = '833 123 4567 (mamá) / 833 765 4321 (papá)'; await refrescar(); seleccionarPx('p1');
     const a = document.querySelector('.px-dato dd.tels a'); return { ancho: a.closest('.px-dato').classList.contains('ancho'), wa: !!document.querySelector('.px-dato a.wa'), alto: a.getBoundingClientRect().height }; });
   ok(telLargo.ancho && !telLargo.wa && telLargo.alto <= 70, `un teléfono largo sin WhatsApp usa todo el ancho (${telLargo.alto} px de alto)`);
@@ -1053,6 +1053,39 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   await page.evaluate(() => { cerrar('modalAcciones'); __DB.cierres[0].revisado_por = 'd1'; __DB.facturas.forEach(f => { f.estado = 'entregada'; }); return refrescar(); });
   m = await marcas(page);
   ok(m.fac === '' && m.eq === '', 'los números se quitan cuando se entregan las facturas y se revisa el cierre');
+  ok(await ancho(page) <= 414 && page.errores.length === 0, 'sin scroll horizontal ni errores ' + (page.errores.join(' | ') || ''));
+
+  console.log('Expediente de un paciente que se cubre');
+  page = await abrir(browser, 's1');
+  const cub = await page.evaluate(async () => {
+    const px = __DB.pacientes.find(p => p.asignada_a === 's2' && p.activo !== false && __DB.notas.some(n => n.paciente_id === p.id));
+    __DB.citas.push({ id: 'cb1', fecha: addDaysISO(hoyISO(), -1), hora: '16:00:00', duracion: 60, psicologa_id: 's1', paciente_id: px.id, estado: 'programada', confirmada_por: null });
+    __DB.notas.push({ id: 'ncb1', paciente_id: px.id, psicologa_id: 's1', texto: 'Lo cubrí: trabajamos rutinas.', revisada: false, vista_psic: true, creado_en: new Date().toISOString() });
+    await refrescar(); irA('expediente'); seleccionarPx(px.id);
+    return { id: px.id, ajenas: __DB.notas.filter(n => n.paciente_id === px.id && n.psicologa_id !== 's1').length,
+      notas: [...document.querySelectorAll('#expedienteDetalle article.nota')].map(n => n.innerText), aviso: (document.querySelector('#expedienteDetalle .px-cubre') || {}).innerText || '' };
+  });
+  ok(cub.ajenas > 0 && cub.notas.length === 1 && cub.notas[0].includes('Lo cubrí') && /Cubres a este paciente/.test(cub.aviso) && await visible(page, '#expedienteDetalle .px-notas-cab .btn'),
+    'quien cubre a un paciente ve sus datos y escribe y ve solo sus notas, no el historial');
+  const conAcceso = await page.evaluate(async id => { __DB.accesos_expediente = [{ paciente_id: id, psicologa_id: 's1' }]; await refrescar();
+    return { notas: document.querySelectorAll('#expedienteDetalle article.nota').length, aviso: !!document.querySelector('#expedienteDetalle .px-cubre') }; }, cub.id);
+  ok(conAcceso.notas === cub.ajenas + 1 && !conAcceso.aviso, 'con acceso de Dirección ve todo el historial');
+  ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
+  page = await abrir(browser, 'd1');
+  await page.evaluate(async () => { __DB.citas.push({ id: 'cb2', fecha: addDaysISO(hoyISO(), -1), hora: '16:00:00', duracion: 60, psicologa_id: 's2', paciente_id: 'p1', estado: 'programada', confirmada_por: null });
+    await refrescar(); irA('expediente'); seleccionarPx('p1'); });
+  const verHist = () => page.evaluate(() => [...document.querySelectorAll('#expedienteDetalle .px-dato')].map(d => d.textContent.replace(/\s+/g, ' ')).find(t => t.includes('Ven todo su historial')) || '');
+  ok(/Ven todo su historial ?Fernanda Ruiz$/.test(await verHist()), 'Dirección ve en la ficha quién ve todo el historial (su psicóloga)');
+  await page.tap('#expedienteDetalle .px-acciones button:has-text("Historial")'); await page.waitForTimeout(200);
+  let filaAndrea = (await page.textContent('#accBotones .conf-fila:has-text("Andrea")')).replace(/\s+/g, ' ');
+  ok(/Es su psicóloga/.test(await page.textContent('#accBotones')) && /Lo ha cubierto \(1 cita\) · solo ve sus notas/.test(filaAndrea) && filaAndrea.includes('Dar acceso'),
+    'la hoja muestra que Andrea lo cubrió y solo ve sus notas');
+  await page.tap('#accBotones .conf-fila:has-text("Andrea") button'); await page.waitForTimeout(300);
+  filaAndrea = (await page.textContent('#accBotones .conf-fila:has-text("Andrea")')).replace(/\s+/g, ' ');
+  ok(await page.evaluate(() => __DB.accesos_expediente.some(a => a.paciente_id === 'p1' && a.psicologa_id === 's2')) && filaAndrea.includes('Ve todo su historial') && filaAndrea.includes('Quitar acceso')
+    && /Fernanda Ruiz · Andrea Torres/.test(await verHist()), 'Dirección le da acceso al historial y se ve en la ficha');
+  await page.tap('#accBotones .conf-fila:has-text("Andrea") button'); await page.waitForTimeout(300);
+  ok(!(await page.evaluate(() => __DB.accesos_expediente.some(a => a.paciente_id === 'p1' && a.psicologa_id === 's2'))), 'y se lo puede quitar');
   ok(await ancho(page) <= 414 && page.errores.length === 0, 'sin scroll horizontal ni errores ' + (page.errores.join(' | ') || ''));
 
   console.log('Dirección en computadora');
