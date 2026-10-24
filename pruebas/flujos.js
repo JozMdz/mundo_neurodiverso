@@ -1105,14 +1105,19 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(await page.inputValue('#ifd-escolaridad') === '2.º de primaria' && (await page.textContent('#ifEstado')).includes('borrador'), 'si la app se cierra, al volver sigue el borrador');
   const antesInf = await page.evaluate(() => JSON.stringify(__DB));
   await page.tap('#ifCuerpo .seg-tema button:has-text("Constancia")'); await page.waitForTimeout(100);
-  ok(await page.inputValue('#ifTitulo') === 'Constancia' && (await page.inputValue('#if-constancia')).includes('Mateo Hernández Ríos') && !(await page.$('#ifd-nombre')),
-    'la constancia trae su texto con el nombre del paciente');
+  const constancia = await page.inputValue('#if-constancia');
+  ok(await page.inputValue('#ifTitulo') === 'Constancia' && /^Que el paciente \*MHR\* de \*7 años\* de edad ha iniciado su proceso de \*evaluación psicológica\*/.test(constancia)
+    && /asistiendo \*(el día|los días) /.test(constancia) && !(await page.$('#ifd-nombre')) && await page.inputValue('#ifDirigido') === 'A QUIEN CORRESPONDA'
+    && await page.inputValue('#if-presentacion') === 'La que suscribe M.E.E. Sara Liliana Díaz Bueno, Directora de Mundo Neurodiverso.',
+    'la constancia viene como las de la directora: a quien corresponda, quién suscribe, iniciales, edad y días que vino (' + constancia.slice(0, 60) + '…)');
+  await page.tap('.if-art button:has-text("La paciente")'); await page.waitForTimeout(100);
+  ok((await page.inputValue('#if-constancia')).startsWith('Que la paciente *MHR*') && await page.$eval('.if-art button.on', b => b.textContent) === 'La paciente', '"La paciente" cambia el texto de la constancia');
   await page.tap('#ifCuerpo .seg-tema button:has-text("Informe")'); await page.waitForTimeout(100);
   ok((await page.inputValue('#if-resultados')).startsWith('Atención') && await page.inputValue('#ifTitulo') === 'Informe psicológico' && await page.inputValue('#ifd-escolaridad') === '2.º de primaria',
     'al regresar de tipo, lo escrito sigue ahí');
   await page.tap('#ifCuerpo button:has-text("Membrete")'); await page.waitForTimeout(150);
-  ok(await visible(page, '#modalMembrete.abierto') && await page.inputValue('#mbNombre') === 'Mtra. Laura Gómez' && (await page.inputValue('#mbLineas')).includes('1111'),
-    'el membrete empieza con lo que ya está en Equipo');
+  ok(await visible(page, '#modalMembrete.abierto') && await page.inputValue('#mbNombre') === 'M.E.E. Sara Liliana Díaz Bueno' && (await page.inputValue('#mbLineas')).includes('9426198')
+    && await page.inputValue('#mbCargo') === 'Directora de Mundo Neurodiverso', 'el membrete trae por defecto los datos de la directora');
   await page.fill('#mbNombre', 'Mtra. Prueba Uno'); await page.fill('#mbLineas', 'Lic. en Psicología · Céd. Prof. 0000001\n\n Maestría · Céd. Prof. 0000002 ');
   await page.fill('#mbCorreo', 'contacto@ejemplo.mx'); await page.fill('#mbCiudad', 'Ciudad Ejemplo'); await page.tap('#modalMembrete .pie .btn:not(.fantasma)'); await page.waitForTimeout(150);
   ok(await page.evaluate(() => { const m = JSON.parse(localStorage.getItem('membrete')); return m.nombre === 'Mtra. Prueba Uno' && m.lineas === 'Lic. en Psicología · Céd. Prof. 0000001\nMaestría · Céd. Prof. 0000002'; })
@@ -1132,13 +1137,33 @@ const ancho = page => page.evaluate(() => document.documentElement.scrollWidth);
   ok(docx.nombre === `Informe psicológico - Mateo Hernández Ríos - ${docx.hoy}.docx` && /wordprocessingml/.test(docx.tipo), `produce un Word con nombre claro (${docx.nombre})`);
   ok(docx.malos.length === 0 && ['[Content_Types].xml', '_rels/.rels', 'word/document.xml', 'word/styles.xml', 'word/header1.xml', 'word/footer1.xml'].every(n => docx.partes.includes(n)) && docx.logo > 1000 && docx.marca > 1000,
     'el Word trae todas sus partes bien formadas, con el logo y el árbol de fondo ' + docx.malos.join(', '));
-  ok(docx.doc.includes('Mateo Hernández Ríos') && docx.doc.includes('2.º de primaria') && docx.doc.includes('Atención sostenida') && docx.doc.includes('•  Lenguaje') && !docx.doc.includes('Antecedentes relevantes')
+  ok(docx.doc.includes('Mateo Hernández Ríos') && docx.doc.includes('2.º de primaria') && docx.doc.includes('Atención sostenida') && /•  <\/w:t><\/w:r><w:r><w:t xml:space="preserve">Lenguaje acorde/.test(docx.doc) && !docx.doc.includes('Antecedentes relevantes')
     && docx.doc.includes('Ciudad Ejemplo, a '), 'lleva lo escrito; los apartados vacíos no salen y los guiones salen como viñetas');
-  ok(docx.hdr.includes('Mtra. Prueba Uno') && docx.hdr.includes('0000002') && docx.ftr.includes('PAGE') && docx.ftr.includes('contacto@ejemplo.mx') && docx.ftr.includes('833-111-0000'), 'el membrete va arriba y el contacto y el número de hoja abajo');
-  ok(docx.listo === 'Informe listo', 'al producirlo ofrece guardarlo otra vez, seguir editando o terminar');
+  ok(docx.hdr.includes('Mtra. Prueba Uno') && docx.hdr.includes('0000002') && docx.ftr.includes('PAGE') && docx.ftr.includes('contacto@ejemplo.mx') && docx.ftr.includes('833-107-64-59')
+    && docx.doc.includes('MTRA. PRUEBA UNO') && docx.doc.includes('Directora de Mundo Neurodiverso'), 'el membrete va arriba, la firma con su cargo, y el contacto y el número de hoja abajo');
+  ok(docx.listo === 'Informe listo' && (await page.textContent('#accBotones')).includes('También en PDF'), 'al producirlo ofrece guardarlo otra vez, sacarlo también en PDF, seguir editando o terminar');
+  const pdf = await page.evaluate(async () => {
+    let f = null; window.entregarArchivo = async a => { f = a; return true; };
+    await producirInforme('pdf');
+    const b = new Uint8Array(await f.arrayBuffer()); let s = ''; for (const x of b) s += String.fromCharCode(x);
+    let texto = '';   // el texto de cada hoja va comprimido: se descomprime para buscarlo
+    for (const m of s.matchAll(/<<([^>]*?)>>\nstream\n/g)) { if (/Image/.test(m[1])) continue;
+      const largo = +m[1].match(/Length (\d+)/)[1], ini = m.index + m[0].length, datos = b.subarray(ini, ini + largo);
+      const d = /FlateDecode/.test(m[1]) ? new Uint8Array(await new Response(new Blob([datos]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer()) : datos;
+      for (const x of d) texto += String.fromCharCode(x); }
+    return { nombre: f.name, tipo: f.type, inicio: s.slice(0, 8), fin: s.trimEnd().endsWith('%%EOF'), hojas: (s.match(/\/Type \/Page /g) || []).length, texto };
+  });
+  ok(pdf.nombre.endsWith(' - Mateo Hernández Ríos - ' + docx.hoy + '.pdf') && pdf.tipo === 'application/pdf' && pdf.inicio === '%PDF-1.4' && pdf.fin && pdf.hojas >= 1,
+    `también sale en PDF (${pdf.hojas} hoja${pdf.hojas === 1 ? '' : 's'})`);
+  ok(pdf.texto.includes('(MTRA.)') && pdf.texto.includes('(Atenci\u00f3n)') && pdf.texto.includes('contacto@ejemplo.mx') && /\(P\u00e1gina 1 de \d\)/.test(pdf.texto) && pdf.texto.includes('/Logo Do'),
+    'el PDF lleva lo escrito, el membrete, el logo y el número de hoja');
   ok(await page.evaluate(a => JSON.stringify(__DB) === a, antesInf) && !(await page.evaluate(() => (window.__RPC || []).length)), 'nada del informe se manda a Supabase');
   await page.tap('#accBotones .acc-btn:has-text("Terminar")'); await page.waitForTimeout(150);
   ok(await page.evaluate(() => localStorage.getItem('informe:p1') === null) && (await page.textContent('#expedienteDetalle .px-acciones')).includes('Hacer informe'), 'al terminar se borra el borrador del aparato');
+  await page.evaluate(() => abrirInforme('p1')); await page.fill('#if-resultados', 'Algo que luego se descarta'); await page.waitForTimeout(700);
+  await page.tap('#ifCuerpo button:has-text("Descartar")'); await page.waitForTimeout(3500);   // pasa el guardado automático
+  ok(await page.evaluate(() => localStorage.getItem('informe:p1') === null) && !(await visible(page, '#modalInforme.abierto'))
+    && (await page.textContent('#expedienteDetalle .px-acciones')).includes('Hacer informe'), 'al descartar el borrador se borra y el botón vuelve a "Hacer informe"');
   await page.evaluate(async () => { localStorage.setItem('informe:p2', '{"tipo":"psicologico"}'); await cerrarSesion(); });
   ok(await page.evaluate(() => localStorage.getItem('informe:p2') === null && !!localStorage.getItem('membrete')), 'al salir se borran los borradores (el membrete se queda)');
   ok(page.errores.length === 0, 'sin errores en consola ' + (page.errores.join(' | ') || ''));
