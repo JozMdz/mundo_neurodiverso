@@ -32,7 +32,8 @@ Reglas:
    con `esc()`, también dentro de atributos y de `<option>`.
 
 Identidad visual: los colores de `:root` (morado, verde, cian, rosa, naranja, amarillo) y las
-tipografías Fredoka (títulos) y Nunito (texto).
+tipografías Fredoka (títulos) y Nunito (texto). Los editables del logo (Illustrator, PDF y PNG de cada versión) están en
+`identidad/editables/`; `identidad/LEEME.md` dice qué es cada uno y sus colores.
 
 Modo oscuro: `aplicarTema` (arriba, en el `<head>`) pone `data-theme="oscuro"` o `"claro"` en `<html>`, según el
 teléfono (Automático) o lo elegido en Mi cuenta (se guarda en ese dispositivo). Los colores van siempre como variables de
