@@ -118,15 +118,18 @@ tiene. Dirección ve el teléfono con enlace a WhatsApp y, en una cita que no ha
 próximos días, dentro del `HORARIO` y con la duración de la cita; al tocar uno se llenan día y hora.
 
 Informes (solo Dirección, "📄 Hacer informe" en la ficha del paciente, `abrirInforme`): Informe psicológico, Reporte de
-avances o Constancia (`TIPOS_INFORME`, apartados en `AP_INFORME`, cada uno con 🎤). Trae los datos del paciente que ya
-tiene la app (solo se leen). **Nunca se manda a Supabase**: el borrador vive solo en ese aparato (`localStorage`
+avances o Constancia (`TIPOS_INFORME`, apartados en `AP_INFORME`, cada uno con 🎤; *entre asteriscos* sale en negritas y un
+renglón con guion es viñeta). Trae los datos del paciente que ya tiene la app (solo se leen). La constancia sigue el formato
+de la directora: "A QUIEN CORRESPONDA", quién suscribe, "HAGO CONSTAR", el paciente con iniciales (`inicialesDe`), su edad
+y los días que vino en el último mes (`diasTexto`, "por las tardes"), la despedida y la firma con su cargo; "El paciente /
+La paciente" cambia el texto. **Nunca se manda a Supabase**: el borrador vive solo en ese aparato (`localStorage`
 "informe:<paciente>", se guarda al escribir, cada 3 s y al dejar la app) y se borra al terminar, al descartarlo o al salir
-(`borrarBorradoresInforme` en `cerrarSesion`). "Producir Word" arma el .docx ahí mismo (`armarDocx`, XML de Office en un zip
-sin comprimir, `zipSinComprimir`) y lo entrega con `entregarArchivo` (Compartir en celular y tablet; si no, descarga). El
-membrete (quien firma, cédulas, contacto, ciudad) también vive solo en el aparato (`membrete`, `abrirMembrete`; la primera
-vez toma lo de Equipo): sus datos no van en el código porque el repositorio es público. El Word lleva el logo de la entrada
-(`loginLogo`), la franja con los colores del árbol, el árbol tenue de fondo, tabla de datos, apartados (los vacíos no
-salen; un renglón con guion es viñeta), firma y pie con contacto y "Página X de Y".
+(`borrarBorradoresInforme` en `cerrarSesion`). Word o PDF se arman ahí mismo desde el mismo modelo (`modeloInforme`):
+`armarDocx` (XML de Office en un zip sin comprimir, `zipSinComprimir`) y `armarPdf` (PDF a mano con Helvetica y Times y sus
+anchos en `ANCHOS_PDF`), y se entregan con `entregarArchivo` (Compartir en celular y tablet; si no, descarga). El membrete
+trae por defecto los datos de la directora (`MEMBRETE_BASE`, a petición suya aunque el repositorio sea público) y en cada
+aparato se puede cambiar (`membrete`, `abrirMembrete`). Lleva el logo de la entrada (`loginLogo`), la franja con los colores
+del árbol, el árbol tenue de fondo, tabla de datos, apartados (los vacíos no salen), firma y pie con contacto y "Página X de Y".
 
 Cobro de la sesión (`sql/cobro-cita.sql`): al tocar una cita ya empezada, "✅ Asistió · registrar cobro" abre el cobro con la
 tarifa del paciente y lo liga a la cita (`pagos.cita_id`, uno por cita). Nada queda validado solo, ni lo de la directora:
