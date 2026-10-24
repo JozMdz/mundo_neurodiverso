@@ -728,9 +728,9 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
   <nav class="tabs" id="tabs">
     <button class="activa" data-vista="agenda" onclick="tocarPestana('agenda')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Agenda<span class="tab-badge" id="badgeAg"></span></button>
     <button data-vista="expediente" onclick="tocarPestana('expediente')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9.5 3h5v3h-5zM8.5 11h7M8.5 15h4.5"/></svg>Expediente<span class="tab-badge" id="badgeExp"></span></button>
-    <button data-vista="cobros" onclick="tocarPestana('cobros')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/></svg>Cobros</button>
-    <button data-vista="facturas" onclick="tocarPestana('facturas')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Facturas</button>
-    <button data-vista="equipo" id="tabEquipo" onclick="tocarPestana('equipo')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5c.6-3.3 2.8-5.2 5.5-5.2s4.9 1.9 5.5 5.2"/><circle cx="17" cy="9" r="2.5"/><path d="M15.6 14.3c2.5-.3 4.4 1.3 4.9 4.5"/></svg>Equipo</button>
+    <button data-vista="cobros" onclick="tocarPestana('cobros')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/></svg>Cobros<span class="tab-badge" id="badgeCob"></span></button>
+    <button data-vista="facturas" onclick="tocarPestana('facturas')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>Facturas<span class="tab-badge" id="badgeFac"></span></button>
+    <button data-vista="equipo" id="tabEquipo" onclick="tocarPestana('equipo')"><span class="dot"></span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5c.6-3.3 2.8-5.2 5.5-5.2s4.9 1.9 5.5 5.2"/><circle cx="17" cy="9" r="2.5"/><path d="M15.6 14.3c2.5-.3 4.4 1.3 4.9 4.5"/></svg>Equipo<span class="tab-badge" id="badgeEq"></span></button>
   </nav>
 
   <section class="vista activa" id="v-agenda">
@@ -756,6 +756,7 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
       <div class="px-col-lista">
         <div class="px-titulo"><div><h2>Pacientes</h2><div class="cap" id="pxCaption"></div></div>
           <button class="btn" id="btnNuevoPx" onclick="abrirPaciente()">+ Nuevo</button></div>
+        <div id="avisoExp"></div>
         <div class="buscador"><input id="buscaPx" type="search" placeholder="🔎 Buscar paciente…" autocomplete="off" enterkeyhint="search" oninput="renderExpediente()"></div>
         <div class="px-filtros" id="pxFiltros"></div>
         <div id="listaPx"></div>
@@ -768,6 +769,7 @@ try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aplic
     <div class="cabecera-vista"><h2 id="tituloCobros">Cobros y reparto</h2><div class="sep"></div>
       <button class="btn fantasma" id="btnExportCobros" style="display:none;" onclick="exportCobros()">⬇ Excel</button>
       <button class="btn verde" onclick="abrirPago()">+ Registrar cobro</button></div>
+    <div id="avisoCobros"></div>
     <div class="filtro" id="filtroCobros"></div>
     <div class="chips-corte" id="chipsCorte"></div>
     <div class="grid-cobros">
@@ -1215,10 +1217,42 @@ function pendientesHoy(){ const hoy=hoyISO(), cits=citasTerminadasHoy(estado.qui
   const items=cits.map(c=>({c, nota:!estado.notas.some(n=>n.pac===c.pac && n.psic===c.psic && n.fecha===hoy),
     cobro:!estado.pagos.some(g=>g.cita===c.id || (!g.cita && g.pac===c.pac && g.psic===c.psic && g.fecha===hoy))})).filter(x=>x.nota||x.cobro);
   return {citas:cits.length, items, notas:items.filter(x=>x.nota).length, cobros:items.filter(x=>x.cobro).length}; }
+// Lo que no se quita hasta registrarlo: sesiones ya dadas sin cobro (o sin marcar "no vino") y sin nota. Cuentan desde
+// PENDIENTES_DESDE, cuando se empezó a registrar cada sesión en la app; lo de antes se ve en el corte de su periodo.
+const PENDIENTES_DESDE="2026-10-19";
+function pendientesSesiones(){ const r={desde:PENDIENTES_DESDE, hasta:hoyISO()};
+  // El cobro, con las reglas del corte: Dirección ve lo de todas; la psicóloga, lo suyo
+  const pagos=estado.pagos.filter(g=>g.fecha>=r.desde && g.fecha<=r.hasta), sinCobro=new Set();
+  (esAdmin()? estado.psicologas.map(p=>p.id) : [estado.quien]).forEach(id=>corteDe(id, r, pagos).sinCobro.forEach(c=>sinCobro.add(c.id)));
+  // La nota la escribe quien dio la sesión (Dirección, solo las suyas): una del mismo día o, si no, una posterior
+  const propias=estado.citas.filter(c=>c.psic===estado.quien && c.estado==="programada" && c.fecha>=r.desde && citaTermino(c))
+    .sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const libres=estado.notas.filter(n=>n.psic===estado.quien && n.fecha>=r.desde), conNota=new Set();
+  const tomar=f=>{ const i=libres.findIndex(f); if(i<0) return false; libres.splice(i,1); return true; };
+  propias.forEach(c=>{ if(tomar(n=>n.pac===c.pac && n.fecha===c.fecha)) conNota.add(c.id); });
+  propias.forEach(c=>{ if(!conNota.has(c.id) && tomar(n=>n.pac===c.pac && n.fecha>c.fecha)) conNota.add(c.id); });
+  const sinNota=new Set(propias.filter(c=>!conNota.has(c.id)).map(c=>c.id));
+  return estado.citas.filter(c=>sinCobro.has(c.id) || sinNota.has(c.id)).map(c=>({c, nota:sinNota.has(c.id), cobro:sinCobro.has(c.id)}))
+    .sort((a,b)=>(a.c.fecha+a.c.hora).localeCompare(b.c.fecha+b.c.hora)); }
+// La lista de lo que falta (desde el aviso de Cobros o del Expediente); después de registrar algo se regresa a ella
+let desdePendientes=false;
+function verPendientes(){ const items=pendientesSesiones();
+  if(!items.length){ cerrar("modalAcciones"); toast("Todo registrado ✓","ok"); return; }
+  document.getElementById("accTitulo").textContent="Falta registrar";
+  document.getElementById("accSub").textContent="Se quita de aquí en cuanto lo registras.";
+  document.getElementById("accCerrar").textContent="Cerrar";
+  const ir=(fn,id,extra)=>`desdePendientes=true; ${fn}('${id}'${extra||""})`;
+  document.getElementById("accBotones").innerHTML=items.map(({c,nota,cobro})=>{ const ps=psic(c.psic)||{nombre:"—", color:"#A9A3B6"};
+    return `<div class="conf-fila"><b>${esc((pac(c.pac)||{}).nombre||"—")}</b>
+      <span class="cuando">${c.psic!==estado.quien? `<span class="pt" style="background:${ps.color}"></span>${esc(corto(ps.nombre))} · ` : ""}${fechaCorta(c.fecha,true)} · ${c.hora} · ${faltaTxt(nota,cobro)}</span>
+      <div class="conf-acc">${nota? `<button class="btn" onclick="${ir("notaDesdeCita",c.id)}">📝 Nota</button>` : ""}
+        ${cobro? `<button class="btn verde" onclick="${ir("cobroDesdeCita",c.id)}">✅ Asistió</button><button class="btn fantasma" onclick="${ir("marcarCita",c.id,",'no_asistio'")}">🚫 No vino</button>` : ""}</div></div>`; }).join("");
+  abrir("modalAcciones"); }
 function faltaTxt(nota, cobro){ return cobro&&nota? "falta asistencia, cobro y nota" : cobro? "falta asistencia y cobro" : "falta nota"; }
 // Se documenta al final de la jornada: después de cada nota, cobro o "no vino" hecho desde "Antes de salir", se regresa a la lista
 let desdeCierre=false;
-function seguirCierre(){ if(!desdeCierre) return; desdeCierre=false;
+function seguirCierre(){ if(desdePendientes){ desdePendientes=false; verPendientes(); return; }
+  if(!desdeCierre) return; desdeCierre=false;
   if(pendientesHoy().items.length || porValidarTotal()) logout(); else toast("Todo documentado ✓ Ya puedes salir","ok"); }
 // Al salir: lo propio sin nota o sin cobro (psicólogas y la directora) y, para Dirección, validar lo del día
 function logout(){
@@ -1897,9 +1931,18 @@ async function guardarEdicionComentario(nid,cid){
   comEditId=null; await refrescar(); toast("Comentario editado ✓","ok");
 }
 async function marcarRevisada(id){ const {error}=await sb.from("notas").update({revisada:true}).eq("id",id); if(error){ toast("No se pudo","err"); return; } await refrescar(); toast("Nota marcada como revisada ✓","ok"); }
-function updateBadges(){
-  const b=document.getElementById("badgeExp"); if(b){ const c=notasConAviso().length; b.textContent=c?String(c):""; }
-  const a=document.getElementById("badgeAg"); if(a){ const n=porValidarTotal(); a.textContent=n?String(n):""; } }
+// Números en las pestañas: lo que hay que revisar o registrar. Se quitan solo cuando se hace, no al verlos
+function updateBadges(){ const admin=esAdmin(), pend=pendientesSesiones();
+  const nCob=pend.filter(x=>x.cobro).length, nNota=pend.filter(x=>x.nota).length;
+  const pon=(id,n)=>{ const b=document.getElementById(id); if(b) b.textContent=n? String(n) : ""; };
+  pon("badgeAg", porValidarTotal());                                            // Dirección: cobros y "no vino" por validar
+  pon("badgeExp", notasConAviso().length + nNota);                              // notas por revisar o mensajes nuevos, y notas que faltan
+  pon("badgeCob", nCob);                                                        // sesiones sin cobro
+  pon("badgeFac", admin? estado.facturas.filter(f=>f.estado!=="entregada").length : 0);    // facturas por emitir o entregar
+  pon("badgeEq", admin? (estado.cierres||[]).filter(x=>!x.revisado).length : 0);           // cierres con pendientes por revisar
+  const aviso=(n, txt, accion)=> n? `<button class="aviso-pendiente" onclick="verPendientes()">${txt}<span class="ir">${accion} ›</span></button>` : "";
+  const ac=document.getElementById("avisoCobros"); if(ac) ac.innerHTML=aviso(nCob, `⚠ <span>Falta el cobro de <b>${plural(nCob,"sesión","sesiones")}</b></span>`, "Registrar");
+  const ae=document.getElementById("avisoExp"); if(ae) ae.innerHTML=aviso(nNota, `📝 <span>Falta la nota de <b>${plural(nNota,"sesión","sesiones")}</b></span>`, "Escribir"); }
 const EMOJIS=["😊","👍","🎉","❤️","👏","🙌","💪","✅","📌","😄","🤔","🙏","👀","🔥","😢","😅","💡","⭐","🧩","🌈","😍","🥳"];
 function toggleEmojis(id){ const p=document.getElementById("emo-"+id); if(p) p.classList.toggle("ver"); }
 function insertEmoji(id,e){ const inp=document.getElementById("com-"+id); if(inp){ inp.value+=e; inp.focus(); } const p=document.getElementById("emo-"+id); if(p) p.classList.remove("ver"); }
@@ -2125,8 +2168,8 @@ function detalleCorte(k, admin){
     return `<span class="pago-met ${esc(g.metodo)}">${ICONO_METODO[g.metodo]||"💵"} ${esc(metodo)}${verM? ` <b class="num">${mxn(g.monto)}</b>` : ""}</span>`
       + `<span class="fc-cuando">${quien}${otroDia && x.tipo==="sesion"? ` · pagó ${diaPagoTxt(g.fecha)}` : ""}</span>`
       + `<span class="ec-val ${g.validado?"si":""}">${g.validado?"validado":"por validar"}</span>`; };
-  const reparto=x=> !admin? `<div class="fc-reparto"><span class="rp psi">💰 Te toca <b class="num">${mxn(x.toca)}</b></span></div>`
-    : x.dir? ""
+  // La psicóloga ve lo suyo en la caja de arriba; lo de la directora es de Dirección
+  const reparto=x=> !admin || x.dir? ""
     : `<div class="fc-reparto"><span class="rp psi"><span class="pt" style="background:${k.p.color}"></span>Le toca a ${n} <b class="num">${mxn(x.toca)}</b>${x.mitad?`<small> (mitad)</small>`:""}</span><span class="rp con">🏠 Al consultorio <b class="num">${mxn(x.tarifa-x.toca)}</b></span></div>`;
   const fila=x=>{ const nom=esc((pac((x.c||x.g).pac)||{}).nombre||"—"), g=x.g, gf=x.gFuera;
     if(x.tipo==="noasis") return `<div class="fila-corte noasis"><div class="fc-top"><span class="fc-ico">🚫</span><b>${nom}</b><span class="fc-hora">no vino · ${x.c.hora}</span></div>
